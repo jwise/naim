@@ -14,7 +14,7 @@ char *about[] = {
  "naim is a console-mode chat client.",
 "naim supports AIM, IRC, ICQ, and Lily.",
 " ",
-"Copyright 1998-2003 Daniel Reed <n@ml.org>",
+"Copyright 1998-2004 Daniel Reed <n@ml.org>",
 "http://naim.n.ml.org/",
 NULL
 };

@@ -1,5 +1,4 @@
-pkgdoc_DATA = commands.txt keyboard.txt ${top_srcdir}/FAQ ${top_srcdir}/README
-noinst_HEADERS = ${top_srcdir}/doc/naim.hlp
+pkgdoc_DATA = commands.txt keyboard.txt
 
 EXTRA_DIST = \
 	${pkgdoc_DATA} \
@@ -47,7 +46,7 @@ libnaim_core_la_SOURCES = ${NAIM_CORE}
 libnaim_core_la_CFLAGS = ${AM_CFLAGS} -DDLSEARCHPATH='"${pkgmoddir}"'
 libnaim_core_la_LIBADD = \
 	@LIBLTDL@ \
-	@CURSESLIB@ @MATHLIB@ @NETLIB@ @DLLIB@
+	@CURSESLIB@ @NETLIB@ @DLLIB@
 libnaim_core_la_LDFLAGS = -export-dynamic -no-undefined \
 	-Wl,--whole-archive -Wl,../firetalk/libfiretalk.a -Wl,../secs/libsecs.a -Wl,--no-whole-archive
 else
@@ -56,7 +55,7 @@ NAIM_LDADD = \
 	../firetalk/libfiretalk.a \
 	@LIBLTDL@ \
 	../secs/libsecs.a \
-	@CURSESLIB@ @MATHLIB@ @NETLIB@ @DLLIB@
+	@CURSESLIB@ @NETLIB@ @DLLIB@
 endif
 
 naim_SOURCES = ${NAIM_SOURCES}

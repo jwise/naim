@@ -1,9 +1,10 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
+#include <naim/modutil.h>
 #include <sys/stat.h>
 
 #include "naim-int.h"
@@ -76,61 +77,133 @@ void	logim(conn_t *conn, const char *source, const char *target,
 	fflush(conn->logfile);
 }
 
-void	naim_send_message(conn_t *conn, const char *SN, const unsigned char *msg, int chat, int autom) {
-	buddylist_t	*blist;
-	unsigned char	buf[4*1024];
-	int	ret;
+HOOK_DECLARE(sendto);
+static void
+	naim_sendto(conn_t *conn,
+		const char *const _name,
+		const char *const _dest,
+		const unsigned char *const _message, int len,
+		int flags) {
+	char	*name = NULL, *dest = NULL;
+	unsigned char *message = malloc(len+1);
 
-	if ((blist = rgetlist(conn, SN)) != NULL) {
-		if (blist->crypt != NULL) {
-			int	i, j = 0, sendhex = 0;
+	if (_name != NULL)
+		name = strdup(_name);
+	if (_dest != NULL)
+		dest = strdup(_dest);
 
-			for (i = 0; (msg[i] != 0) && (i < sizeof(buf)-1); i++) {
-				buf[i] = msg[i] ^ blist->crypt[j++];
-				if (((i == 0) && isspace(buf[i]))
-					|| ((sendhex == 0) && (firetalk_isprint(conn->conn, buf[i]) != FE_SUCCESS)))
-					sendhex = 1;
-				if (blist->crypt[j] == 0)
-					j = 0;
-			}
-			buf[i] = 0;
-			if (sendhex) {
-				char	buf2[sizeof(buf)*2];
+	memmove(message, _message, len);
+	message[len] = 0;
+	HOOK_CALL(sendto, (conn, &name, &dest, &message, &len, &flags));
+	free(name);
+	free(dest);
+	free(message);
+}
 
-				for (j = 0; j < i; j++)
-					sprintf(buf2+j*2, "%02X", buf[j]);
-				buf[j] = 0;
-				if (autom == 0)
-					firetalk_subcode_send_request(conn->conn, SN, "HEXTEXT", buf2);
-				else
-					firetalk_subcode_send_reply(conn->conn, SN, "HEXTEXT", buf2);
-				return;
-			}
-			msg = buf;
-		}
-		if (getvar_int(conn, "autopeer") != 0) {
-			if (blist->peer == 0) {
-				blist->peer = -1;
-				firetalk_subcode_send_request(conn->conn, SN, "AUTOPEER", "+AUTOPEER:3");
+static int
+	sendto_encrypt(conn_t *conn, char **name, char **dest,
+		unsigned char **message, int *len, int *flags) {
+	if (!(*flags & RF_CHAT) && !(*flags & RF_ACTION)) {
+		buddylist_t	*blist = rgetlist(conn, *dest);
+
+		if (blist != NULL) {
+			if (blist->crypt != NULL) {
+				int	i, j = 0;
+
+#if 0
+				echof(curconn, "ENCRYPT", "--> %s %s ^ %s", *dest, blist->crypt, *message);
+				for (i = 0; blist->crypt[i] != 0; i++)
+					echof(curconn, "ENCRYPT", "%i: %c ^ %c = %02X", i, (*message)[i], (unsigned char)blist->crypt[i], (*message)[i] ^ (unsigned char)blist->crypt[i]);
+#endif
+
+				for (i = 0; i < *len; i++) {
+					(*message)[i] = (*message)[i] ^ (unsigned char)blist->crypt[j++];
+					if (blist->crypt[j] == 0)
+						j = 0;
+				}
+				*flags |= RF_ENCRYPTED;
+
+#if 0
+				echof(curconn, "ENCRYPT", "--> %s = %s", *dest, *message);
+#endif
+
+			} else if (getvar_int(conn, "autopeer") != 0) {
+				if (blist->peer == 0) {
+					blist->peer = -1;
+					firetalk_subcode_send_request(conn->conn, *dest, "AUTOPEER", "+AUTOPEER:4");
+				}
 			}
 		}
 	}
+	return(HOOK_CONTINUE);
+}
 
-	if (chat == 0)
-		ret = firetalk_im_send_message(conn->conn, SN, msg, autom);
-	else
-		ret = firetalk_chat_send_message(conn->conn, SN, msg, autom);
+static int
+	sendto_send(conn_t *conn, char **name, char **dest,
+		unsigned char **message, int *len, int *flags) {
+	int	ret;
+
+	if (*flags & RF_ENCRYPTED) {
+		char	buf[8*1024];
+		int	i;
+
+		for (i = 0; (i < *len) && (i < (sizeof(buf)-1)/2); i++)
+			sprintf(buf+i*2, "%02X", (*message)[i]);
+
+#if 0
+			echof(curconn, "HEXTEXT", "--> %s %s %s", *dest, buf, *message);
+#endif
+
+		if (*flags & RF_AUTOMATIC)
+			ret = firetalk_subcode_send_reply(conn->conn, *dest, "HEXTEXT", buf);
+		else
+			ret = firetalk_subcode_send_request(conn->conn, *dest, "HEXTEXT", buf);
+	} else if (*flags & RF_CHAT) {
+		if (*flags & RF_ACTION)
+			ret = firetalk_chat_send_action(conn->conn, *dest, *message, (*flags & RF_AUTOMATIC)?1:0);
+		else
+			ret = firetalk_chat_send_message(conn->conn, *dest, *message, (*flags & RF_AUTOMATIC)?1:0);
+	} else {
+		if (*flags & RF_ACTION)
+			ret = firetalk_im_send_action(conn->conn, *dest, *message, (*flags & RF_AUTOMATIC)?1:0);
+		else
+			ret = firetalk_im_send_message(conn->conn, *dest, *message, (*flags & RF_AUTOMATIC)?1:0);
+	}
+
 	if (ret != FE_SUCCESS) {
-		buddywin_t	*bwin = bgetanywin(conn, SN);
+		buddywin_t	*bwin = bgetanywin(conn, *dest);
 
 		if (bwin == NULL)
-			echof(conn, NULL, "Unable to send message to %s: %s.\n", SN, firetalk_strerror(ret));
+			echof(conn, NULL, "Unable to send message to %s: %s.\n", *dest, firetalk_strerror(ret));
 		else {
 			window_echof(bwin, "Unable to send message: %s.\n", firetalk_strerror(ret));
 			if (ret == FE_PACKETSIZE)
 				window_echof(bwin, "Try shortening your message or splitting it into multiple messages and resending.\n");
 		}
+		return(HOOK_STOP);
 	}
+	return(HOOK_CONTINUE);
+}
+
+void	hamster_hook_init(void) {
+	void	*mod = NULL;
+
+//	HOOK_ADD(sendto, mod, sendto_log, 20);
+	HOOK_ADD(sendto, mod, sendto_encrypt, 50);
+	HOOK_ADD(sendto, mod, sendto_send, 100);
+}
+
+static void
+	naim_send_message(conn_t *const conn, const char *const dest, const unsigned char *const message, const int ischat, const int isauto, const int isaction) {
+	naim_sendto(conn, NULL, dest, message, strlen(message), RF_NONE | (ischat?RF_CHAT:0) | (isauto?RF_AUTOMATIC:0) | (isaction?RF_ACTION:0));
+}
+
+void	naim_send_act(conn_t *const conn, const char *const dest, const unsigned char *const message) {
+	buddywin_t	*bwin = bgetanywin(conn, dest);
+	int	ischat = ((bwin == NULL) || (bwin->et != CHAT))?0:1;
+
+	updateidletime();
+	naim_send_message(conn, dest, message, ischat, 0, 1);
 }
 
 void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto) {
@@ -152,7 +225,7 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 			snprintf(buf, sizeof(buf), "%s%s%s", pre?pre:"", msg, post?post:"");
 			msg = buf;
 		}
-		naim_send_message(conn, SN, msg, ((bwin != NULL) && (bwin->et == CHAT)), 0);
+		naim_send_message(conn, SN, msg, ((bwin != NULL) && (bwin->et == CHAT)), 0, 0);
 	} else if (bwin != NULL) {
 		struct tm	*tmptr = NULL;
 
@@ -173,7 +246,7 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 	}
 }
 
-void	naim_send_im_away(conn_t *conn, const char *SN, const char *msg) {
+void	naim_send_im_away(conn_t *conn, const char *SN, const char *msg, int force) {
 	struct tm	*tmptr;
 	buddywin_t	*bwin;
 	static time_t	lastauto = 0;
@@ -207,18 +280,20 @@ void	naim_send_im_away(conn_t *conn, const char *SN, const char *msg) {
 		hwprintf(&(bwin->nwin), C(IMWIN,TEXT),
 			" %s<br>", msg);
 	}
-	naim_send_message(conn, SN, msg, 0, 1);
+	naim_send_message(conn, SN, msg, 0, 1, 0);
 }
 
-void	naim_send_act(conn_t *conn, const char *SN, const char *msg) {
-	buddywin_t	*bwin = bgetanywin(conn, SN);
+void	sendaway(conn_t *conn, const char *SN) {
+	char	buf[1124];
 
-	updateidletime();
-	if ((bwin == NULL) || (bwin->et != CHAT))
-		firetalk_im_send_action(conn->conn, SN, msg, 0);
-	else
-		firetalk_chat_send_action(conn->conn, SN, msg, 0);
+	if (awaytime == 0)
+		return;
+	snprintf(buf, sizeof(buf), "[Away for %s] %s", 
+		dtime(now-awaytime), secs_getvar("awaymsg"));
+	naim_send_im_away(conn, SN, buf, 0);
 }
+
+
 
 void	setaway(const int auto_flag) {
 	conn_t	*conn = curconn;
@@ -244,14 +319,4 @@ void	unsetaway(void) {
 		if (conn->online > 0)
 			naim_set_info(conn->conn, conn->profile);
 	} while ((conn = conn->next) != curconn);
-}
-
-void	sendaway(conn_t *conn, const char *SN) {
-	char	buf[1124];
-
-	if (awaytime == 0)
-		return;
-	snprintf(buf, sizeof(buf), "[Away for %s] %s", 
-		dtime(now-awaytime), secs_getvar("awaymsg"));
-	naim_send_im_away(conn, SN, buf);
 }

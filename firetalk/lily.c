@@ -119,18 +119,28 @@ static void
 #endif
 
 	c->lily_userc++;
-	c->lily_userar = safe_realloc(c->lily_userar, (c->lily_userc)*sizeof(*(c->lily_userar)));
+	c->lily_userar = realloc(c->lily_userar, (c->lily_userc)*sizeof(*(c->lily_userar)));
+	if (c->lily_userar == NULL)
+		abort();
 	c->lily_userar[c->lily_userc-1].handle = handle;
-	c->lily_userar[c->lily_userc-1].name = safe_strdup(lily_normalize_user_name(name));
+	c->lily_userar[c->lily_userc-1].name = strdup(lily_normalize_user_name(name));
+	if (c->lily_userar[c->lily_userc-1].name == NULL)
+		abort();
 #if 0
-	c->lily_userar[c->lily_userc-1].blurb = safe_strdup(blurb);
+	c->lily_userar[c->lily_userc-1].blurb = strdup(blurb);
+	if (c->lily_userar[c->lily_userc-1].blurb == NULL)
+		abort();
 #endif
 	c->lily_userar[c->lily_userc-1].login = login;
 	c->lily_userar[c->lily_userc-1].idle = idle;
 	c->lily_userar[c->lily_userc-1].state = state;
 #if 0
-	c->lily_userar[c->lily_userc-1].attrib = safe_strdup(attrib);
-	c->lily_userar[c->lily_userc-1].pronoun = safe_strdup(pronoun);
+	c->lily_userar[c->lily_userc-1].attrib = strdup(attrib);
+	if (c->lily_userar[c->lily_userc-1].attrib == NULL)
+		abort();
+	c->lily_userar[c->lily_userc-1].pronoun = strdup(pronoun);
+	if (c->lily_userar[c->lily_userc-1].pronoun == NULL)
+		abort();
 #endif
 #ifdef ENABLE_FT_LILY_CTCPMAGIC
 	c->lily_userar[c->lily_userc-1].ctcpmagic = 0;
@@ -190,13 +200,19 @@ static void
 		free(lily_chat->title);
 	} else {
 		c->lily_chatc++;
-		c->lily_chatar = safe_realloc(c->lily_chatar, (c->lily_chatc)*sizeof(*(c->lily_chatar)));
+		c->lily_chatar = realloc(c->lily_chatar, (c->lily_chatc)*sizeof(*(c->lily_chatar)));
+		if (c->lily_chatar == NULL)
+			abort();
 		lily_chat = &(c->lily_chatar[c->lily_chatc-1]);
 	}
 
 	lily_chat->handle = handle;
-	lily_chat->name = safe_strdup(lily_normalize_room_name(name));
-	lily_chat->title = safe_strdup(title);
+	lily_chat->name = strdup(lily_normalize_room_name(name));
+	if (lily_chat->name == NULL)
+		abort();
+	lily_chat->title = strdup(title);
+	if (lily_chat->title == NULL)
+		abort();
 	lily_chat->creation = creation;
 	lily_chat->idle = idle;
 	lily_chat->users = users;
@@ -263,7 +279,10 @@ static char *lily_html_to_lily(const char *const string) {
 	size_t		l, i = 0;
 
 	l = strlen(string);
-	output = safe_realloc(output, (l * 3) + 1);
+	output = realloc(output, (l * 3) + 1);
+	if (output == NULL)
+		abort();
+
 	while (i < l) {
 		switch(string[i]) {
 			case '&':
@@ -338,7 +357,10 @@ static char *lily_lily_to_html(const char *const string) {
 			inunderline = 0;
 
 	l = strlen(string);
-	output = safe_realloc(output, (l * 6) + 1);
+	output = realloc(output, (l * 6) + 1);
+	if (output == NULL)
+		abort();
+
 	while (i < l) {
 		const char
 			*sp = strchr(string+i, ' '), *ch;
@@ -748,9 +770,11 @@ static fte_t
 
 static lily_conn_t
 	*lily_create_handle(void) {
-	lily_conn_t
-		*c = safe_malloc(sizeof(*c));
+	lily_conn_t *c;
 
+	c = calloc(1, sizeof(*c));
+	if (c == NULL)
+		abort();
 	c->nickname = NULL;
 	c->password = NULL;
 	c->lily_userar = NULL;
@@ -783,8 +807,12 @@ static fte_t
 	if (lily_send_printf(c, "#$# client %s", lily_last_version) != FE_SUCCESS)
 		return(FE_PACKET);
 
-	c->nickname = safe_strdup(nickname);
-	c->password = safe_strdup(password);
+	c->nickname = strdup(nickname);
+	if (c->nickname == NULL)
+		abort();
+	c->password = strdup(password);
+	if (c->password == NULL)
+		abort();
 
 	return FE_SUCCESS;
 }
@@ -990,14 +1018,16 @@ static fte_t
 			if ((lily_chat != NULL) && (lily_chat->ismember != 0)) {
 				if (strncmp(_value+1, "says, \"", sizeof("says, \"")-1) == 0) {
 					char	value[1024];
+					int	slen;
 
 					strncpy(value, _value+1+sizeof("says, \"")-1, sizeof(value)-1);
 					value[sizeof(value)-1] = 0;
 
-					if (value[strlen(value)-1] == '"') {
-						value[strlen(value)-1] = 0;
-						if (value[strlen(value)-1] == '"')
-							value[strlen(value)-1] = 0;
+					slen = strlen(value);
+					if ((slen > 0) && (value[slen-1] == '"')) {
+						value[--slen] = 0;
+						if ((slen > 0) && (value[slen-1] == '"'))
+							value[--slen] = 0;
 						firetalk_callback_chat_getmessage(c, lily_chat->name, source, 0, value);
 					} else
 						firetalk_callback_chat_getaction(c, lily_chat->name, source, 0, _value+1);
@@ -1032,7 +1062,9 @@ static fte_t
 #endif
 			if (lily_compare_nicks(c->nickname, source) == 0) {
 				free(c->nickname);
-				c->nickname = safe_strdup(_value);
+				c->nickname = strdup(_value);
+				if (c->nickname == NULL)
+					abort();
 				firetalk_callback_newnick(c, c->nickname);
 			}
 			firetalk_callback_user_nickchanged(c, source, newname);
@@ -1281,24 +1313,32 @@ static fte_t
 			} else if (strncasecmp(blockwhat, "/FINGER ", sizeof("/FINGER ")-1) == 0) {
 				if (infolen == 0) {
 					infolen = strlen(sp)+1;
-					info = safe_malloc(infolen+1);
+					info = calloc(1, infolen+1);
+					if (info == NULL)
+						abort();
 					*info = ' ';
 					strcpy(info+1, sp);
 				} else {
 					infolen += sizeof("<BR>")-1 + strlen(sp);
-					info = safe_realloc(info, infolen+1);
+					info = realloc(info, infolen+1);
+					if (info == NULL)
+						abort();
 					strcat(info, "<BR>");
 					strcat(info, sp);
 				}
 			} else if (strncasecmp(blockwhat, "/WHAT ", sizeof("/WHAT ")-1) == 0) {
 				if (infolen == 0) {
 					infolen = strlen(sp)+3;
-					info = safe_malloc(infolen+1);
+					info = calloc(1, infolen+1);
+					if (info == NULL)
+						abort();
 					strcpy(info, " * ");
 					strcpy(info+3, sp);
 				} else {
 					infolen += sizeof("<BR>")-1 + 3 + strlen(sp);
-					info = safe_realloc(info, infolen+1);
+					info = realloc(info, infolen+1);
+					if (info == NULL)
+						abort();
 					strcat(info, "<BR> * ");
 					strcat(info, sp);
 				}
@@ -1306,7 +1346,9 @@ static fte_t
 				assert(infolen != 0);
 
 				infolen += sizeof("<BR>")-1 + sizeof("<BR>")-1 + strlen(sp) + sizeof("<BR>")-1;
-				info = safe_realloc(info, infolen+1);
+				info = realloc(info, infolen+1);
+				if (info == NULL)
+					abort();
 				strcat(info, "<BR>");
 				strcat(info, "<BR>");
 				strcat(info, sp);
@@ -1316,7 +1358,9 @@ static fte_t
 					assert(infolen != 0);
 
 					infolen += sizeof("<BR>")-1 + strlen(sp);
-					info = safe_realloc(info, infolen+1);
+					info = realloc(info, infolen+1);
+					if (info == NULL)
+						abort();
 					strcat(info, "<BR>");
 					strcat(info, sp);
 /*				} */
@@ -1477,7 +1521,9 @@ static fte_t
 			strncpy(buf, s+1, len);
 			buf[len] = 0;
 			free(c->nickname);
-			c->nickname = safe_strdup(buf);
+			c->nickname = strdup(buf);
+			if (c->nickname == NULL)
+				abort();
 		} else if (strncmp(str, "%connected ", sizeof("%connected ")-1) == 0) {
 			firetalk_callback_doinit(c, c->nickname);
 			firetalk_callback_connected(c);

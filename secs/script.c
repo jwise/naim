@@ -1,6 +1,6 @@
 /*  ___  ___  ___ ___
 ** / __|/ _ \/ __/ __| secs
-** \__ \  __/ (__\__ \ Copyright 1999-2003 Daniel Reed <n@ml.org>
+** \__ \  __/ (__\__ \ Copyright 1999-2004 Daniel Reed <n@ml.org>
 ** |___/\___|\___|___/ Simple Embedded Client Scripting
 */
 #include <naim/secs.h>
@@ -37,7 +37,8 @@ char	*secs_script_expand(secs_block_t *block, const char *instr) {
 			secs_var_t *var = NULL;
 
 			if ((var = secs_var_find_n(NULL, str+1)) != NULL) {
-				signed int	vallen = strlen(var->val);
+				char	*val = *(var->val_str);
+				signed int	vallen = strlen(val);
 
 				str += 1+strlen(var->name);
 				assert((worklen - slen - vallen) < worklen);
@@ -45,7 +46,7 @@ char	*secs_script_expand(secs_block_t *block, const char *instr) {
 					worklen += 256;
 					workstr = secs_mem_realloc(workstr, worklen);
 				}
-				strncpy(workstr+slen, var->val, vallen);
+				strncpy(workstr+slen, val, vallen);
 				slen += vallen;
 				continue;
 			}
@@ -127,7 +128,7 @@ int	secs_script_eval(char **line) {
 
 				if ((var = secs_var_find_n(NULL, *line+1)) != NULL) {
 					(*line) += strlen(var->name)+1;
-					val[which++] = atoi(var->val);
+					val[which++] = *(var->val_num);
 				} else {
 					set_echof("secs_script_eval: Unknown variable: %s\n", *line);
 					(*line)++;

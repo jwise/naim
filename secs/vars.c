@@ -1,15 +1,9 @@
 /*  ___  ___  ___ ___
 ** / __|/ _ \/ __/ __| secs
-** \__ \  __/ (__\__ \ Copyright 1999-2003 Daniel Reed <n@ml.org>
+** \__ \  __/ (__\__ \ Copyright 1999-2004 Daniel Reed <n@ml.org>
 ** |___/\___|\___|___/ Simple Embedded Client Scripting
 */
 #include <naim/secs.h>
-
-#ifdef HAVE_LOG10
-# ifdef HAVE_MATH_H
-#  include <math.h>
-# endif
-#endif
 
 void	secs_var_init(void) {
 }
@@ -20,15 +14,17 @@ int	secs_var_set_str(secs_var_t *var, const char *val) {
 	assert(var != NULL);
 	assert(val != NULL);
 
+	*(var->val_num) = 0;
+
 	slen = strlen(val);
-	if (var->val == NULL) {
-		var->val = secs_mem_alloc(slen+1);
+	if (*(var->val_str) == NULL) {
+		*(var->val_str) = secs_mem_alloc(slen+1);
 		var->length = slen;
 	} else if (var->length < slen) {
-		var->val = secs_mem_realloc(var->val, slen+1);
+		*(var->val_str) = secs_mem_realloc(*(var->val_str), slen+1);
 		var->length = slen;
 	}
-	strncpy(var->val, val, var->length+1);
+	strncpy(*(var->val_str), val, var->length+1);
 	return(1);
 }
 
@@ -38,9 +34,8 @@ int	secs_var_set_int(secs_var_t *var, const char *value) {
 	int	numdigits = 0;
 	register const char	*val = value;
 	char	tmpbuf[11];
-#ifndef HAVE_LOG10
-	long int	itmp = 0;
-#endif
+	long int	itmp;
+	int	ret;
 
 	assert(var != NULL);
 	assert(val != NULL);
@@ -49,42 +44,43 @@ int	secs_var_set_int(secs_var_t *var, const char *value) {
 		val++;
 	if (!isdigit(*val))
 		return(0);
-	ival = atol(val);
+	itmp = ival = atol(val);
 	slen = strlen(val);
-#ifdef HAVE_LOG10
-	if (ival == 0)
-		numdigits = 1;
-	else
-		numdigits = (int)(log10(ival)+1);
-#else
-	itmp = ival;
 	do {
 		numdigits++;
 	} while ((itmp = (int)(itmp / 10)) > 0);
-#endif
 	assert(numdigits <= slen);
 	if (slen == numdigits)
-		return(secs_var_set_str(var, val));
-	if (snprintf(tmpbuf, sizeof(tmpbuf), "%li", ival) == numdigits)
-		return(secs_var_set_str(var, tmpbuf));
-	return(0);
+		ret = secs_var_set_str(var, val);
+	else if (snprintf(tmpbuf, sizeof(tmpbuf), "%li", ival) == numdigits)
+		ret = secs_var_set_str(var, tmpbuf);
+	else
+		ret = 0;
+	*(var->val_num) = ival;
+	return(ret);
 }
 
 int	secs_var_set_switch(secs_var_t *var, const char *val) {
+	int	ret;
+
 	assert(var != NULL);
 	assert(val != NULL);
 
 	if ((strcasecmp(val, "ON") == 0)
 		|| (strcasecmp(val, "1") == 0)
 		|| (strcasecmp(val, "YES") == 0)
-		|| (strcasecmp(val, "TRUE") == 0))
-		return(secs_var_set_str(var, "1"));
-	else if ((strcasecmp(val, "OFF") == 0)
+		|| (strcasecmp(val, "TRUE") == 0)) {
+		ret = secs_var_set_str(var, "1");
+		*(var->val_num) = 1;
+	} else if ((strcasecmp(val, "OFF") == 0)
 		|| (strcasecmp(val, "0") == 0)
 		|| (strcasecmp(val, "NO") == 0)
-		|| (strcasecmp(val, "FALSE") == 0))
-		return(secs_var_set_str(var, "0"));
-	return(0);
+		|| (strcasecmp(val, "FALSE") == 0)) {
+		ret = secs_var_set_str(var, "0");
+		*(var->val_num) = 0;
+	} else
+		ret = 0;
+	return(ret);
 }
 
 int	secs_var_set(secs_var_t *var, const char *val) {
@@ -122,7 +118,7 @@ secs_var_t	*secs_var_find_n(secs_var_t *first, const char *name) {
 	return(NULL);
 }
 
-secs_var_t	*secs_var_create(const char *name,
+secs_var_t	*secs_var_create(const char *const name,
 	int (*varset)(secs_var_t *, const char *)) {
 	secs_var_t	*var = NULL;
 	size_t	slen = 0;
@@ -135,17 +131,24 @@ secs_var_t	*secs_var_create(const char *name,
 	var->name = secs_mem_alloc(slen+1);
 	strncpy(var->name, name, slen+1);
 	var->set = varset;
-	var->val = NULL;
+	var->val_str = &(var->_buf_str);
+	var->_buf_str = NULL;
+	var->val_num = &(var->_buf_num);
+	var->_buf_num = 0;
 	return(var);
 }
 
 int	secs_var_free(secs_var_t *var) {
 	if (var == NULL)
 		return(0);
-	if (var->name != NULL)
+	if (var->name != NULL) {
 		secs_mem_free(var->name);
-	if (var->val != NULL)
-		secs_mem_free(var->val);
+		var->name = NULL;
+	}
+	if (*(var->val_str) != NULL) {
+		secs_mem_free(*(var->val_str));
+		*(var->val_str) = NULL;
+	}
 	secs_mem_free(var);
 	return(1);
 }

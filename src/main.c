@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -70,12 +70,14 @@ static void
 		gotkey(KEY_SIGUSR2);
 		break;
 #endif
+	  default:
+		echof(curconn, "SIGNAL", "Got signal %i!\n", sig);
 	}
 }
 
 #ifdef HAVE_BACKTRACE
 static void
-	segfault(int sig) {
+	naim_segfault(int sig) {
 	void	*bt[25];
 	size_t	len;
 
@@ -253,7 +255,7 @@ int	main_stub(int argc, char **args) {
 	updateidletime();
 
 #ifdef HAVE_BACKTRACE
-	signal(SIGSEGV, segfault);
+	signal(SIGSEGV, naim_segfault);
 #endif
 	signal(SIGINT, SIG_IGN);
 	signal(SIGQUIT, SIG_IGN);
@@ -279,6 +281,10 @@ int	main_stub(int argc, char **args) {
 
 	{
 		char	buf[256];
+		long	want_aim = 0,
+			want_irc = 0,
+			want_icq = 0,
+			want_lily = 0;
 
 		chdir(home);
 
@@ -286,30 +292,29 @@ int	main_stub(int argc, char **args) {
 		if (*invocation == 'n')
 			invocation++;
 
-		secs_setvar("want_aim", "0");
-		secs_setvar("want_irc", "0");
-		secs_setvar("want_icq", "0");
-		secs_setvar("want_lily", "0");
-
 		if (strcmp(invocation, "irc") == 0)
-			secs_setvar("want_irc", "1");
+			want_irc = 1;
 		else if (strcmp(invocation, "icq") == 0)
-			secs_setvar("want_icq", "1");
+			want_icq = 1;
 		else if (strcmp(invocation, "lily") == 0)
-			secs_setvar("want_lily", "1");
+			want_lily = 1;
 		else {
 			if (strcmp(invocation, "aim") != 0)
 				invocation = naim_basename(args[0]);
-			secs_setvar("want_aim", "1");
+			want_aim = 1;
 		}
 
-		snprintf(buf, sizeof(buf), "%i", argc-1);
-		secs_setvar("sys_user", getenv("USER"));
-		secs_setvar("sys_argc", buf);
+		secs_makevar_int("want_aim", want_aim, 'B', NULL);
+		secs_makevar_int("want_irc", want_irc, 'B', NULL);
+		secs_makevar_int("want_icq", want_icq, 'B', NULL);
+		secs_makevar_int("want_lily", want_lily, 'B', NULL);
+
+		secs_makevar_int("sys_argc", argc-1, 'I', NULL);
+		secs_makevar("sys_user", getenv("USER"), 'S');
 		if (argc > 1)
-			secs_setvar("sys_arg1", args[1]);
+			secs_makevar("sys_arg1", args[1], 'S');
 		if (argc > 2)
-			secs_setvar("sys_arg2", args[2]);
+			secs_makevar("sys_arg2", args[2], 'S');
 
 		if (getenv("NAIMRC") != NULL) {
 			strncpy(naimrcfilename, getenv("NAIMRC"),
@@ -369,6 +374,7 @@ int	main_stub(int argc, char **args) {
 
 	conio_hook_init();
 	fireio_hook_init();
+	hamster_hook_init();
 
 	while (stayconnected) {
 		fd_set	rfd, wfd;
@@ -423,7 +429,7 @@ int	main_stub(int argc, char **args) {
 			statrefresh();
 			sleep(1);
 			abort();
-			exit(0);
+			exit(1); /* NOTREACH */
 		}
 
 		now60 = now-(now%60);
@@ -464,9 +470,10 @@ int	main_stub(int argc, char **args) {
 		statrefresh();
 	}
 
+	firetalk_select();
 	echof(curconn, NULL, "Goodbye.\n");
 	statrefresh();
 	wshutitdown();
 	lt_dlexit();
-	exit(0);
+	return(0);
 }

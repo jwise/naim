@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -180,15 +180,19 @@ nFIRE_HANDLER(naim_buddylist) {
 
 void	naim_set_info(void *sess, const char *str) {
 	const char *defar[] = {
-		"\"You are old, Father William,\" the young man said,<br>"
-		"&nbsp; &nbsp; &nbsp; &nbsp; \"All your papers these days look the same;<br>"
-		"Those William's would be better unread --<br>"
-		"&nbsp; &nbsp; &nbsp; &nbsp; Do these facts never fill you with shame?\"<br>"
-		"&nbsp;<br>"
-		"\"In my youth,\" Father William replied to his son,<br>"
-		"&nbsp; &nbsp; &nbsp; &nbsp; \"I wrote wonderful papers galore;<br>"
-		"But the great reputation I found that I'd won,<br>"
-		"&nbsp; &nbsp; &nbsp; &nbsp; Made it pointless to think any more.\"<br>"
+"A little inaccuracy sometimes saves tons of explanation.<br>\n"
+"&nbsp; &nbsp; &nbsp; &nbsp; -- H. H. Munroe<br>\n"
+			STANDARD_TRAILER,
+"Common sense and a sense of humor are the same thing, moving at\n"
+"different speeds. A sense of humor is just common sense, dancing.<br>\n"
+"&nbsp; &nbsp; &nbsp; &nbsp; -- Clive James<br>\n"
+			STANDARD_TRAILER,
+"If you pick up a starving dog and make him prosperous, he will not bite\n"
+"you. This is the principal difference between a dog and a man.<br>\n"
+"&nbsp; &nbsp; &nbsp; &nbsp; -- Mark Twain<br>\n"
+			STANDARD_TRAILER,
+"Resisting temptation is easier when you think you'll probably get\n"
+"another chance later on.<br>\n"
 			STANDARD_TRAILER,
 	};
 
@@ -386,13 +390,6 @@ nFIRE_HANDLER(naim_buddy_going) {
 
 
 
-enum {
-	RF_NONE = 0,
-	RF_AUTOMATIC = (1 << 0),
-	RF_ACTION = (1 << 1),
-	RF_NOLOG = (1 << 2),
-} recvfrom_flags;
-
 HOOK_DECLARE(recvfrom);
 static void
 	naim_recvfrom(conn_t *const conn,
@@ -400,14 +397,14 @@ static void
 		const char *const _dest,
 		const unsigned char *_message, int len,
 		int flags) {
- 	char	*name = NULL, *dest = NULL,
-		*message = malloc(len+1);
+ 	char	*name = NULL, *dest = NULL;
+	unsigned char *message = malloc(len+1);
 
 	if (_name != NULL)
 		name = strdup(_name);
 	if (_dest != NULL)
 		dest = strdup(_dest);
-		
+
 	memmove(message, _message, len);
 	message[len] = 0;
 	HOOK_CALL(recvfrom, (conn, &name, &dest, &message, &len, &flags));
@@ -418,7 +415,7 @@ static void
 
 static int
 	recvfrom_ignorelist(conn_t *conn, char **name, char **dest, 
-		char **message, int *len, int *flags) {
+		unsigned char **message, int *len, int *flags) {
 	ignorelist_t	*ig;
 
 	if ((*dest != NULL) && (strcmp(*dest, ":RAW") == 0) && (getvar_int(conn, "showraw") == 0))
@@ -435,15 +432,21 @@ static int
 
 static int
 	recvfrom_decrypt(conn_t *conn, char **name, char **dest,
-		char **message, int *len, int *flags) {
+		unsigned char **message, int *len, int *flags) {
 	if ((*dest == NULL) && !(*flags & RF_ACTION)) {
 		buddylist_t	*blist = rgetlist(conn, *name);
 
-		if ((blist != NULL) && (blist->crypt != NULL)) {
+		if ((blist != NULL) && (blist->crypt != NULL) && ((blist->peer <= 3) || (*flags & RF_ENCRYPTED))) {
 			int	i, j = 0;
 
+#if 0
+			echof(curconn, "DECRYPT", "<-- %s = %s", *name, *message);
+			for (i = 0; blist->crypt[i] != 0; i++)
+				echof(curconn, "DECRYPT", "%i: %c ^ %c = %02X", i, (*message)[i] ^ (unsigned char)blist->crypt[i], (unsigned char)blist->crypt[i], (*message)[i]);
+#endif
+
 			for (i = 0; i < *len; i++) {
-				(*message)[i] = (*message)[i] ^ blist->crypt[j++];
+				(*message)[i] = (*message)[i] ^ (unsigned char)blist->crypt[j++];
 				if (blist->crypt[j] == 0)
 					j = 0;
 			}
@@ -452,6 +455,10 @@ static int
 					*len, i, (*message)[i]);
 				return(HOOK_STOP);
 			}
+
+#if 0
+			echof(curconn, "DECRYPT", "<-- %s %s ^ %s", *name, blist->crypt, *message);
+#endif
 		}
 	}
 	return(HOOK_CONTINUE);
@@ -459,7 +466,7 @@ static int
 
 static int
 	recvfrom_log(conn_t *conn, char **name, char **dest,
-		char **message, int *len, int *flags) {
+		unsigned char **message, int *len, int *flags) {
 	if (!(*flags & RF_NOLOG))
 		logim(conn, *name, *dest, *message);
 	return(HOOK_CONTINUE);
@@ -467,7 +474,7 @@ static int
 
 static int
 	recvfrom_beep(conn_t *conn, char **name, char **dest,
-		char **message, int *len, int *flags) {
+		unsigned char **message, int *len, int *flags) {
 	if (*dest == NULL) {
 		int	beeponim = getvar_int(conn, "beeponim");
 
@@ -479,7 +486,7 @@ static int
 
 static int
 	recvfrom_autobuddy(conn_t *conn, char **name, char **dest,
-		char **message, int *len, int *flags) {
+		unsigned char **message, int *len, int *flags) {
 	if (*dest == NULL) {
 		buddylist_t	*blist = rgetlist(conn, *name);
 
@@ -506,7 +513,7 @@ static int
 
 static int
 	recvfrom_display_user(conn_t *conn, char **name, char **dest,
-		char **message, int *len, int *flags) {
+		unsigned char **message, int *len, int *flags) {
 	buddylist_t	*blist;
 	buddywin_t	*bwin;
 
@@ -598,7 +605,7 @@ static int
 
 static int
 	recvfrom_display_chat(conn_t *conn, char **name, char **dest,
-		char **message, int *len, int *flags) {
+		unsigned char **message, int *len, int *flags) {
 	buddywin_t	*bwin;
 	int		istome;
 	const char	*format;
@@ -606,11 +613,18 @@ static int
 	if (*dest == NULL)
 		return(HOOK_CONTINUE);
 
-	if ((aimncmp(*message, conn->sn, strlen(conn->sn)) == 0)
-		|| (strstr(*message, conn->sn) != NULL))
-		istome = 1;
-	else
-		istome = 0;
+	{
+		unsigned char *match;
+
+		if ((aimncmp(*message, conn->sn, strlen(conn->sn)) == 0) && !isalpha(*(*message+strlen(conn->sn))))
+			istome = 1;
+		else if (((match = strstr(*message, conn->sn)) != NULL)
+			&& ((match == *message) || !isalpha(*(match-1)))
+			&& !isalpha(*(match+strlen(conn->sn))))
+			istome = 1;
+		else
+			istome = 0;
+	}
 
 	bwin = cgetwin(conn, *dest);
 	if (getvar_int(conn, "chatter") & CH_MESSAGE)
@@ -962,7 +976,7 @@ nFIRE_HANDLER(naim_userinfo_handler) {
 }
 
 
-buddywin_t      *cgetwin(conn_t *conn, const char *roomname) {
+buddywin_t *cgetwin(conn_t *conn, const char *roomname) {
 	buddywin_t	*bwin;
 
 	if (*roomname != ':')
@@ -1367,7 +1381,9 @@ transfer_t
 
 void	fremove(transfer_t *transfer) {
 	free(transfer->from);
+	transfer->from = NULL;
 	free(transfer->remote);
+	transfer->remote = NULL;
 	free(transfer);
 }
 
@@ -1550,7 +1566,12 @@ nFIRE_CTCPHAND(naim_ctcp_HEXTEXT) {
 	for (i = 0; (i/2 < sizeof(buf)-1) && (args[i] != 0) && (args[i+1] != 0); i += 2)
 		buf[i/2] = (hexdigit(args[i]) << 4) | hexdigit(args[i+1]);
 	buf[i/2] = 0;
-	naim_recvfrom(client, from, NULL, buf, i/2, 0);
+
+#if 0
+	echof(curconn, "HEXTEXT", "<-- %s %s %s", from, args, buf);
+#endif
+
+	naim_recvfrom(client, from, NULL, buf, i/2, RF_ENCRYPTED);
 }
 
 nFIRE_CTCPHAND(naim_ctcprep_HEXTEXT) {
@@ -1563,7 +1584,12 @@ nFIRE_CTCPHAND(naim_ctcprep_HEXTEXT) {
 	for (i = 0; (i/2 < sizeof(buf)-1) && (args[i] != 0) && (args[i+1] != 0); i += 2)
 		buf[i/2] = (hexdigit(args[i]) << 4) | hexdigit(args[i+1]);
 	buf[i/2] = 0;
-	naim_recvfrom(client, from, NULL, buf, i/2, 1);
+
+#if 0
+	echof(curconn, "HEXTEXT", "<-- %s %s %s", from, args, buf);
+#endif
+
+	naim_recvfrom(client, from, NULL, buf, i/2, RF_ENCRYPTED | RF_AUTOMATIC);
 }
 
 nFIRE_CTCPHAND(naim_ctcp_AUTOPEER) {
@@ -1649,7 +1675,7 @@ nFIRE_CTCPHAND(naim_ctcp_AUTOPEER) {
 					autozone_flag2 = "";
 				}
 
-				snprintf(buf, sizeof(buf), "+AUTOPEER:%i%s%s%s", 3,
+				snprintf(buf, sizeof(buf), "+AUTOPEER:%i%s%s%s", 4,
 					autocrypt_flag, autozone_flag1, autozone_flag2);
 
 				blist->peer = lev;

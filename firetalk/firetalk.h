@@ -259,4 +259,8 @@ int firetalk_internal_connect_host(const char *const host, const int port);
 # define MSG_DONTWAIT	0
 #endif
 
+#ifndef MSG_NOSIGNAL
+# define MSG_NOSIGNAL	0
+#endif
+
 #endif

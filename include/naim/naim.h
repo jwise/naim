@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #ifndef naim_h
@@ -54,6 +54,15 @@ typedef enum {
 	ALWAYS_STATUS = (1 << 1),
 	NOLOG = (1 << 2),
 } echostyle_t;
+
+typedef enum {
+	RF_NONE = 0,
+	RF_AUTOMATIC = (1 << 0),
+	RF_ACTION = (1 << 1),
+	RF_NOLOG = (1 << 2),
+	RF_ENCRYPTED = (1 << 3),
+	RF_CHAT = (1 << 4),
+} recvfrom_flags;
 
 typedef struct {
 	char	*name;
@@ -197,18 +206,10 @@ typedef struct {
 typedef struct {
 	const char
 		*var;
-	int	val;
+	long	val;
 	const char
 		*desc;
 } rc_var_i_t;
-
-typedef struct {
-	const char
-		*var;
-	char	val;
-	const char
-		*desc;
-} rc_var_b_t;
 
 typedef struct {
 	char	*from,
@@ -266,6 +267,13 @@ static inline int naim_strtocol(const char *str) {
 	strcpy(target, source); \
 } while (0)
 
+#define FREESTR(x) do { \
+	if ((x) != NULL) { \
+		free(x); \
+		(x) = NULL; \
+	} \
+} while (0)
+
 #define WINTIME(win, cpre) do { \
 	struct tm	*tptr = localtime(&now); \
 	unsigned char	buf[64]; \
@@ -308,6 +316,7 @@ void	bnewwin(conn_t *conn, const char *, et_t);
 void	bupdate(void);
 void	bcoming(conn_t *conn, const char *, int, int);
 void	bgoing(conn_t *conn, const char *);
+void	verify_winlist_sanity(conn_t *const conn, const buddywin_t *const verifywin);
 void	bclose(conn_t *conn, buddywin_t *bwin, int _auto);
 buddywin_t
 	*bgetwin(conn_t *conn, const char *, et_t);
@@ -345,8 +354,9 @@ void	naim_setversion(conn_t *conn);
 /* hamster.c */
 void	logim(conn_t *conn, const char *source, const char *target, const unsigned char *message);
 void	naim_send_im(conn_t *conn, const char *, const char *, const int _auto);
-void	naim_send_im_away(conn_t *conn, const char *, const char *);
-void	naim_send_act(conn_t *conn, const char *, const char *);
+void	naim_send_im_away(conn_t *conn, const char *, const char *, int force);
+void	naim_send_act(conn_t *const conn, const char *const, const unsigned char *const);
+void	hamster_hook_init(void);
 void	setaway(const int auto_flag);
 void	unsetaway(void);
 void	sendaway(conn_t *conn, const char *);
@@ -370,6 +380,7 @@ buddylist_t
 	*rgetlist(conn_t *, const char *);
 buddylist_t
 	*raddbuddy(conn_t *, const char *, const char *, const char *);
+void	do_delbuddy(buddylist_t *b);
 void	rdelbuddy(conn_t *, const char *);
 void	raddidiot(conn_t *, const char *, const char *);
 void	rdelidiot(conn_t *, const char *);

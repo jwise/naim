@@ -3,6 +3,9 @@
 ** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
+#define _GNU_SOURCE
+#include <string.h>
+
 #include <naim/naim.h>
 #include <naim/modutil.h>
 
@@ -31,7 +34,7 @@ HOOK_DECLARE(periodic);
 void	event_handle(time_t now) {
 	long	idletime = secs_getvar_int("idletime");
 	int	tprint, logtprint, autoaway, lagcheck, dailycol, regularcol;
-	conn_t	*conn = curconn;
+	conn_t	*conn;
 	struct tm	*tmptr;
 	int	cleanedone = 0;
 
@@ -55,7 +58,7 @@ void	event_handle(time_t now) {
 	if ((autoaway > 0) && (idletime >= autoaway)) {
 		char	*autoawaymsg = secs_getvar("autoawaymsg");
 
-		echof(conn, "TIMER", "You have been idle for more than %i minutes, so I'm going to mark you away. If you don't want me to do this in the future, just type ``/set autoaway 0'' (you can put that in your .naimrc).\n",
+		echof(curconn, "TIMER", "You have been idle for more than %i minutes, so I'm going to mark you away. If you don't want me to do this in the future, just type ``/set autoaway 0'' (you can put that in your .naimrc).\n",
 			autoaway);
 		if (autoawaymsg != NULL)
 			secs_setvar("awaymsg", autoawaymsg);
@@ -76,8 +79,12 @@ void	event_handle(time_t now) {
 		regularcol = -C(IMWIN,TEXT)-1;
 	}
 
+	conn = curconn;
 	do {
 		buddywin_t	*bwin = conn->curbwin;
+
+		if (conn->curbwin != NULL)
+			verify_winlist_sanity(conn, NULL);
 
 		if ((conn->online > 0) && (lagcheck != 0)) {
 			char    pingbuf[100];
@@ -95,46 +102,45 @@ void	event_handle(time_t now) {
 			time_t	nowm = now/60;
 
 			do {
+				verify_winlist_sanity(conn, bwin);
+
 				if (bwin != bwin->next)
 					bnext = bwin->next;
 				else
 					bnext = NULL;
+
 				if (!cleanedone && bwin->nwin.dirty) {
 					do_resize(conn, bwin);
 					cleanedone = 1;
 				}
 
-				if ((tprint != 0) && (nowm%tprint == 0) && ((bwin->et != CHAT) || (*(bwin->winname) != ':'))) {
-					if ((tmptr->tm_hour == 0) && (tmptr->tm_min == 0)) {
-						hwprintf(&(bwin->nwin), dailycol, "<I>-----</I>"
-							" [<B>%04i</B>-<B>%02i</B>-<B>%02i</B>] <I>-----</I><br>",
-							1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday);
-						if (bwin->nwin.logfile != NULL) {
-							nw_erase(&win_info);
-							nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " Flushing log file for %s. ",
-								bwin->winname);
-							nw_refresh(&win_info);
-							fflush(bwin->nwin.logfile);
-						}
-					} else
-						hwprintf(&(bwin->nwin), regularcol, "<I>-----</I>"
-							" [<B>%02i</B>:<B>%02i</B>] <I>-----</I><br>",
-							tmptr->tm_hour, tmptr->tm_min);
-				}
-				if ((bwin->closetime > 0) && (bwin->closetime <= now)) {
-					if ((bwin->et == BUDDY) && ((bwin->e.buddy->offline == 0) || USER_PERMANENT(bwin->e.buddy)))
-						bwin->closetime = 0;
-					else if ((bwin->et == BUDDY) && (bwin->pouncec > 0)) {
-						int	autoclose = getvar_int(conn, "autoclose");
+				verify_winlist_sanity(conn, bwin);
 
-						if (autoclose == 0)
-							bwin->closetime = 0;
-						else
-							bwin->closetime = now + 60*autoclose;
-					} else {
+				if ((tmptr->tm_hour == 0) && (tmptr->tm_min == 0)) {
+					hwprintf(&(bwin->nwin), dailycol, "<I>-----</I>"
+						" [<B>%04i</B>-<B>%02i</B>-<B>%02i</B>] <I>-----</I><br>",
+						1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday);
+					if (bwin->nwin.logfile != NULL) {
+						nw_erase(&win_info);
+						nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " Flushing log file for %s. ",
+							bwin->winname);
+						nw_refresh(&win_info);
+						fflush(bwin->nwin.logfile);
+					}
+				} else if ((tprint != 0) && (nowm%tprint == 0) && ((bwin->et != CHAT) || (*(bwin->winname) != ':')))
+					hwprintf(&(bwin->nwin), regularcol, "<I>-----</I>"
+						" [<B>%02i</B>:<B>%02i</B>] <I>-----</I><br>",
+						tmptr->tm_hour, tmptr->tm_min);
+
+				if ((bwin->closetime > 0) && (bwin->closetime <= now)) {
+					assert(bwin->et == BUDDY);
+					if ((bwin->e.buddy->offline == 0) || USER_PERMANENT(bwin->e.buddy) || (bwin->pouncec > 0))
+						bwin->closetime = 0;
+					else {
 						char	*name = strdup(bwin->winname);
 
 						bclose(conn, bwin, 1);
+						bwin = NULL;
 						rdelbuddy(conn, name);
 						firetalk_im_remove_buddy(conn->conn, name);
 						status_echof(conn, "Cleaning up auto-added buddy %s.\n",
@@ -144,6 +150,9 @@ void	event_handle(time_t now) {
 				}
 			} while ((bnext != NULL) && ((bwin = bnext) != conn->curbwin));
 		}
+
+		if (conn->curbwin != NULL)
+			verify_winlist_sanity(conn, NULL);
 	} while ((conn = conn->next) != curconn);
 
 #ifdef ENABLE_DNSUPDATE

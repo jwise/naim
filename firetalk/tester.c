@@ -73,7 +73,7 @@ void doinit (void *c, void *cs, char *nickname) {
 		waitingfor = 0;
 }
 
-void error (void *c, void *cs, const int error, const char * const roomoruser, const char * const description) {
+void error (void *c, void *cs, const int error, const char *const roomoruser, const char *const description) {
 	fprintf(stderr,"ERROR: '%s': %d (%s) (%s)\n",roomoruser,error,firetalk_strerror(error),description);
 }
 
@@ -124,7 +124,7 @@ void gotinfo (void *c, void *cs, char *n, char *i) {
 		waitingfor = 0;
 }
 
-void subcode_reply (firetalk_t c, void *cs, const char * const from, const char * const command, const char * const args) {
+void subcode_reply (firetalk_t c, void *cs, const char *const from, const char *const command, const char *const args) {
 	if (waitingfor == WF_SUBCODE_REPLY)
 		waitingfor = 0;
 }
@@ -142,12 +142,12 @@ void chat_user_joined () {
 		waitingfor = 0;
 }
 
-void chat_getmessage (char *c, void *cs, const char * const room, const char * const from, const int autoflag, const char * const m) {
+void chat_getmessage (char *c, void *cs, const char *const room, const char *const from, const int autoflag, const char *const m) {
 	if ((waitingfor == WF_CHAT_GETMESSAGE) && (strstr(m,"firetalktest v" LIBFIRETALK_VERSION) != NULL))
 		waitingfor = 0;
 }
 
-void chat_getaction (char *c, void *cs, const char * const room, const char * const from, const int autoflag, const char * const m) {
+void chat_getaction (char *c, void *cs, const char *const room, const char *const from, const int autoflag, const char *const m) {
 	if ((waitingfor == WF_CHAT_GETACTION) && (strstr(m,"firetalktest v" LIBFIRETALK_VERSION) != NULL))
 		waitingfor = 0;
 }

@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2001 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -59,6 +59,16 @@ buddylist_t
 	return(buddy);
 }
 
+void	do_delbuddy(buddylist_t *b) {
+	FREESTR(b->_account);
+	FREESTR(b->_group);
+	FREESTR(b->_name);
+	FREESTR(b->crypt);
+	FREESTR(b->tzname);
+	FREESTR(b->tag);
+	free(b);
+}
+
 void	rdelbuddy(conn_t *conn, const char *screenname) {
 	buddylist_t	*buddy = NULL;
 
@@ -75,10 +85,7 @@ void	rdelbuddy(conn_t *conn, const char *screenname) {
 			firetalk_subcode_send_request(conn->conn, screenname, "AUTOPEER", "-AUTOPEER");
 		buddy->peer = 0;
 		conn->buddyar = buddy->next;
-		free(buddy->_account);
-		free(buddy->_group);
-		free(buddy->_name);
-		free(buddy);
+		do_delbuddy(buddy);
 		return;
 	}
 	while (buddy->next != NULL) {
@@ -89,10 +96,7 @@ void	rdelbuddy(conn_t *conn, const char *screenname) {
 				firetalk_subcode_send_request(conn->conn, screenname, "AUTOPEER", "-AUTOPEER");
 			b->peer = 0;
 			buddy->next = buddy->next->next;
-			free(b->_account);
-			free(b->_group);
-			free(b->_name);
-			free(b);
+			do_delbuddy(b);
 			return;
 		}
 		buddy = buddy->next;
@@ -334,7 +338,7 @@ rc_var_i_t
 const int
 	rc_var_i_c = sizeof(rc_var_i_ar)/sizeof(*rc_var_i_ar);
 
-rc_var_b_t
+rc_var_i_t
 	rc_var_b_ar[] = {
 	{ "autounaway",		0,	"automatically unmark away status whenever an IM is sent" },
 	{ "autoidle",		1,	"automatically increment $idletime by 1 every minute" },
@@ -430,20 +434,12 @@ void	rc_initdefs(faimconf_t *conf) {
 			secs_setvar(rc_var_s_ar[i].var, rc_var_s_ar[i].val);
 
 	for (i = 0; i < rc_var_i_c; i++)
-		if (secs_getvar(rc_var_i_ar[i].var) == NULL) {
-			char	buf[1024];
-
-			snprintf(buf, sizeof(buf), "%i", rc_var_i_ar[i].val);
-			secs_makevar(rc_var_i_ar[i].var, buf, 'I');
-		}
+		if (secs_getvar(rc_var_i_ar[i].var) == NULL)
+			secs_makevar_int(rc_var_i_ar[i].var, rc_var_i_ar[i].val, 'I', NULL);
 
 	for (i = 0; i < rc_var_b_c; i++)
-		if (secs_getvar(rc_var_b_ar[i].var) == NULL) {
-			char	buf[1024];
-
-			snprintf(buf, sizeof(buf), "%i", rc_var_b_ar[i].val?1:0);
-			secs_makevar(rc_var_b_ar[i].var, buf, 'B');
-		}
+		if (secs_getvar(rc_var_b_ar[i].var) == NULL)
+			secs_makevar_int(rc_var_b_ar[i].var, rc_var_b_ar[i].val, 'B', NULL);
 
 	conf->f[cEVENT] = 3;
 	conf->f[cEVENT_ALT] = 2;

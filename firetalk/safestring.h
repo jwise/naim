@@ -20,11 +20,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include <stdlib.h>
 
-void *safe_malloc(const size_t size);
-void *safe_realloc(void *old, const size_t new);
-char *safe_strdup(const char * const input);
-void safe_strncpy(char * const to, const char * const from, const size_t size);
-void safe_strncat(char * const to, const char * const from, const size_t size);
-void safe_snprintf(char *out, const size_t size, char * const format, ...);
+void safe_strncpy(char *const to, const char *const from, const size_t size);
+void safe_strncat(char *const to, const char *const from, const size_t size);
 
 #endif

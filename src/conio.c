@@ -509,6 +509,7 @@ CONIOWHER(NOTSTATUS)
 		bwin = conn->curbwin;
 
 	bclose(conn, bwin, 0);
+	bwin = NULL;
 }
 
 CONIOFUNC(closeall) {
@@ -721,6 +722,7 @@ CONIOAOPT(chat,chat)
 					(blist->peer > 0)?" PEER":"");
 			} while ((blist = blist->next) != NULL);
 			free(spaces);
+			spaces = NULL;
 			echof(conn, NULL, "Use the <font color=\"#00FF00\">/namebuddy</font> command to change a buddy's name, or <font color=\"#00FF00\">/groupbuddy</font> to change a buddy's group.");
 			return;
 		}
@@ -931,6 +933,7 @@ CONIOAOPT(buddy,name)
 			status_echof(conn, "Removed <font color=\"#00FFFF\">%s</font> from naim's buddy list, but the server wouldn't remove %s%s%s from your session buddy list.\n", 
 				user_name(NULL, 0, conn, blist), strchr(name, ' ')?"\"":"", name, strchr(name, ' ')?"\"":"");
 		rdelbuddy(conn, name);
+		blist = NULL;
 	} else if (firetalk_im_remove_buddy(conn->conn, name) == FE_SUCCESS)
 		status_echof(conn, "Removed <font color=\"#00FFFF\">%s</font> from your session buddy list, but <font color=\"#00FFFF\">%s</font> isn't in naim's buddy list.\n",
 			name, name);
@@ -1001,18 +1004,66 @@ CONIOAOPT(string,topic)
 		help_printhelp(args[0]);
 }
 
+static void do_delconn(conn_t *conn) {
+	bclearall(conn, 1);
+
+	firetalk_disconnect(conn->conn);
+	firetalk_destroy_handle(conn->conn);
+	conn->conn = NULL;
+
+	if (conn->next == conn) {
+		assert(conn == curconn);
+		curconn = NULL;
+	} else {
+		conn_t	*prev;
+
+		for (prev = conn->next; prev->next != conn; prev = prev->next)
+			;
+		prev->next = conn->next;
+
+		if (curconn == conn)
+			curconn = conn->next;
+		conn->next = conn;
+	}
+
+	FREESTR(conn->sn);
+	FREESTR(conn->password);
+	FREESTR(conn->winname);
+	FREESTR(conn->server);
+	FREESTR(conn->profile);
+
+	if (conn->logfile != NULL) {
+		fclose(conn->logfile);
+		conn->logfile = NULL;
+	}
+
+	nw_delwin(&(conn->nwin));
+
+	assert(conn->buddyar == NULL);
+//	assert(conn->idiotar == NULL);
+	assert(conn->curbwin == NULL);
+
+	free(conn);
+}
+
 CONIOFUNC(exit) {
 CONIOALIA(quit)
 CONIODESC(Disconnect and exit naim)
-	conn_t	*c = conn;
+	conn_t	*c, *cnext;
 
 	if (secs_getvar_int("autosave") != 0)
 		conio_save(conn, 0, NULL);
 
+	c = conn;
 	do {
 		firetalk_disconnect(c->conn);
-		bclearall(c, 1);
 	} while ((c = c->next) != conn);
+
+	for (c = curconn; curconn != NULL; c = cnext) {
+		cnext = c->next;
+		do_delconn(c);
+		statrefresh();
+	}
 	stayconnected = 0;
 }
 
@@ -1085,7 +1136,7 @@ CONIOAOPT(string,chain)
 	int	i;
 
 	if (argc == 0) {
-		const char *chains[] = { "getcmd", "notify", "periodic", "recvfrom" };
+		const char *chains[] = { "getcmd", "notify", "periodic", "recvfrom", "sendto" };
 
 		for (i = 0; i < sizeof(chains)/sizeof(*chains); i++) {
 			if (i > 0)
@@ -1133,8 +1184,8 @@ CONIOAOPT(string,chain)
 			hookname++;
 		if ((strncmp(hookname, modname, strlen(modname)) == 0) && (hookname[strlen(modname)] == '_'))
 			hookname += strlen(modname)+1;
-		echof(conn, NULL, " <font color=\"#808080\">%i: <font color=\"#FF0000\">%s</font>:<font color=\"#00FFFF\">%s</font>() weight <B>%i</B> at <B>%#p</B></font>\n",
-			i, modname, hookname, chain->hooks[i].weight, chain->hooks[i].func);
+		echof(conn, NULL, " <font color=\"#808080\">%i: <font color=\"#FF0000\">%s</font>:<font color=\"#00FFFF\">%s</font>() weight <B>%i</B> at <B>%#p</B> (%lu passes, %lu stops)</font>\n",
+			i, modname, hookname, chain->hooks[i].weight, chain->hooks[i].func, chain->hooks[i].passes, chain->hooks[i].hits);
 	}
 }
 
@@ -1254,6 +1305,7 @@ static html_clean_t
 	{ "ne",		"any"		},
 	{ "ne1",	"anyone"	},
 	{ "im",		"I'm"		},
+	{ "b4",		"before"	},
 };
 
 static void
@@ -1283,7 +1335,7 @@ CONIOAOPT(string,filename)
 		rc_var_i_ar[];
 	extern const int
 		rc_var_i_c;
-	extern rc_var_b_t
+	extern rc_var_i_t
 		rc_var_b_ar[];
 	extern const int
 		rc_var_b_c;
@@ -2127,8 +2179,6 @@ CONIOAOPT(string,protocol)
 CONIOFUNC(delconn) {
 CONIODESC(Close a connection window)
 CONIOAOPT(string,label)
-	conn_t	*prev;
-
 	if (curconn->next == curconn) {
 		echof(conn, "DELCONN", "You must always have at least one connection open at all times.\n");
 		return;
@@ -2151,19 +2201,7 @@ CONIOAOPT(string,label)
 		}
 	}
 
-	firetalk_disconnect(conn->conn);
-	firetalk_destroy_handle(conn->conn);
-
-	prev = conn->next;
-	while (prev->next != conn)
-		prev = prev->next;
-	prev->next = conn->next;
-
-	if (curconn == conn)
-		curconn = conn->next;
-
-	free(conn->winname);
-	free(conn);
+	do_delconn(conn);
 }
 
 CONIOFUNC(connect) {

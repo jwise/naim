@@ -50,10 +50,6 @@ typedef void *client_t;
 
 #include "firetalk.h"
 
-#ifndef MSG_WAITALL
-#define MSG_WAITALL 0x100
-#endif
-
 #ifndef SHUT_RDWR
 #define SHUT_RDWR 2
 #endif
@@ -211,7 +207,6 @@ typedef struct s_firetalk_protocol_functions {
 	const char *const (*room_normalize)(const char *const);
 	client_t (*create_handle)();
 	void	(*destroy_handle)(client_t);
-	void	(*signon_init)(client_t);
 } firetalk_protocol_t;
 
 enum firetalk_connectstate {
@@ -295,9 +290,6 @@ struct sockaddr_in6 *firetalk_internal_remotehost6(client_t c);
 enum firetalk_connectstate firetalk_internal_get_connectstate(client_t c);
 void firetalk_internal_set_connectstate(client_t c, enum firetalk_connectstate fcs);
 
-#ifdef DEBUG
-fte_t	firetalk_check_handle(struct s_firetalk_handle *c);
-#endif
 fte_t	firetalk_set_timeout(unsigned int seconds);
 fte_t	firetalk_clear_timeout();
 

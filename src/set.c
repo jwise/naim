@@ -13,7 +13,7 @@ extern rc_var_s_t	rc_var_s_ar[];
 extern const int	rc_var_s_c;
 extern rc_var_i_t	rc_var_i_ar[];
 extern const int	rc_var_i_c;
-extern rc_var_b_t	rc_var_b_ar[];
+extern rc_var_i_t	rc_var_b_ar[];
 extern const int	rc_var_b_c;
 
 const char

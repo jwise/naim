@@ -1,6 +1,7 @@
 SUBDIRS = firetalk libltdl secs src CYGWIN-PATCHES
 
 man_MANS = doc/naim.1 doc/nicq.1 doc/nirc.1 doc/nlily.1
+pkgdoc_DATA = FAQ README
 
 EXTRA_DIST = \
 	BUGS \
@@ -10,7 +11,8 @@ EXTRA_DIST = \
 	contrib/extractbuddy.sh \
 	doc/course.hlp \
 	doc/naim.hlp \
-	${man_MANS}
+	${man_MANS} \
+	${pkgdoc_DATA}
 bin_SCRIPTS = \
 	contrib/extractbuddy.sh
 
@@ -54,7 +56,7 @@ cyg: dist-bzip2 tbz2
 	printf "">"${top_builddir}/Cygwin"/$(distdir)-${CYGREL}.patch
 	echo "(bunzip2 -c -k $(distdir).tar.bz2 | tar xvf -) && cd $(distdir) && patch -p1 <../$(distdir)-${CYGREL}.patch && ./configure --prefix=/usr && make cyg" >"${top_builddir}/Cygwin"/$(distdir)-${CYGREL}.sh
 	chmod a+x "${top_builddir}/Cygwin"/$(distdir)-${CYGREL}.sh
-	(cd "${top_builddir}/Cygwin"; $(AMTAR) cof - --owner 0 --group 0 $(distdir).tar.bz2 $(distdir)-${CYGREL}.patch $(distdir)-${CYGREL}.sh | bzip2 -9 -c >$(distdir)-${CYGREL}-src.tar.bz2)
+	(cd "${top_builddir}/Cygwin"; $(AMTAR) cf - --owner 0 --group 0 $(distdir).tar.bz2 $(distdir)-${CYGREL}.patch $(distdir)-${CYGREL}.sh | bzip2 -9 -c >$(distdir)-${CYGREL}-src.tar.bz2)
 	(cd "${top_builddir}/Cygwin"; rm $(distdir).tar.bz2 $(distdir)-${CYGREL}.patch $(distdir)-${CYGREL}.sh)
 	
 	mv ${pkgtbz2} "${top_builddir}/Cygwin/$(distdir)-${CYGREL}.tar.bz2"

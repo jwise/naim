@@ -187,6 +187,7 @@ static void
 		nw_printf(&win_info, CB(STATUSBAR,INPUT), 0, "%-*s", faimconf.winfo.widthx,
 			buf);
 		free(left);
+		left = NULL;
 	} else
 		status_echof(curconn, "Error in strftime(): %s.\n", strerror(errno));
 }
@@ -463,9 +464,10 @@ void	bupdate(void) {
 			assert(buddyc < 1000);
 		} while ((bwin = bwin->next) != conn->curbwin);
 
-		if (autosort == 2)
+		if (autosort == 2) {
 			free(lastgroup);
-		else {
+			lastgroup = NULL;
+		} else {
 			assert(lastgroup == NULL);
 		}
 	} while ((conn = conn->next) != curconn);
@@ -543,11 +545,16 @@ static void
 
 	assert(bwin != NULL);
 	nw_delwin(&(bwin->nwin));
-	for (i = 0; i < bwin->pouncec; i++)
+	for (i = 0; i < bwin->pouncec; i++) {
 		free(bwin->pouncear[i]);
+		bwin->pouncear[i] = NULL;
+	}
 	free(bwin->pouncear);
+	bwin->pouncear = NULL;
 	free(bwin->winname);
+	bwin->winname = NULL;
 	free(bwin->blurb);
+	bwin->blurb = NULL;
 
 	if (bwin->nwin.logfile != NULL) {
 		struct tm	*tmptr;
@@ -556,14 +563,44 @@ static void
 		fprintf(bwin->nwin.logfile, "<I>-----</I> <font color=\"#FFFFFF\">Log file closed %04i-%02i-%02iT%02i:%02i</font> <I>-----</I><br>\n",
 			1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday, tmptr->tm_hour, tmptr->tm_min);
 		fclose(bwin->nwin.logfile);
+		bwin->nwin.logfile = NULL;
 	}
 
 	free(bwin);
 }
 
+void	verify_winlist_sanity(conn_t *const conn, const buddywin_t *const verifywin) {
+	buddywin_t	*bwin;
+	int	i = 0, found = 0;
+
+	assert(conn != NULL);
+	assert(conn->curbwin != NULL);
+	bwin = conn->curbwin;
+	do {
+		if (bwin == verifywin)
+			found = 1;
+		assert((bwin->et == CHAT) || (bwin->et == BUDDY) || (bwin->et == TRANSFER));
+		if (bwin->et != BUDDY) {
+			assert(bwin->informed == 0);
+			assert(bwin->closetime == 0);
+		}
+		if (bwin->et == CHAT) {
+			assert(bwin->keepafterso == 1);
+		}
+		assert(strlen(bwin->winname) > 0);
+		assert(i++ < 10000);
+	} while ((bwin = bwin->next) != conn->curbwin);
+	if (verifywin != NULL)
+		assert(found == 1);
+	else
+		assert(found == 0);
+}
+
 void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 	if (bwin == NULL)
 		return;
+
+	verify_winlist_sanity(conn, bwin);
 
 	switch (bwin->et) {
 	  case CHAT:
@@ -591,19 +628,29 @@ void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 	if (bwin == bwin->next)
 		conn->curbwin = NULL;
 	else {
-		buddywin_t	*bbefore;
+		int	i = 0;
+		buddywin_t *bbefore;
 
 		bbefore = bwin->next;
-		while (bbefore->next != bwin)
+		while (bbefore->next != bwin) {
 			bbefore = bbefore->next;
+			assert(i++ < 10000);
+		}
 		bbefore->next = bwin->next;
 
 		if (bwin == conn->curbwin)
 			conn->curbwin = bwin->next;
 	}
 
+	if (conn->curbwin != NULL)
+		verify_winlist_sanity(conn, NULL);
+
 	bremove(bwin);
+	bwin = NULL;
 	bupdate();
+
+	if (conn->curbwin != NULL)
+		verify_winlist_sanity(conn, NULL);
 
 	if (conn->curbwin != NULL)
 		nw_touchwin(&(conn->curbwin->nwin));
@@ -822,7 +869,7 @@ void	bcoming(conn_t *conn, const char *buddy, int isaway, int isidle) {
 	}
 	STRREPLACE(blist->_account, buddy);
 	if ((bwin = bgetwin(conn, buddy, BUDDY)) == NULL) {
-		if (getvar_int(conn, "autoquery") != 0) {
+		if ((getvar_int(conn, "autoquery") != 0) && (isaway != -1) && (isidle != -1)) {
 			bnewwin(conn, buddy, BUDDY);
 			bwin = bgetwin(conn, buddy, BUDDY);
 			assert(bwin != NULL);
@@ -954,6 +1001,7 @@ void	bgoing(conn_t *conn, const char *buddy) {
 			} else {
 				/* assert(bwin->waiting == 0); */
 				bclose(conn, bwin, 1);
+				bwin = NULL;
 				if ((autoclose > 0) && !USER_PERMANENT(blist)) {
 					rdelbuddy(conn, buddy);
 					firetalk_im_remove_buddy(conn->conn, buddy);
@@ -989,14 +1037,17 @@ static void
 		}
 		if (bwin->keepafterso == 0) {
 			bclose(conn, bwin, 1);
+			bwin = NULL;
 			return;
 		}
 		break;
 	  case TRANSFER:
 		break;
 	}
-	if (force)
+	if (force) {
 		bclose(conn, bwin, 1);
+		bwin = NULL;
+	}
 }
 
 static void
@@ -1035,9 +1086,19 @@ void	bclearall(conn_t *conn, int force) {
 	if (conn->buddyar != NULL) {
 		buddylist_t	*blist = conn->buddyar;
 
-		do {
-			bclearall_buddy(blist);
-		} while ((blist = blist->next) != NULL);
+		if (force) {
+			buddylist_t *bnext;
+
+			do {
+				bnext = blist->next;
+				firetalk_im_remove_buddy(conn->conn, blist->_account);
+				do_delbuddy(blist);
+			} while ((blist = bnext) != NULL);
+			conn->buddyar = NULL;
+		} else
+			do {
+				bclearall_buddy(blist);
+			} while ((blist = blist->next) != NULL);
 	}
 
 	bupdate();

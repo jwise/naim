@@ -47,56 +47,54 @@ char	*aim_interpolate_variables(const char *const input, const char *const nickn
 			hour -= 12;
 		if (hour == 0)
 			hour = 12;
-		sprintf(tim,"%d:%02d:%02d %s",hour,t->tm_min,t->tm_sec,am == 1 ? "AM" : "PM");
-		safe_snprintf(date,15,"%d/%d/%d",t->tm_mon + 1,t->tm_mday,t->tm_year + 1900);
+		snprintf(tim, sizeof(tim), "%d:%02d:%02d %s", hour, t->tm_min, t->tm_sec, (am == 1)?"AM":"PM");
+		snprintf(date, sizeof(date), "%d/%d/%d", t->tm_mon+1, t->tm_mday, t->tm_year+1900);
 	}
 	nl = strlen(nickname);
 	dl = strlen(date);
 	tl = strlen(tim);
 	l = strlen(input);
-	for (i = 0; i < l; i++) {
+	for (i = 0; i < l; i++)
 		switch (input[i]) {
-			case '%':
-				if (gotpercent == 1) {
-					gotpercent = 0;
-					output[o++] = '%';
-					output[o++] = '%';
-				} else
-					gotpercent = 1;
-				break;
-			case 'n':
-				if (gotpercent == 1) {
-					gotpercent = 0;
-					memcpy(&output[o],nickname,nl);
-					o += nl;
-				} else
-					output[o++] = 'n';
-				break;
-			case 'd':
-				if (gotpercent == 1) {
-					gotpercent = 0;
-					memcpy(&output[o],date,dl);
-					o += dl;
-				} else
-					output[o++] = 'd';
-				break;
-			case 't':
-				if (gotpercent == 1) {
-					gotpercent = 0;
-					memcpy(&output[o],tim,tl);
-					o += tl;
-				} else
-					output[o++] = 't';
-				break;
-			default:
-				if (gotpercent == 1) {
-					gotpercent = 0;
-					output[o++] = '%';
-				}
-				output[o++] = input[i];
-
+		  case '%':
+			if (gotpercent == 1) {
+				gotpercent = 0;
+				output[o++] = '%';
+				output[o++] = '%';
+			} else
+				gotpercent = 1;
+			break;
+		  case 'n':
+			if (gotpercent == 1) {
+				gotpercent = 0;
+				memcpy(&output[o],nickname,nl);
+				o += nl;
+			} else
+				output[o++] = 'n';
+			break;
+		  case 'd':
+			if (gotpercent == 1) {
+				gotpercent = 0;
+				memcpy(&output[o],date,dl);
+				o += dl;
+			} else
+				output[o++] = 'd';
+			break;
+		  case 't':
+			if (gotpercent == 1) {
+				gotpercent = 0;
+				memcpy(&output[o],tim,tl);
+				o += tl;
+			} else
+				output[o++] = 't';
+			break;
+		  default:
+			if (gotpercent == 1) {
+				gotpercent = 0;
+				output[o++] = '%';
+			}
+			output[o++] = input[i];
 		}
-	}
 	output[o] = '\0';
 	return output;
 }

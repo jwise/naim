@@ -30,14 +30,12 @@ int	wsetup_called = 0,
 
 
 void	do_resize(conn_t *conn, buddywin_t *bwin) {
-	int	i;
-
 	assert(bwin->nwin.win != NULL);
 	wresize(bwin->nwin.win, faimconf.wstatus.pady,
 		faimconf.wstatus.widthx);
 	werase(bwin->nwin.win);
-	for (i = 0; i < faimconf.wstatus.pady; i++)
-		nw_printf(&(bwin->nwin), 0, 0, "\n");
+	nw_move(&(bwin->nwin), faimconf.wstatus.pady-1, 0);
+	nw_printf(&(bwin->nwin), 0, 0, "\n\n\n");
 	playback(conn, bwin);
 }
 
@@ -108,11 +106,11 @@ void	statrefresh(void) {
 	if (buddies > wbuddy_widthy)
 		buddies = wbuddy_widthy;
 	if ((changetime != -1) && (waiting || (changetime == 0)
-		|| (autohide == 0) || (curconn->online == 0)
+		|| (autohide == 0) || (inconn_real && (curconn->online == 0))
 		|| ((nowf - changetime) < autohide))) {
 		int	sheight = secs_getvar_int("winlistchars"), sneak;
 
-		if (waiting || (changetime == 0) || (autohide == 0) || (curconn->online == 0))
+		if (waiting || (changetime == 0) || (autohide == 0) || (inconn_real && (curconn->online == 0)))
 			sneak = sheight;
 		else if ((nowf - changetime) <= SLIDETIME)
 			sneak = sheight*(nowf - changetime)/SLIDETIME;
@@ -430,8 +428,10 @@ void	nw_move(win_t *win, int row, int col) {
 }
 
 void	nw_delwin(win_t *win) {
-	if (win->win != NULL)
+	if (win->win != NULL) {
 		delwin(win->win);
+		win->win = NULL;
+	}
 }
 
 void	nw_touchwin(win_t *win) {

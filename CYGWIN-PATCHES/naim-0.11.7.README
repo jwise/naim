@@ -13,14 +13,11 @@ Build procedure:
 Packaging procedure:
   To create a Slackware pkgtool-compatible tarball, simply run:
   ./configure \
-	'CFLAGS=-std=gnu99 -Wall -O0 -g3' \
 	'--prefix=/usr' \
-	'--enable-dnsupdate' \
-	'--enable-forceascii' \
-	'LDFLAGS=-L/newroot/home/build/ncurses-5.3/lib' \
-	'CC=gcc' \
+	'CFLAGS=-std=gnu99 -Wall -O0 -g3' \
 	'--enable-ltdl-convenience' \
-	'--with-update-message=Please update from http://naim.n.ml.org/' \
+	'--enable-raw-irc-modes' \
+	'--enable-forceascii' \
 	&& make tgz
   If configure is run under Cygwin, make tgz will adjust itself to conform to
   Cygwin standards. Use make cyg instead of make tgz to produce a complete

@@ -1,5 +1,5 @@
 AC_PREREQ(2.50)
-AC_INIT(naim, 0.11.6.7, n@ml.org)
+AC_INIT(naim, 0.11.7, n@ml.org)
 AC_CONFIG_SRCDIR([doc/naim.hlp])
 AC_CONFIG_HEADER([src/config.h])
 AM_INIT_AUTOMAKE([dist-bzip2 dist-shar no-define no-dependencies subdir-objects std-options])
@@ -89,12 +89,7 @@ AC_ARG_ENABLE(forceascii,
 )
 
 AC_ARG_ENABLE(dnsupdate,
-	AC_HELP_STRING([--enable-dnsupdate], [allow naim to check for newer versions of itself using DNS]),
-	[
-		if test "x${enable_dnsupdate}" = xyes; then
-			AC_DEFINE(ENABLE_DNSUPDATE, 1, [Define to allow naim to check for newer versions of itself using DNS])
-		fi
-	]
+	AC_HELP_STRING([--disable-dnsupdate], [DO NOT allow naim to check for newer versions of itself using DNS])
 )
 AC_ARG_WITH(update-message,
 	AC_HELP_STRING([--with-update-message], [message to display when an update is available]),
@@ -105,6 +100,9 @@ AC_ARG_WITH(update-message,
 		fi
 	]
 )
+if test "x${enable_dnsupdate}" != xno; then
+	AC_DEFINE(ENABLE_DNSUPDATE, 1, [Define to allow naim to check for newer versions of itself using DNS])
+fi
 
 AC_ARG_WITH(irc-support-channel,
 	AC_HELP_STRING([--with-irc-support-channel], [default channel to join when started as `nirc']),
@@ -234,20 +232,6 @@ for func in inet_ntoa gethostbyname gethostbyaddr socket connect; do
 		])
 done
 
-AC_CHECK_FUNC(log10, [
-		AC_CHECK_HEADERS(math.h)
-		MATHLIB=
-		AC_DEFINE(HAVE_LOG10, 1, [Define if you have log10])
-	], [
-		AC_CHECK_LIB(m, log10, [
-				AC_CHECK_HEADERS(math.h)
-				MATHLIB="-lm"
-				AC_DEFINE(HAVE_LOG10, 1, [Define if you have log10])
-			]
-		)
-	]
-)
-
 AC_CHECK_LIB(ncurses${PROFILESUF}, wresize, [
 		AC_CHECK_LIB(ncurses${PROFILESUF}, use_default_colors, AC_DEFINE(HAVE_USE_DEFAULT_COLORS, 1, [Define if you have use_default_colors()]))
 		AC_CHECK_HEADERS(ncurses.h)
@@ -291,7 +275,6 @@ echo ""
 echo ""
 
 AC_SUBST(CURSESLIB)
-AC_SUBST(MATHLIB)
 AC_SUBST(NETLIB)
 AC_SUBST(DLLIB)
 

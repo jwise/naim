@@ -15,6 +15,7 @@ typedef struct {
 	int	count;
 	struct {
 		int	weight;
+		unsigned long passes, hits;
 		mod_hook_t func;
 		char	*name;
 		void	*mod;
@@ -30,8 +31,10 @@ typedef struct {
 	if ((chain_ ## x).count > 0) do { 			\
 		int	i;					\
 		for (i = 0; (i < chain_ ## x.count)		\
-			&& (chain_ ## x.hooks[i].func args	\
-			== HOOK_CONTINUE); i++);		\
+			&& (chain_ ## x.hooks[i].passes++ || 1)	\
+			&& ((chain_ ## x.hooks[i].func args	\
+			 == HOOK_CONTINUE)			\
+			 || (chain_ ## x.hooks[i].hits++ && 0)); i++); \
 	} while (0)
 #define HOOK_ADD(x, m, f, w)					\
 	do { 							\
@@ -56,6 +59,8 @@ typedef struct {
 			(chain_ ## x.count-pos) *		\
 			sizeof(*(chain_ ## x.hooks)));		\
 		chain_ ## x.hooks[pos].weight = w;		\
+		chain_ ## x.hooks[pos].passes = 0;		\
+		chain_ ## x.hooks[pos].hits = 0;		\
 		chain_ ## x.hooks[pos].func = (mod_hook_t)f;	\
 		chain_ ## x.hooks[pos].name = strdup(#f);	\
 		chain_ ## x.hooks[pos].mod = m;			\
