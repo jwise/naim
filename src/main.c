@@ -22,12 +22,11 @@ extern mod_fd_list_t
 extern int
 	mod_fd_listc;
 
-extern conn_t
-	*curconn G_GNUC_INTERNAL;
 extern faimconf_t
 	faimconf G_GNUC_INTERNAL;
 extern int
-	stayconnected G_GNUC_INTERNAL;
+	stayconnected G_GNUC_INTERNAL,
+	printtitle G_GNUC_INTERNAL;
 extern time_t
 	startuptime G_GNUC_INTERNAL,
 	now G_GNUC_INTERNAL;
@@ -43,7 +42,8 @@ extern char
 conn_t	*curconn = NULL;
 faimconf_t
 	faimconf;
-int	stayconnected = 0;
+int	stayconnected = 0,
+	printtitle = 0;
 time_t	startuptime = 0,
 	now = 0;
 double	nowf = 0.0,
@@ -103,7 +103,7 @@ static void
 	len = backtrace(bt, sizeof(bt)/sizeof(*bt));
 	fprintf(stderr, "\r\n\r\n\r\nSegmentation violation, partial symbolic backtrace:\r\n");
 	backtrace_symbols_fd(bt, len, STDERR_FILENO);
-        fprintf(stderr, "\r\nThis information is not a replacement for running naim in gdb. If you are interested in debugging this problem, please re-run naim within gdb and reproduce the fault. When you are presented with the (gdb) prompt again, type \"backtrace\" to receive the full, symbolic backtrace.\r\n\r\n");
+	fprintf(stderr, "\r\nThis information is not a replacement for running naim in gdb. If you are interested in debugging this problem, please re-run naim within gdb and reproduce the fault. When you are presented with the (gdb) prompt again, type \"backtrace\" to receive the full, symbolic backtrace.\r\n\r\n");
 	abort();
 }
 #endif
@@ -132,43 +132,37 @@ int	main_stub(int argc, char **args) {
 	{
 		char	*term = getenv("TERM");
 
-		if ((term != NULL) && (strcmp(term, "ansi") == 0)) {
-			printf("Your $TERM is set to \"ansi\", but I don't believe that. I'm going to reset it to \"linux\", since that seems to work best in most situations. If you are using the Windows telnet client, there is very little hope for you any way, so you might want to grab PuTTy, available for free from http://www.tucows.com/ . If your terminal type really should be \"ansi\" and \"linux\" doesn't work for you, email Daniel Reed <n@ml.org> and let me know.\n");
-			sleep(1);
-			printf("5");
-			fflush(stdout);
-			sleep(1);
-			printf("\r4");
-			fflush(stdout);
-			sleep(1);
-			printf("\r3");
-			fflush(stdout);
-			sleep(1);
-			printf("\r2");
-			fflush(stdout);
-			sleep(1);
-			printf("\r1");
-			fflush(stdout);
-			sleep(1);
-			putenv("TERM=linux");
+		if (term != NULL) {
+			if (strcmp(term, "ansi") == 0) {
+				printf("Your $TERM is set to \"ansi\", but I don't believe that. I'm going to reset it to \"linux\", since that seems to work best in most situations. If you are using the Windows telnet client, there is very little hope for you any way, so you might want to grab PuTTy, available for free from http://www.tucows.com/ . If your terminal type really should be \"ansi\" and \"linux\" doesn't work for you, email Daniel Reed <n@ml.org> and let me know.\n");
+				sleep(1);
+				printf("5");
+				fflush(stdout);
+				sleep(1);
+				printf("\r4");
+				fflush(stdout);
+				sleep(1);
+				printf("\r3");
+				fflush(stdout);
+				sleep(1);
+				printf("\r2");
+				fflush(stdout);
+				sleep(1);
+				printf("\r1");
+				fflush(stdout);
+				sleep(1);
+				putenv("TERM=linux");
+			} else if ((strncmp(term, "xterm", sizeof("xterm")-1) == 0)
+				|| (strncmp(term, "screen", sizeof("screen")-1) == 0)) {
+				printtitle = 1;
+				nw_titlef("");
+			}
 		}
 	}
 
 	sty = getenv("STY");
 	if ((home = getenv("HOME")) == NULL)
 		home = "/tmp";
-
-#ifdef ALLOW_DETACH
-	if (sty == NULL) {
-		if ((argc < 2) || (strcmp(args[1], "--noscreen") != 0)) {
-			printf("Attempting to restart from within screen (run %s --noscreen to skip this behaviour)...\n",
-				args[0]);
-			execlp("screen", "screen", "-e", "^Qq", args[0], "--noscreen", NULL);
-			printf("Unable to start screen (%s), continuing...\n",
-				strerror(errno));
-		}
-	}
-#endif
 
 #ifdef HAVE_GETOPT_LONG
 	while (1) {
@@ -255,6 +249,23 @@ int	main_stub(int argc, char **args) {
 			return(1);
 		}
 		return(0);
+	}
+#endif
+
+#ifdef ALLOW_DETACH
+	if ((argc < 2) || (strcmp(args[1], "--noscreen") != 0)) {
+		if (sty == NULL) {
+			printf("Attempting to restart from within screen (run %s --noscreen to skip this behaviour)...\n",
+				args[0]);
+			execlp("screen", "screen", "-e", "^Qq", args[0], "--noscreen", NULL);
+			printf("Unable to start screen (%s), continuing...\n",
+				strerror(errno));
+		} else {
+			printf("Attempting to restart from within this screen session.\n");
+			execlp("screen", "screen", args[0], "--noscreen", NULL);
+			printf("Unable to open a new screen window (%s), continuing...\n",
+				strerror(errno));
+		}
 	}
 #endif
 

@@ -539,3 +539,25 @@ Summary of changes from 0.11.6.5-2004-01-22-1419 to 0.11.6.5
 [pkg fea] New --enable-dnsupdate, defaults to disabled. If specified, naim will periodically check for the availability of a newer version of itself.
 [UI  FEA] New /jumpback command, also available as M-b and F7. Allows the user to do a reverse /jump (to the previous window).
 [UI  fea] In Cygwin, naim will force $CYGWIN to include the string "codepage:oem" on startup. This should eliminate the unsightly border around the window list window.
+
+
+Summary of changes from 0.11.7.1 to 0.11.7.2
+============================================
+[TOC bug] Online time is presented in localized time from AOL's servers. FireTalk now de-localizes (from UTC-0400) and re-localizes to the user's time zone.
+[UI  fea] naim now sets the xterm title whenever you have a message waiting.
+[UI  fea] naim now differentiates between window changes due to chatter and changes due to your being addressed. Chatter window will remain colored BUDDY_WAITING while addressed windows will be BUDDY_ADDRESSED. (Both foregrounds default to YELLOW/BROWN.)
+[UI  fea] The current window has a unique background color in the window list window: WINLISTHIGHLIGHT, which defaults to CLEAR/BLACK.
+[UI  bug] If you had both ~/.naimlog/AIM/nmlorg and ~/.naimlog/AIM/nmlorg.html, naim would silently rename the former over the latter. naim now issues a warning message and refuses to perform the rename.
+[UI  bug] If $color is set to 0 at start, logfile playback would not be rendered properly. Fixed.
+[UI  fea] The most-common commands now appear at the end of /help commands.
+[UI  fea] Tab completion has been modified to support name completion in auditorium windows. To use, begin typing the name of a participant and press Tab.
+[UI  fea] If naim is suspended and then resumed (with ^Z and fg or otherwise), the system block cursor reappears. naim now uses a workaround to ensure the block cursor remains hidden after suspend.
+[pkg fea] --enable-detach and /detach now function regardless of whether screen is installed at compile time. Patch by James Vega.
+[FT  bug] Destroying connections (for /delconn or /quit) could cause a freed-pointer dereference in debugging mode. Fixed.
+[UI  fea] If a buddy has a name set with /namebuddy, that name will always be used in the window list window. This is useful to override how people reformat their names.
+[UI  bug] The status bar was not rendered properly in all situations. Fixed.
+[UI  bug] If /save was used in a connection that had at one time been connected, but at /save was not, /save would write a .naimrc that would attempt to connect at startup. Fixed.
+[UI  bug] The "curconn" symbol was not exported properly, which broke some modules. Fixed.
+[UI  bug] In some situations, the default abbreviated window playback did not quite cover the entire screen. Work around implemented.
+[UI  bug] If ncurses determined that your terminal supported more than 16 colors, but only provided 256 color pairings, naim would refuse to run. Fixed (naim only counts up to 16 colors).
+[UI  bug] If a buddy was signed on and away but did not have a window open, and became unaway, naim would dereference a NULL pointer. Fixed.

@@ -77,6 +77,11 @@ const char
 	unsigned long
 		t = (unsigned long)_t;
 
+	if (_t < 0) {
+		snprintf(buf, sizeof(buf), "(error)");
+		return(buf);
+	}
+
 	if (t < 2) {
 		unsigned long
 			mt = (unsigned long)(100*(_t - t));

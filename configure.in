@@ -1,5 +1,5 @@
 AC_PREREQ(2.50)
-AC_INIT(naim, 0.11.7.1, n@ml.org)
+AC_INIT(naim, 0.11.7.2, n@ml.org)
 AC_CONFIG_SRCDIR([doc/naim.hlp])
 AC_CONFIG_HEADER([src/config.h])
 AM_INIT_AUTOMAKE([dist-bzip2 dist-shar no-define no-dependencies subdir-objects std-options])
@@ -51,17 +51,17 @@ AC_ARG_ENABLE(profile,
 
 AC_MSG_CHECKING(whether to enable /detach)
 AC_ARG_ENABLE(detach,
-	AC_HELP_STRING([--enable-detach], [enable /detach command and search for the screen utility]),
+	AC_HELP_STRING([--enable-detach], [enable /detach command]),
 	[
 		if test "x${enable_detach}" = xyes; then
-			AC_CHECK_PROG(have_screen, screen, yes, no)
-			AC_MSG_CHECKING(whether to enable /detach)
-			if test "x${have_screen}" = xyes; then
+#			AC_CHECK_PROG(have_screen, screen, yes, no)
+#			AC_MSG_CHECKING(whether to enable /detach)
+#			if test "x${have_screen}" = xyes; then
 				AC_MSG_RESULT(yes)
 				AC_DEFINE(ALLOW_DETACH, 1, [Define to enable the /detach command])
-			else
-				AC_MSG_RESULT([no, screen is not in your path])
-			fi
+#			else
+#				AC_MSG_RESULT([no, screen is not in your path])
+#			fi
 		else
 			AC_MSG_RESULT([no, you explicitly disabled it])
 		fi

@@ -295,7 +295,7 @@ rc_var_s_t
 	{ "autoawaymsg",	"Must have stepped out...",	"auto-response used if you idle away (see $autoaway)" },
 	{ "autozone",		NULL,				"time zone to send to peers" },
 	{ "logdir",		".naimlog/$conn/$cur",		"base directory to store persistent window scrollback" },
-	{ "statusbar",		" %I:%M%p $ifoper$SN$ifaway$ifquery$ifchat+ *$ifpending$iftransfer [$conn $online]$iflag$ifidle naim ",
+	{ "statusbar",		" %I:%M%p $ifoper$SN$ifaway$ifquery$ifchat+$ifpending$iftransfer [$conn $online]$iflag$ifidle naim ",
 								"string to use for status bar, replace $if* with $statusbar_*" },
 	{ "statusbar_away",	" (away)",			"display if you are away" },
 	{ "statusbar_idle",	" [Idle $idle]",		"display if you haven't said anything for 10 minutes" },
@@ -451,6 +451,7 @@ void	rc_initdefs(faimconf_t *conf) {
 	conf->f[cSELF] = 1;
 	conf->f[cBUDDY] = 6;
 	conf->f[cBUDDY_WAITING] = 3;
+	conf->f[cBUDDY_ADDRESSED] = 3;
 	conf->f[cBUDDY_IDLE] = 4;
 	conf->f[cBUDDY_AWAY] = 2;
 	conf->f[cBUDDY_OFFLINE] = 1;
@@ -459,6 +460,7 @@ void	rc_initdefs(faimconf_t *conf) {
 
 	conf->b[cINPUT] = 0;
 	conf->b[cWINLIST] = 6;
+	conf->b[cWINLISTHIGHLIGHT] = 0;
 	conf->b[cCONN] = 4;
 	conf->b[cIMWIN] = 0;
 	conf->b[cSTATUSBAR] = 7;

@@ -17,6 +17,7 @@ extern conn_t	*curconn;
 extern time_t	now, awaytime;
 extern double	nowf;
 extern char	*namesbuf;
+extern namescomplete_t	namescomplete;
 extern faimconf_t	faimconf;
 extern char	*sty;
 
@@ -185,9 +186,6 @@ nFIRE_HANDLER(naim_buddylist) {
 
 void	naim_set_info(void *sess, const char *str) {
 	const char *defar[] = {
-"A little inaccuracy sometimes saves tons of explanation.<br>\n"
-"&nbsp; &nbsp; &nbsp; &nbsp; -- H. H. Munroe<br>\n"
-			STANDARD_TRAILER,
 "Common sense and a sense of humor are the same thing, moving at\n"
 "different speeds. A sense of humor is just common sense, dancing.<br>\n"
 "&nbsp; &nbsp; &nbsp; &nbsp; -- Clive James<br>\n"
@@ -198,6 +196,13 @@ void	naim_set_info(void *sess, const char *str) {
 			STANDARD_TRAILER,
 "Resisting temptation is easier when you think you'll probably get\n"
 "another chance later on.<br>\n"
+			STANDARD_TRAILER,
+"A little inaccuracy sometimes saves tons of explanation.<br>\n"
+"&nbsp; &nbsp; &nbsp; &nbsp; -- H. H. Munroe<br>\n"
+			STANDARD_TRAILER,
+"What have you done today to make you feel proud?<br>\n"
+			STANDARD_TRAILER,
+"<a href=\"http://creativecommons.org/\">Creativity always builds on the past.</a><br>\n"
 			STANDARD_TRAILER,
 	};
 
@@ -234,7 +239,8 @@ nFIRE_HANDLER(naim_postselect) {
 void	naim_setversion(conn_t *conn) {
 	const char	*where,
 			*where2,
-			*term;
+			*term,
+			*lang;
 	struct utsname	unbuf;
 
 	if ((where = getenv("DISPLAY")) != NULL) {
@@ -254,13 +260,15 @@ void	naim_setversion(conn_t *conn) {
 		where2 = "";
 	if ((term = getenv("TERM")) == NULL)
 		term = "(unknown terminal)";
+	if ((lang = getenv("LANG")) == NULL)
+		lang = "(default language)";
 
 	if (uname(&unbuf) == 0)
-		snprintf(naim_version, sizeof(naim_version), "%s:%s %s %s, %ix%i%s%s, %s", NAIM_VERSION_STRING,
-			unbuf.sysname, unbuf.release, unbuf.machine, COLS, LINES, where, where2, term);
+		snprintf(naim_version, sizeof(naim_version), "%s:%s %s %s, %ix%i%s%s, %s %s", NAIM_VERSION_STRING,
+			unbuf.sysname, unbuf.release, unbuf.machine, COLS, LINES, where, where2, term, lang);
 	else
-		snprintf(naim_version, sizeof(naim_version), "%s:unknown, %ix%i%s", NAIM_VERSION_STRING,
-			COLS, LINES, where);
+		snprintf(naim_version, sizeof(naim_version), "%s:unknown, %ix%i%s%s, %s %s", NAIM_VERSION_STRING,
+			COLS, LINES, where, where2, term, lang);
 
 	firetalk_subcode_send_reply(conn->conn, NULL, "VERSION", 
 		naim_version);
@@ -632,8 +640,12 @@ static int
 	}
 
 	bwin = cgetwin(conn, *dest);
-	if (getvar_int(conn, "chatter") & CH_MESSAGE)
+	assert(bwin->et == CHAT);
+	if (getvar_int(conn, "chatter") & CH_MESSAGE) {
 		bwin->waiting = 1;
+		if (istome)
+			bwin->e.chat->isaddressed = 1;
+	}
 
 	WINTIME(&(bwin->nwin), IMWIN);
 	if (*flags & RF_ACTION)
@@ -1349,6 +1361,40 @@ nFIRE_HANDLER(naim_chat_NAMES) {
 	nick = va_arg(msg, const char *);
 	oped = va_arg(msg, int);
 	va_end(msg);
+
+	if (namescomplete.buf != NULL) {
+		assert(namescomplete.len > 0);
+		if (namescomplete.foundmatch) {
+			if (!namescomplete.foundmult && (strncasecmp(nick, namescomplete.buf, namescomplete.len) == 0))
+				namescomplete.foundmult = 1;
+			return;
+		}
+		if (strlen(namescomplete.buf) > namescomplete.len) {
+			int	len = strlen(namescomplete.buf);
+
+			assert(len > 0);
+			if (namescomplete.buf[len-1] == ' ');
+				len--;
+			assert(len > 0);
+			if (namescomplete.buf[len-1] == ',');
+				len--;
+			assert(len > 0);
+			if (strncmp(namescomplete.buf, nick, len) == 0) {
+				namescomplete.foundmult = namescomplete.foundfirst = 1;
+				return;
+			} else if (!namescomplete.foundfirst) {
+				if (!namescomplete.foundmult && (strncasecmp(nick, namescomplete.buf, namescomplete.len) == 0))
+					namescomplete.foundmult = 1;
+				return;
+			}
+		}
+		if (strncasecmp(nick, namescomplete.buf, namescomplete.len) == 0) {
+			free(namescomplete.buf);
+			namescomplete.buf = strdup(nick);
+			namescomplete.foundmatch = 1;
+		}
+		return;
+	}
 
 	if (namesbuf == NULL) {
 		namesbuflen = 1;

@@ -8,7 +8,7 @@
 #include "naim-int.h"
 
 extern conn_t	*curconn;
-extern int	wsetup_called;
+extern int	wsetup_called, inplayback;
 extern time_t	now;
 extern double	nowf;
 extern faimconf_t	faimconf;
@@ -20,12 +20,14 @@ void	status_echof(conn_t *conn, const unsigned char *format, ...) {
 	assert(conn != NULL);
 	assert(format != NULL);
 
+	inplayback = 1;
 	WINTIME(&(conn->nwin), CONN);
 	vhwprintf(&(conn->nwin), C(CONN,EVENT_ALT), "<B>***</B>", msg);
 	snprintf(buf, sizeof(buf), "<B>&nbsp;%s</B><br>", format);
 	va_start(msg, format);
 	vhwprintf(&(conn->nwin), C(CONN,EVENT), buf, msg);
 	va_end(msg);
+	inplayback = 0;
 
 	naim_lastupdate(conn);
 }
@@ -37,12 +39,14 @@ void	window_echof(buddywin_t *bwin, const unsigned char *format, ...) {
 	assert(bwin != NULL);
 	assert(format != NULL);
 
+	inplayback = 1;
 	WINTIME(&(bwin->nwin), IMWIN);
 	vhwprintf(&(bwin->nwin), C(IMWIN,EVENT_ALT), "<B>***</B>", msg);
 	snprintf(buf, sizeof(buf), "<B>&nbsp;%s</B><br>", format);
 	va_start(msg, format);
 	vhwprintf(&(bwin->nwin), C(IMWIN,EVENT), buf, msg);
 	va_end(msg);
+	inplayback = 0;
 
 	bupdate();
 }
@@ -60,6 +64,7 @@ void	echof(conn_t *conn, const unsigned char *where, const unsigned char *format
 	statusecho = (echostyle & ALSO_STATUS)?1:0;
 	snprintf(buf, sizeof(buf), "<B>&nbsp;%s</B><br>", format);
 
+	inplayback = 1;
 	if (!(echostyle & ALWAYS_STATUS) && inconn) {
 		int	col, col_alt;
 
@@ -102,4 +107,5 @@ void	echof(conn_t *conn, const unsigned char *where, const unsigned char *format
 		vhwprintf(&(conn->nwin), C(CONN,EVENT), buf, msg);
 		va_end(msg);
 	}
+	inplayback = 0;
 }

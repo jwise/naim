@@ -333,6 +333,27 @@ Enter key becomes <br>. To toggle paste mode press `Ctrl-P'.
 
 
 
+===CONSOLE DISPLAY ISSUES
+
+My Linux console displays + and | instead of the line-drawing characters in the 
+  window list window. How do I fix this?
+My Linux console displays bold text as regular text. How do I fix this?
+My Linux console does not display line-drawing characters at all, leaving holes 
+  on my screen. How do I fix this?
+The window list window appears distorted on my screen, and does not slide off 
+  cleanly. How do I fix this?
+
+This is a deficiency in the Linux kernel's console driver related to UTF-8
+(internationalization) support. If you are using Red Hat Linux 8.0 or newer, or
+Fedora Core, or any other distribution based on either of these, you need to
+disable UTF-8 in your console session. Open /etc/sysconfig/i18n and remove the
+".UTF-8" suffix in the LANG setting and comment out the SYSFONT line entirely.
+Reboot your system. If you live outside of the U.S., I am sorry; you can either 
+have pretty text or internationalization support. Please lodge your complaint 
+with the Linux kernel maintainers; I have no control over this.
+
+
+
 ===SUPPORT
 
 I think I've found a bug, what do I do?

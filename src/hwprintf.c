@@ -10,6 +10,7 @@
 
 extern faimconf_t	faimconf;
 extern conn_t	*curconn;
+extern int	inplayback;
 
 typedef struct {
 	win_t	*win;
@@ -348,7 +349,7 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 	} else if CHECKTAG("HR") {
 		nw_wrap_addstr(h, "----------------\n");
 	} else if CHECKTAG("FONT") {
-		if (secs_getvar_int("color") == 1) {
+		if (inplayback || (secs_getvar_int("color") == 1)) {
 		    if (*tagbuf != '/') {
 			char	*t = argbuf;
 			int	found = 0;
@@ -432,7 +433,7 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 	} else if CHECKTAG("PRE") {
 	} else if CHECKTAG("P") {
 	} else if (CHECKTAG("HTML") || CHECKTAG("BODY") || CHECKTAG("DIV") || CHECKTAG("SPAN")) {
-		if (secs_getvar_int("color") == 1) {
+		if (inplayback || (secs_getvar_int("color") == 1)) {
 		    if (*tagbuf != '/') {
 			char	*t = argbuf;
 			int	found = 0;

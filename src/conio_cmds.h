@@ -20,10 +20,15 @@
 #ifndef CONIO_NOPROTOS
 
 CONIOFUNC(jump);
+CONIOFUNC(msg);
+CONIOFUNC(addbuddy);
+CONIOFUNC(exit);
+CONIOFUNC(save);
+CONIOFUNC(sync);
+CONIOFUNC(connect);
 CONIOFUNC(jumpback);
 CONIOFUNC(info);
 CONIOFUNC(eval);
-CONIOFUNC(msg);
 CONIOFUNC(say);
 CONIOFUNC(me);
 CONIOFUNC(open);
@@ -36,7 +41,6 @@ CONIOFUNC(load);
 CONIOFUNC(away);
 CONIOFUNC(names);
 CONIOFUNC(join);
-CONIOFUNC(addbuddy);
 CONIOFUNC(namebuddy);
 CONIOFUNC(tagbuddy);
 CONIOFUNC(delbuddy);
@@ -51,9 +55,6 @@ CONIOFUNC(block);
 CONIOFUNC(ignore);
 CONIOFUNC(chains);
 CONIOFUNC(filter);
-CONIOFUNC(save);
-CONIOFUNC(sync);
-CONIOFUNC(exit);
 CONIOFUNC(warn);
 CONIOFUNC(nick);
 CONIOFUNC(echo);
@@ -66,7 +67,6 @@ CONIOFUNC(alias);
 CONIOFUNC(set);
 CONIOFUNC(newconn);
 CONIOFUNC(delconn);
-CONIOFUNC(connect);
 CONIOFUNC(server);
 CONIOFUNC(disconnect);
 CONIOFUNC(winlist);
@@ -107,10 +107,15 @@ extern const int
 cmdar_t	cmdar[] = {
 
 	{ "jump",	conio_jump,	{ NULL },	"Go to the specified window or the next 'active' one",	{ { 0, 'W', "winname" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
+	{ "msg",	conio_msg,	{ "m", "im", NULL },	"Send a message; as in /msg naimhelp naim is cool!",	{ { 1, 'W', "name" }, { 1, 's', "message" }, { -1, -1, NULL } },	2,	2,	C_ANYWHERE },
+	{ "addbuddy",	conio_addbuddy,	{ "add", "friend", "groupbuddy", NULL },	"Add someone to your buddy list or change their group membership",	{ { 1, 'B', "account" }, { 0, 's', "group" }, { 0, 's', "realname" }, { -1, -1, NULL } },	1,	3,	C_ANYWHERE },
+	{ "exit",	conio_exit,	{ "quit", NULL },	"Disconnect and exit naim",	{ { -1, -1, NULL } },	0,	0,	C_ANYWHERE },
+	{ "save",	conio_save,	{ NULL },	"Write current settings to ~/.naimrc to be loaded at startup",	{ { 0, 's', "filename" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
+	{ "sync",	conio_sync,	{ NULL },	"Save buddy list to server",	{ { -1, -1, NULL } },	0,	0,	C_ANYWHERE },
+	{ "connect",	conio_connect,	{ NULL },	"Connect to a service",	{ { 0, 's', "name" }, { 0, 's', "server" }, { 0, 'i', "port" }, { -1, -1, NULL } },	0,	3,	C_ANYWHERE },
 	{ "jumpback",	conio_jumpback,	{ NULL },	"Go to the previous window",	{ { -1, -1, NULL } },	0,	0,	C_ANYWHERE },
 	{ "info",	conio_info,	{ "whois", "wi", NULL },	"Retrieve a user profile",	{ { 0, 'E', "name" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
 	{ "eval",	conio_eval,	{ NULL },	"Evaluate a command with $-variable substitution",	{ { 1, 's', "script" }, { -1, -1, NULL } },	1,	1,	C_ANYWHERE },
-	{ "msg",	conio_msg,	{ "m", "im", NULL },	"Send a message; as in /msg naimhelp naim is cool!",	{ { 1, 'W', "name" }, { 1, 's', "message" }, { -1, -1, NULL } },	2,	2,	C_ANYWHERE },
 	{ "say",	conio_say,	{ NULL },	"Send a message to the current window; as in /say I am happy",	{ { 1, 's', "message" }, { -1, -1, NULL } },	1,	1,	C_NOTSTATUS },
 	{ "me",	conio_me,	{ NULL },	"Send an 'action' message to the current window; as in /me is happy",	{ { 1, 's', "message" }, { -1, -1, NULL } },	1,	1,	C_NOTSTATUS },
 	{ "open",	conio_open,	{ "window", NULL },	"Open a query window",	{ { 1, 'B', "name" }, { -1, -1, NULL } },	1,	1,	C_ANYWHERE },
@@ -123,7 +128,6 @@ cmdar_t	cmdar[] = {
 	{ "away",	conio_away,	{ NULL },	"Set or unset away status",	{ { 0, 's', "message" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
 	{ "names",	conio_names,	{ "buddylist", NULL },	"Display buddy list or members of a chat",	{ { 0, 'C', "chat" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
 	{ "join",	conio_join,	{ NULL },	"Participate in a chat",	{ { 1, 's', "chat" }, { 0, 's', "key" }, { -1, -1, NULL } },	1,	2,	C_ANYWHERE },
-	{ "addbuddy",	conio_addbuddy,	{ "add", "friend", "groupbuddy", NULL },	"Add someone to your buddy list or change their group membership",	{ { 1, 'B', "account" }, { 0, 's', "group" }, { 0, 's', "realname" }, { -1, -1, NULL } },	1,	3,	C_ANYWHERE },
 	{ "namebuddy",	conio_namebuddy,	{ NULL },	"Change the real name for a buddy",	{ { 1, 'B', "name" }, { 0, 's', "realname" }, { -1, -1, NULL } },	1,	2,	C_ANYWHERE },
 	{ "tagbuddy",	conio_tagbuddy,	{ "tag", NULL },	"Mark a buddy with a reminder message",	{ { 1, 'B', "name" }, { 0, 's', "note" }, { -1, -1, NULL } },	1,	2,	C_ANYWHERE },
 	{ "delbuddy",	conio_delbuddy,	{ NULL },	"Remove someone from your buddy list",	{ { 0, 'B', "name" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
@@ -138,9 +142,6 @@ cmdar_t	cmdar[] = {
 	{ "ignore",	conio_ignore,	{ NULL },	"Ignore all private/public messages",	{ { 0, 'B', "name" }, { 0, 's', "reason" }, { -1, -1, NULL } },	0,	2,	C_ANYWHERE },
 	{ "chains",	conio_chains,	{ "tables", NULL },	"Manipulate data control tables",	{ { 0, 's', "chain" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
 	{ "filter",	conio_filter,	{ NULL },	"Manipulate content filters",	{ { 0, 's', "table" }, { 0, 's', "target" }, { 0, 's', "action" }, { -1, -1, NULL } },	0,	3,	C_ANYWHERE },
-	{ "save",	conio_save,	{ NULL },	"Write current settings to ~/.naimrc to be loaded at startup",	{ { 0, 's', "filename" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
-	{ "sync",	conio_sync,	{ NULL },	"Save buddy list to server",	{ { -1, -1, NULL } },	0,	0,	C_ANYWHERE },
-	{ "exit",	conio_exit,	{ "quit", NULL },	"Disconnect and exit naim",	{ { -1, -1, NULL } },	0,	0,	C_ANYWHERE },
 	{ "warn",	conio_warn,	{ NULL },	"Send a warning about someone",	{ { 1, 'B', "name" }, { -1, -1, NULL } },	1,	1,	C_ANYWHERE },
 	{ "nick",	conio_nick,	{ NULL },	"Change or reformat your name",	{ { 1, 's', "name" }, { -1, -1, NULL } },	1,	1,	C_ANYWHERE },
 	{ "echo",	conio_echo,	{ NULL },	"Display something on the screen with $-variable expansion",	{ { 1, 's', "script" }, { -1, -1, NULL } },	1,	1,	C_ANYWHERE },
@@ -153,7 +154,6 @@ cmdar_t	cmdar[] = {
 	{ "set",	conio_set,	{ NULL },	"View or change the value of a configuration or session variable; see /help settings",	{ { 0, 'V', "varname" }, { 0, 's', "value" }, { 0, 's', "dummy" }, { -1, -1, NULL } },	0,	3,	C_ANYWHERE },
 	{ "newconn",	conio_newconn,	{ NULL },	"Open a new connection window",	{ { 0, 's', "label" }, { 0, 's', "protocol" }, { -1, -1, NULL } },	0,	2,	C_ANYWHERE },
 	{ "delconn",	conio_delconn,	{ NULL },	"Close a connection window",	{ { 0, 's', "label" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
-	{ "connect",	conio_connect,	{ NULL },	"Connect to a service",	{ { 0, 's', "name" }, { 0, 's', "server" }, { 0, 'i', "port" }, { -1, -1, NULL } },	0,	3,	C_ANYWHERE },
 	{ "server",	conio_server,	{ NULL },	"Connect to a service",	{ { 0, 's', "server" }, { 0, 'i', "port" }, { -1, -1, NULL } },	0,	2,	C_ANYWHERE },
 	{ "disconnect",	conio_disconnect,	{ NULL },	"Disconnect from a server",	{ { -1, -1, NULL } },	0,	0,	C_ANYWHERE },
 	{ "winlist",	conio_winlist,	{ NULL },	"Switch the window list window between always visible or always hidden or auto-hidden",	{ { 0, 's', "visibility" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },

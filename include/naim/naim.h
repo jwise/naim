@@ -16,27 +16,33 @@
 
 #define CONIO_MAXPARMS	10
 
-#define cEVENT		0
-#define cEVENT_ALT	1
-#define cTEXT		2
-#define cSELF		3
-#define cBUDDY		4
-#define cBUDDY_WAITING	5
-#define cBUDDY_IDLE	6
-#define cBUDDY_AWAY	7
-#define cBUDDY_OFFLINE	8
-#define cBUDDY_QUEUED	9
-#define cBUDDY_TAGGED	10
-#define NUMEVENTS	11
+enum {
+	cEVENT = 0,
+	cEVENT_ALT,
+	cTEXT,
+	cSELF,
+	cBUDDY,
+	cBUDDY_WAITING,
+	cBUDDY_ADDRESSED,
+	cBUDDY_IDLE,
+	cBUDDY_AWAY,
+	cBUDDY_OFFLINE,
+	cBUDDY_QUEUED,
+	cBUDDY_TAGGED,
+	NUMEVENTS
+};
 
-#define cINPUT		0
-#define cWINLIST	1
-#define cCONN		2
-#define cIMWIN		3
-#define cSTATUSBAR	4
-#define NUMWINS		5
+enum {
+	cINPUT = 0,
+	cWINLIST,
+	cWINLISTHIGHLIGHT,
+	cCONN,
+	cIMWIN,
+	cSTATUSBAR,
+	NUMWINS
+};
 
-typedef enum {
+enum {
 	CH_NONE = 0,
 	IM_MESSAGE = (1 << 0),
 	CH_ATTACKED = (1 << 1),
@@ -46,28 +52,38 @@ typedef enum {
 	CH_USERS = (1 << 5),
 	CH_UNKNOWN6 = (1 << 6),
 	CH_UNKNOWN7 = (1 << 7),
-} chatter_t;
+};
 
-typedef enum {
+enum {
 	ECHOSTATUS_NONE = 0,
 	ALSO_STATUS = (1 << 0),
 	ALWAYS_STATUS = (1 << 1),
 	NOLOG = (1 << 2),
-} echostyle_t;
+};
 
-typedef enum {
+enum {
 	RF_NONE = 0,
 	RF_AUTOMATIC = (1 << 0),
 	RF_ACTION = (1 << 1),
 	RF_NOLOG = (1 << 2),
 	RF_ENCRYPTED = (1 << 3),
 	RF_CHAT = (1 << 4),
-} recvfrom_flags;
+};
 
 typedef struct {
 	char	*name;
-	int	gotaway;
+	unsigned char
+		gotaway:1;
 } awayar_t;
+
+typedef struct {
+	char	*buf;
+	int	len;
+	unsigned char
+		foundfirst:1,
+		foundmatch:1,
+		foundmult:1;
+} namescomplete_t;
 
 typedef struct buddylist_ts {
 	char	*_account,
@@ -93,6 +109,7 @@ typedef struct buddylist_ts {
 typedef struct {
 	unsigned char
 		isoper:1,	// chat operator
+		isaddressed:1,	// message addressed sent to me
 		offline:1;
 	char	*key;
 } chatlist_t;
@@ -235,13 +252,15 @@ static inline char *user_name(char *buf, int buflen, conn_t *conn, buddylist_t *
 		buflen = sizeof(_buf);
 	}
 
-	secs_setvar("user_name_account", USER_ACCOUNT(user));
 	secs_setvar("user_name_name", USER_NAME(user));
 
-	if (firetalk_compare_nicks(conn->conn, USER_ACCOUNT(user), USER_NAME(user)) == FE_SUCCESS)
+	if (firetalk_compare_nicks(conn->conn, USER_ACCOUNT(user), USER_NAME(user)) == FE_SUCCESS) {
+		secs_setvar("user_name_account", USER_NAME(user));
 		snprintf(buf, buflen, "%s", secs_script_expand(NULL, secs_getvar("nameformat")));
-	else
+	} else {
+		secs_setvar("user_name_account", USER_ACCOUNT(user));
 		snprintf(buf, buflen, "%s", secs_script_expand(NULL, secs_getvar("nameformat_named")));
+	}
 	secs_setvar("user_name_account", "");
 	secs_setvar("user_name_name", "");
 	return(buf);
@@ -419,11 +438,14 @@ void	set_setvar(const char *, const char *) G_GNUC_INTERNAL;
 
 /* win.c */
 void	do_resize(conn_t *conn, buddywin_t *bwin) G_GNUC_INTERNAL;
-void	statrefresh() G_GNUC_INTERNAL;
+void	statrefresh(void) G_GNUC_INTERNAL;
+void	whidecursor(void) G_GNUC_INTERNAL;
 void	wsetup(void) G_GNUC_INTERNAL;
 void	wshutitdown(void) G_GNUC_INTERNAL;
 void	win_resize(void) G_GNUC_INTERNAL;
 int	nw_printf(win_t *win, int, int, const unsigned char *, ...) G_GNUC_INTERNAL;
+int	nw_titlef(const unsigned char *, ...) G_GNUC_INTERNAL;
+int	nw_statusbarf(const unsigned char *format, ...) G_GNUC_INTERNAL;
 void	nw_initwin(win_t *win, int bg) G_GNUC_INTERNAL;
 void	nw_erase(win_t *win) G_GNUC_INTERNAL;
 void	nw_refresh(win_t *win) G_GNUC_INTERNAL;

@@ -4,6 +4,33 @@ COMMAND: jump
   DESCRIPTION: Go to the specified window or the next 'active' one
   SYNTAX: /jump [winname]
 
+COMMAND: msg
+  ALIASES: m, im
+  DESCRIPTION: Send a message; as in /msg naimhelp naim is cool!
+  SYNTAX: /msg name message
+
+COMMAND: addbuddy
+  ALIASES: add, friend, groupbuddy
+  DESCRIPTION: Add someone to your buddy list or change their group membership
+  SYNTAX: /addbuddy account [group [realname]]
+
+COMMAND: exit
+  ALIASES: quit
+  DESCRIPTION: Disconnect and exit naim
+  SYNTAX: /exit
+
+COMMAND: save
+  DESCRIPTION: Write current settings to ~/.naimrc to be loaded at startup
+  SYNTAX: /save [filename]
+
+COMMAND: sync
+  DESCRIPTION: Save buddy list to server
+  SYNTAX: /sync
+
+COMMAND: connect
+  DESCRIPTION: Connect to a service
+  SYNTAX: /connect [name [server [port]]]
+
 COMMAND: jumpback
   DESCRIPTION: Go to the previous window
   SYNTAX: /jumpback
@@ -16,11 +43,6 @@ COMMAND: info
 COMMAND: eval
   DESCRIPTION: Evaluate a command with $-variable substitution
   SYNTAX: /eval script
-
-COMMAND: msg
-  ALIASES: m, im
-  DESCRIPTION: Send a message; as in /msg naimhelp naim is cool!
-  SYNTAX: /msg name message
 
 COMMAND: say
   DESCRIPTION: Send a message to the current window; as in /say I am happy
@@ -72,11 +94,6 @@ COMMAND: names
 COMMAND: join
   DESCRIPTION: Participate in a chat
   SYNTAX: /join chat [key]
-
-COMMAND: addbuddy
-  ALIASES: add, friend, groupbuddy
-  DESCRIPTION: Add someone to your buddy list or change their group membership
-  SYNTAX: /addbuddy account [group [realname]]
 
 COMMAND: namebuddy
   DESCRIPTION: Change the real name for a buddy
@@ -138,19 +155,6 @@ COMMAND: filter
   DESCRIPTION: Manipulate content filters
   SYNTAX: /filter [table [target [action]]]
 
-COMMAND: save
-  DESCRIPTION: Write current settings to ~/.naimrc to be loaded at startup
-  SYNTAX: /save [filename]
-
-COMMAND: sync
-  DESCRIPTION: Save buddy list to server
-  SYNTAX: /sync
-
-COMMAND: exit
-  ALIASES: quit
-  DESCRIPTION: Disconnect and exit naim
-  SYNTAX: /exit
-
 COMMAND: warn
   DESCRIPTION: Send a warning about someone
   SYNTAX: /warn name
@@ -198,10 +202,6 @@ COMMAND: newconn
 COMMAND: delconn
   DESCRIPTION: Close a connection window
   SYNTAX: /delconn [label]
-
-COMMAND: connect
-  DESCRIPTION: Connect to a service
-  SYNTAX: /connect [name [server [port]]]
 
 COMMAND: server
   DESCRIPTION: Connect to a service

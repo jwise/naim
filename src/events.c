@@ -16,7 +16,6 @@
 # include <netdb.h>
 #endif
 
-extern win_t	win_info;
 extern conn_t	*curconn;
 extern time_t	startuptime, awaytime;
 extern double	nowf;
@@ -37,6 +36,8 @@ void	event_handle(time_t now) {
 	conn_t	*conn;
 	struct tm	*tmptr;
 	int	cleanedone = 0;
+
+	whidecursor();
 
 	tprint = secs_getvar_int("tprint");
 	logtprint = secs_getvar_int("logtprint");
@@ -121,10 +122,7 @@ void	event_handle(time_t now) {
 						" [<B>%04i</B>-<B>%02i</B>-<B>%02i</B>] <I>-----</I><br>",
 						1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday);
 					if (bwin->nwin.logfile != NULL) {
-						nw_erase(&win_info);
-						nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " Flushing log file for %s. ",
-							bwin->winname);
-						nw_refresh(&win_info);
+						nw_statusbarf("Flushing log file for %s.", bwin->winname);
 						fflush(bwin->nwin.logfile);
 					}
 				} else if ((tprint != 0) && (nowm%tprint == 0) && ((bwin->et != CHAT) || (*(bwin->winname) != ':')))

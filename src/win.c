@@ -45,7 +45,7 @@ void	do_resize(conn_t *conn, buddywin_t *bwin) {
 
 	if ((scrollbackoff == 0) || (conn != curconn) || !inconn || (bwin != curconn->curbwin)) {
 		small = 1;
-		height = 3*faimconf.wstatus.widthy/2;
+		height = 2*faimconf.wstatus.widthy;
 	} else {
 		small = 0;
 		height = faimconf.wstatus.pady;
@@ -206,7 +206,7 @@ static void wsetup_colors(void) {
 	fprintf(stderr, " done: COLORS=%i COLOR_PAIRS=%i\r\n", COLORS, COLOR_PAIRS);
 
 	fprintf(stderr, "Checking for enough colors...");
-	if ((COLOR_PAIRS < 8) || (COLOR_PAIRS < COLORS*COLORS)) {
+	if ((COLORS < nw_COLORS) || (COLOR_PAIRS < nw_COLORS*nw_COLORS)) {
 		fprintf(stderr, " failed\r\n");
 		fprintf(stderr, "\r\n"
 			"Possible reasons for failure:\r\n"
@@ -252,13 +252,20 @@ static void wsetup_colors(void) {
 
 	fprintf(stderr, "Initializing color pairs...");
 	for (i = 0; i < COLOR_PAIRS; i++)
-		init_pair(i, i%COLORS, (i/COLORS)==0?-1:i/COLORS);
+		init_pair(i, i%nw_COLORS, (i/nw_COLORS)==0?-1:i/nw_COLORS);
 	fprintf(stderr, " done\r\n");
 }
 
 #define NWIN(WIN)	newwin(faimconf.WIN.widthy, faimconf.WIN.widthx, \
 	faimconf.WIN.starty, faimconf.WIN.startx);
 #define NPAD(WIN)	newpad(faimconf.WIN.pady, faimconf.WIN.widthx);
+
+void	whidecursor(void) {
+	if (curs_set(0) != ERR)
+		leaveok(stdscr, TRUE);
+	else
+		leaveok(stdscr, FALSE);
+}
 
 void	wsetup(void) {
 	void	*ptr;
@@ -288,10 +295,7 @@ void	wsetup(void) {
 	noecho();
 	nonl();
 	timeout(1);
-	if (curs_set(0) != ERR)
-		leaveok(stdscr, TRUE);
-	else
-		leaveok(stdscr, FALSE);
+	whidecursor();
 
 	{
 		win_t	dummy;
@@ -395,6 +399,39 @@ int	nw_printf(win_t *win, int pair, int bold, const unsigned char *format, ...) 
 	return(0);
 }
 
+int	nw_titlef(const unsigned char *format, ...) {
+	va_list	msg;
+
+	assert(format != NULL);
+
+	if (*format == 0)
+		printf("\033]0;" PACKAGE_NAME);
+	else {
+		printf("\033]0;" PACKAGE_NAME " ");
+		va_start(msg, format);
+		vprintf((char *)format, msg);
+		va_end(msg);
+	}
+	printf("\033\\");
+	return(0);
+}
+
+int	nw_statusbarf(const unsigned char *format, ...) {
+	va_list	msg;
+	char	buf[128];
+
+	assert(format != NULL);
+
+	va_start(msg, format);
+	vsnprintf(buf, sizeof(buf), format, msg);
+	va_end(msg);
+	nw_erase(&win_info);
+	nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " %*s ", -faimconf.winfo.widthx,
+		buf);
+	nw_refresh(&win_info);
+	return(0);
+}
+
 void	nw_initwin(win_t *win, int bg) {
 	assert(win != NULL);
 
@@ -403,7 +440,7 @@ void	nw_initwin(win_t *win, int bg) {
 	intrflush(win->win, FALSE);
 	keypad(win->win, TRUE);
 	meta(win->win, TRUE);
-	wbkgd(win->win, COLOR_PAIR(COLORS*faimconf.b[bg]));
+	wbkgd(win->win, COLOR_PAIR(nw_COLORS*faimconf.b[bg]));
 	werase(win->win);
 }
 

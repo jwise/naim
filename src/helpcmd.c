@@ -75,7 +75,7 @@ void	help_printhelp(const char *topic) {
 		hwprintf(nwin, col, " &nbsp;Current key bindings can be viewed at any time with <font color=\"#00FF00\">/bind</font>:<br>\n");
 		conio_bind(curconn, 0, NULL);
 		hwprintf(nwin, col, " &nbsp;Key names beginning with ^ are entered by holding down the Ctrl key while pressing the listed key: ^N is Ctrl+N.<br>\n");
-		hwprintf(nwin, col, " &nbsp;Key names beginning with M- are entered by holding down the Alt key while pressing the key, or simply pressing Esc first, then typing the key: M-a is Alt+A.<br>\n");
+		hwprintf(nwin, col, " &nbsp;Key names beginning with M- are entered by holding down the Alt key while pressing the key, or by pressing Esc first, then typing the key: M-a is Alt+A.<br>\n");
 		hwprintf(nwin, col, " &nbsp;IC is Ins and DC is Del on the numeric keypad. NPAGE and PPAGE are PgDn and PgUp.<br>\n");
 		hwprintf(nwin, col, " &nbsp;Type <font color=\"#00FF00\">/bind keyname \"script\"</font> to change a key binding.<br>");
 		hwprintf(nwin, col, "Use the scroll keys (PgUp and PgDn or Ctrl-R and Ctrl-Y) to view the entire help.<br>");
@@ -92,7 +92,7 @@ void	help_printhelp(const char *topic) {
 	} else if (strcasecmp(topic, "commands") == 0) {
 		int	cmd;
 
-		for (cmd = 0; cmd < cmdc; cmd++) {
+		for (cmd = cmdc-1; cmd >= 0; cmd--) {
 			help_printcmd(nwin, col, cmd);
 			hwprintf(nwin, col, "&nbsp;<br>");
 		}

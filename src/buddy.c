@@ -16,12 +16,15 @@ extern char	*lastclose;
 extern const char *home;
 extern int	awayc;
 extern awayar_t	*awayar;
+extern int	printtitle;
 
 extern int
 	buddyc G_GNUC_INTERNAL,
-	wbuddy_widthy G_GNUC_INTERNAL;
+	wbuddy_widthy G_GNUC_INTERNAL,
+	inplayback G_GNUC_INTERNAL;
 int	buddyc = -1,
-	wbuddy_widthy = -1;
+	wbuddy_widthy = -1,
+	inplayback = 0;
 
 void	htmlstrip(char *bb) {
 	char	*start, *end;
@@ -93,16 +96,6 @@ static void
 			secs_setvar("iftopic", "");
 
 		switch (curconn->curbwin->et) {
-		  case CHAT:
-			if (curconn->curbwin->e.chat->isoper)
-				secs_setvar("ifoper",
-					secs_script_expand(NULL, getvar(curconn, "statusbar_oper")));
-			else
-				secs_setvar("ifoper", "");
-			secs_setvar("ifquery", "");
-			secs_setvar("ifchat",
-				secs_script_expand(NULL, getvar(curconn, "statusbar_chat")));
-			break;
 		  case BUDDY:
 			if (curconn->curbwin->e.buddy->crypt != NULL)
 				secs_setvar("ifcrypt", getvar(curconn, "statusbar_crypt"));
@@ -119,6 +112,16 @@ static void
 			secs_setvar("ifquery",
 				secs_script_expand(NULL, getvar(curconn, "statusbar_query")));
 			secs_setvar("ifchat", "");
+			break;
+		  case CHAT:
+			if (curconn->curbwin->e.chat->isoper)
+				secs_setvar("ifoper",
+					secs_script_expand(NULL, getvar(curconn, "statusbar_oper")));
+			else
+				secs_setvar("ifoper", "");
+			secs_setvar("ifquery", "");
+			secs_setvar("ifchat",
+				secs_script_expand(NULL, getvar(curconn, "statusbar_chat")));
 			break;
 		  case TRANSFER:
 			secs_setvar("ifoper", "");
@@ -331,6 +334,8 @@ void	bupdate(void) {
 		if ((autoclose > 0) && (curconn->curbwin->et == BUDDY) && !USER_PERMANENT(curconn->curbwin->e.buddy) && (curconn->curbwin->waiting != 0))
 			curconn->curbwin->closetime = now + 60*autoclose;
 		curconn->curbwin->waiting = 0;
+		if ((curconn->curbwin->et == CHAT) && curconn->curbwin->e.chat->isaddressed)
+			curconn->curbwin->e.chat->isaddressed = 0;
 	}
 
 	do {
@@ -402,8 +407,8 @@ void	bupdate(void) {
 					}
 				}
 
-				if (bwin->waiting && (waiting == 0)) {
-					char	tmp[1024];
+				if (bwin->waiting && !waiting) {
+					char	tmp[64];
 
 					if (conn == curconn)
 						snprintf(tmp, sizeof(tmp),
@@ -414,6 +419,10 @@ void	bupdate(void) {
 					secs_setvar("ifpending", tmp);
 					waiting = 1;
 				}
+				if (printtitle && bwin->waiting && (waiting < 2) && ((bwin->et == BUDDY) || ((bwin->et == CHAT) && bwin->e.chat->isaddressed))) {
+					nw_titlef("[%s:%s]", conn->winname, buf);
+					waiting = 2;
+				}
 
 				if (line >= wbuddy_widthy)
 					continue;
@@ -423,19 +432,15 @@ void	bupdate(void) {
 					buf[M] = 0;
 				}
 
-				if (bwin->waiting)
+				if ((bwin->et == CHAT) && bwin->e.chat->isaddressed) {
+					assert(bwin->waiting);
+					col = C(WINLIST,BUDDY_ADDRESSED);
+				} else if (bwin->waiting)
 					col = C(WINLIST,BUDDY_WAITING);
 				else if (bwin->pouncec > 0)
 					col = C(WINLIST,BUDDY_QUEUED);
 				else
 					switch (bwin->et) {
-					  case CHAT:
-						assert(bwin->e.chat != NULL);
-						if (bwin->e.chat->offline)
-							col = C(WINLIST,BUDDY_OFFLINE);
-						else
-							col = C(WINLIST,BUDDY);
-						break;
 					  case BUDDY:
 						if (bwin->e.buddy->tag != NULL)
 							col = CI(WINLIST,BUDDY_TAGGED);
@@ -448,11 +453,35 @@ void	bupdate(void) {
 						else
 							col = C(WINLIST,BUDDY);
 						break;
+					  case CHAT:
+						assert(bwin->e.chat != NULL);
+						if (bwin->e.chat->offline)
+							col = C(WINLIST,BUDDY_OFFLINE);
+						else
+							col = C(WINLIST,BUDDY);
+						break;
 					  case TRANSFER:
 						col = C(WINLIST,BUDDY);
 						break;
 					}
 				assert(col != -1);
+				if (bwin == curconn->curbwin) {
+					int	affect = col/COLOR_PAIRS,
+						back;
+
+#if 0
+					if (faimconf.b[cIMWIN] == faimconf.b[cWINLIST])
+						back = (faimconf.b[cIMWIN]+1)%nw_COLORS;
+					else
+						back = faimconf.b[cIMWIN];
+#else
+						back = faimconf.b[cWINLISTHIGHLIGHT];
+#endif
+
+					col %= nw_COLORS;
+					col += nw_COLORS*back;
+					col += affect*COLOR_PAIRS;
+				}
 				nw_move(&win_buddy, line, 1);
 				if ((col >= 2*COLOR_PAIRS) || (col < COLOR_PAIRS))
 					nw_printf(&win_buddy, col%COLOR_PAIRS, 1, "%*s", M, buf);
@@ -481,6 +510,8 @@ void	bupdate(void) {
 	else
 		nw_addch(&win_buddy, ACS_HLINE_C | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
 
+	if (printtitle && (waiting != 2))
+		nw_titlef("");
 	if (waiting)
 		buddyc = -buddyc;
 	else
@@ -605,12 +636,6 @@ void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 	verify_winlist_sanity(conn, bwin);
 
 	switch (bwin->et) {
-	  case CHAT:
-		if (bwin->winname[0] != ':')
-			firetalk_chat_part(conn->conn, bwin->winname);
-		free(bwin->e.chat);
-		bwin->e.chat = NULL;
-		break;
 	  case BUDDY:
 		if (_auto == 0) {
 			assert(bwin->e.buddy != NULL);
@@ -618,6 +643,12 @@ void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 				user_name(NULL, 0, conn, bwin->e.buddy));
 			STRREPLACE(lastclose, bwin->winname);
 		}
+		break;
+	  case CHAT:
+		if (bwin->winname[0] != ':')
+			firetalk_chat_part(conn->conn, bwin->winname);
+		free(bwin->e.chat);
+		bwin->e.chat = NULL;
 		break;
 	  case TRANSFER:
 		assert(bwin->e.transfer != NULL);
@@ -736,7 +767,12 @@ static FILE
 
 	if ((rfile = fopen(n, "r")) != NULL) {
 		fclose(rfile);
-		rename(n, nhtml);
+		if ((rfile = fopen(nhtml, "r")) != NULL) {
+			fclose(rfile);
+			status_echof(conn, "Warning: While opening logfile for %s, two versions were found: [%s] and [%s]. I will use [%s], but you may want to look into this discrepency.\n",
+				bwin->winname, n, nhtml, nhtml);
+		} else
+			rename(n, nhtml);
 	}
 
 	return(fopen(nhtml, mode));
@@ -759,11 +795,7 @@ void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 		status_echof(conn, "Redrawing window for %s.", bwin->winname);
 #endif
 
-		nw_erase(&win_info);
-		nw_printf(&win_info, CB(CONN,STATUSBAR), 1,
-			" Redrawing window for %s. ",
-			bwin->winname);
-		nw_refresh(&win_info);
+		nw_statusbarf("Redrawing window for %s.", bwin->winname);
 
 		fseek(rfile, 0, SEEK_END);
 		filesize = ftell(rfile);
@@ -775,19 +807,18 @@ void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 			fseek(rfile, 0, SEEK_SET);
 		playbackstart = ftell(rfile);
 		playbacklen = filesize-playbackstart;
+		inplayback = 1;
 		while (fgets(buf, sizeof(buf), rfile) != NULL) {
 			while ((strlen(buf) > 0) && (buf[strlen(buf)-1] == '\n'))
 				buf[strlen(buf)-1] = 0;
 			hwprintf(&(bwin->nwin), -C(IMWIN,TEXT)-1, "%s", buf);
 			if ((now = time(NULL)) > lastprogress) {
-				nw_erase(&win_info);
-				nw_printf(&win_info, CB(CONN,STATUSBAR), 1,
-					" Redrawing window for %s (~%li lines left). ",
+				nw_statusbarf("Redrawing window for %s (%li lines left).",
 					bwin->winname, lines*(playbacklen-(ftell(rfile)-playbackstart))/playbacklen);
-				nw_refresh(&win_info);
 				lastprogress = now;
 			}
 		}
+		inplayback = 0;
 		fclose(rfile);
 	}
 }
@@ -815,14 +846,14 @@ void	bnewwin(conn_t *conn, const char *name, et_t et) {
 	bwin->keepafterso = bwin->waiting = 0;
 	bwin->et = et;
 	switch (et) {
+	  case BUDDY:
+		bwin->e.buddy = rgetlist(conn, name);
+		assert(bwin->e.buddy != NULL);
+		break;
 	  case CHAT:
 		bwin->e.chat = calloc(1, sizeof(chatlist_t));
 		assert(bwin->e.chat != NULL);
 		bwin->e.chat->offline = 1;
-		break;
-	  case BUDDY:
-		bwin->e.buddy = rgetlist(conn, name);
-		assert(bwin->e.buddy != NULL);
 		break;
 	  case TRANSFER:
 		break;
@@ -1027,12 +1058,11 @@ void	baway(conn_t *conn, const char *buddy, int isaway) {
 		blist = bwin->e.buddy;
 	assert(blist != NULL);
 
-	if ((isaway == 0) && (bwin->blurb != NULL)) {
-		free(bwin->blurb);
-		bwin->blurb = NULL;
-	}
-
 	if (bwin != NULL) {
+		if ((isaway == 0) && (bwin->blurb != NULL)) {
+			free(bwin->blurb);
+			bwin->blurb = NULL;
+		}
 		if ((isaway == 1) && (blist->isaway == 0)) {
 			if ((conn->online+30) < now) {
 				awayc++;
@@ -1058,14 +1088,6 @@ static void
 		bwin->blurb = NULL;
 	}
 	switch (bwin->et) {
-	  case CHAT:
-		bwin->e.chat->isoper = 0;
-		if (bwin->e.chat->offline == 0) {
-			bwin->e.chat->offline = 1;
-			window_echof(bwin, "Chat <font color=\"#00FFFF\">%s</font> is no longer available :/\n",
-				bwin->winname);
-		}
-		break;
 	  case BUDDY:
 		assert(bwin->e.buddy != NULL);
 		if (bwin->e.buddy->offline == 0) {
@@ -1077,6 +1099,14 @@ static void
 			bclose(conn, bwin, 1);
 			bwin = NULL;
 			return;
+		}
+		break;
+	  case CHAT:
+		bwin->e.chat->isoper = 0;
+		if (bwin->e.chat->offline == 0) {
+			bwin->e.chat->offline = 1;
+			window_echof(bwin, "Chat <font color=\"#00FFFF\">%s</font> is no longer available :/\n",
+				bwin->winname);
 		}
 		break;
 	  case TRANSFER:

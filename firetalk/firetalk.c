@@ -1430,6 +1430,10 @@ void firetalk_destroy_handle(firetalk_t conn) {
 	VERIFYCONN
 
 	assert(conn->deleted == 0);
+	assert(conn->handle != NULL);
+
+	firetalk_protocols[conn->protocol]->destroy_handle(conn->handle);
+	conn->handle = NULL;
 	conn->deleted = 1;
 }
 
@@ -2377,10 +2381,7 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 		for (fchandle = handle_head; fchandle != NULL; fchandle = fchandlenext) {
 			fchandlenext = fchandle->next;
 			if (fchandle->deleted == 1) {
-				if (fchandle->handle != NULL) {
-					firetalk_protocols[fchandle->protocol]->destroy_handle(fchandle->handle);
-					fchandle->handle = NULL;
-				}
+				assert(fchandle->handle == NULL);
 				if (fchandle->buddy_head != NULL) {
 					struct s_firetalk_buddy *iter, *iternext;
 

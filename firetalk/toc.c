@@ -437,8 +437,23 @@ static void
 			online = 0;
 		else
 			online = mktime(&tm);
+		{ /* AOL's servers are permanently in UTC-0400 */
+			struct tm *tmptr;
+			time_t loc = 100000, gm = 100000;
+
+			tmptr = localtime(&loc);
+			loc = mktime(tmptr);
+			tmptr = gmtime(&gm);
+			gm = mktime(tmptr);
+			online += loc-gm+4*60*60;
+		}
 # ifdef DEBUG_ECHO
-		toc_echof(c, "infoget_parse", "tmp=[%s], tm={ tm_year=%i, tm_mon=%i, tm_mday=%i }, online=%lu\n", tmp, tm.tm_year, tm.tm_mon, tm.tm_mday, online);
+		{
+			extern time_t now;
+
+			toc_echof(c, "infoget_parse", "tmp=[%s], tm={ tm_year=%i, tm_mon=%i, tm_mday=%i }, online=%li, now=%li [%li], diff=%li [%li]\n",
+				tmp, tm.tm_year, tm.tm_mon, tm.tm_mday, online, time(NULL), now, time(NULL)-online, now-online);
+		}
 # endif
 	}
 #else
