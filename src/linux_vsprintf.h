@@ -34,7 +34,7 @@
 	len; \
 })
 
-int skip_atoi(const char **s);
+static int skip_atoi(const char **s);
 
 #define ZEROPAD	1		/* pad with zero */
 #define SIGN	2		/* unsigned/signed long */
@@ -44,7 +44,7 @@ int skip_atoi(const char **s);
 #define SPECIAL	32		/* 0x */
 #define LARGE	64		/* use 'ABCDEF' instead of 'abcdef' */
 
-char *number(char * buf, char * end, long long num, int base, int size, int precision, int type);
+static char *number(char * buf, char * end, long long num, int base, int size, int precision, int type);
 int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 int snprintf(char * buf, size_t size, const char *fmt, ...);
 int vsprintf(char *buf, const char *fmt, va_list args);

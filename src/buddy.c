@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -16,8 +16,12 @@ extern char	*lastclose;
 extern const char *home;
 extern int	awayc;
 extern awayar_t	*awayar;
-int	buddyc,
-	wbuddy_widthy;
+
+extern int
+	buddyc G_GNUC_INTERNAL,
+	wbuddy_widthy G_GNUC_INTERNAL;
+int	buddyc = -1,
+	wbuddy_widthy = -1;
 
 void	htmlstrip(char *bb) {
 	char	*start, *end;
@@ -467,9 +471,8 @@ void	bupdate(void) {
 		if (autosort == 2) {
 			free(lastgroup);
 			lastgroup = NULL;
-		} else {
+		} else
 			assert(lastgroup == NULL);
-		}
 	} while ((conn = conn->next) != curconn);
 
 	nw_move(&win_buddy, line-1, 0);
@@ -584,9 +587,8 @@ void	verify_winlist_sanity(conn_t *const conn, const buddywin_t *const verifywin
 			assert(bwin->informed == 0);
 			assert(bwin->closetime == 0);
 		}
-		if (bwin->et == CHAT) {
+		if (bwin->et == CHAT)
 			assert(bwin->keepafterso == 1);
-		}
 		assert(strlen(bwin->winname) > 0);
 		assert(i++ < 10000);
 	} while ((bwin = bwin->next) != conn->curbwin);
@@ -622,6 +624,7 @@ void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 		firetalk_file_cancel(conn->conn, bwin->e.transfer->handle);
 		echof(conn, NULL, "File transfer aborted.\n");
 		fremove(bwin->e.transfer);
+		bwin->e.transfer = NULL;
 		break;
 	}
 
@@ -739,7 +742,7 @@ static FILE
 	return(fopen(nhtml, mode));
 }
 
-void	playback(conn_t *const conn, buddywin_t *const bwin) {
+void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 	FILE	*rfile;
 
 	assert (bwin->nwin.logfile != NULL);
@@ -748,7 +751,9 @@ void	playback(conn_t *const conn, buddywin_t *const bwin) {
 
 	if ((rfile = playback_fopen(conn, bwin, "r")) != NULL) {
 		char	buf[2048];
-		int	maxlen = faimconf.wstatus.pady*faimconf.wstatus.widthx;
+		int	maxlen = lines*faimconf.wstatus.widthx;
+		long	filesize, playbackstart, playbacklen;
+		time_t	lastprogress = now;
 
 #ifdef DEBUG_ECHO
 		status_echof(conn, "Redrawing window for %s.", bwin->winname);
@@ -761,16 +766,27 @@ void	playback(conn_t *const conn, buddywin_t *const bwin) {
 		nw_refresh(&win_info);
 
 		fseek(rfile, 0, SEEK_END);
-		if (ftell(rfile) > maxlen) {
+		filesize = ftell(rfile);
+		if (filesize > maxlen) {
 			fseek(rfile, -maxlen, SEEK_CUR);
 			while ((fgetc(rfile) != '\n') && !feof(rfile))
 				;
 		} else
 			fseek(rfile, 0, SEEK_SET);
+		playbackstart = ftell(rfile);
+		playbacklen = filesize-playbackstart;
 		while (fgets(buf, sizeof(buf), rfile) != NULL) {
 			while ((strlen(buf) > 0) && (buf[strlen(buf)-1] == '\n'))
 				buf[strlen(buf)-1] = 0;
 			hwprintf(&(bwin->nwin), -C(IMWIN,TEXT)-1, "%s", buf);
+			if ((now = time(NULL)) > lastprogress) {
+				nw_erase(&win_info);
+				nw_printf(&win_info, CB(CONN,STATUSBAR), 1,
+					" Redrawing window for %s (~%li lines left). ",
+					bwin->winname, lines*(playbacklen-(ftell(rfile)-playbackstart))/playbacklen);
+				nw_refresh(&win_info);
+				lastprogress = now;
+			}
 		}
 		fclose(rfile);
 	}
@@ -852,12 +868,13 @@ void	bnewwin(conn_t *conn, const char *name, et_t et) {
 				fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">If you would like help, first try using naim's online help by typing <font color=\"#00FF00\">/help</font>. If you need further help, feel free to ask your question here, and Mr. Reed will get back to you as soon as possible.</font><br>\n");
 				fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#800000\">If you are using Windows telnet to connect to a shell account to run naim, you may notice severe screen corruption. You may wish to try PuTTy, available for free from www.tucows.com. PuTTy handles both telnet and SSH.</font><br>\n");
 			}
+			nw_resize(&(bwin->nwin), 1, 1);
 			bwin->nwin.dirty = 1;
 		}
 	}
 }
 
-void	bcoming(conn_t *conn, const char *buddy, int isaway, int isidle) {
+void	bcoming(conn_t *conn, const char *buddy) {
 	buddywin_t	*bwin = NULL;
 	buddylist_t	*blist = NULL;
 
@@ -869,16 +886,16 @@ void	bcoming(conn_t *conn, const char *buddy, int isaway, int isidle) {
 	}
 	STRREPLACE(blist->_account, buddy);
 	if ((bwin = bgetwin(conn, buddy, BUDDY)) == NULL) {
-		if ((getvar_int(conn, "autoquery") != 0) && (isaway != -1) && (isidle != -1)) {
+		if (getvar_int(conn, "autoquery") != 0) {
 			bnewwin(conn, buddy, BUDDY);
 			bwin = bgetwin(conn, buddy, BUDDY);
 			assert(bwin != NULL);
 		}
 	}
+	assert((bwin == NULL) || (bwin->e.buddy == blist));
+
 	if (blist->offline == 1) {
-		blist->offline = 0;
-		blist->isaway = isaway;
-		blist->isidle = isidle;
+		blist->isidle = blist->isaway = blist->offline = 0;
 		status_echof(conn, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> is now online =)\n",
 			user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 		if (bwin != NULL) {
@@ -907,45 +924,6 @@ void	bcoming(conn_t *conn, const char *buddy, int isaway, int isidle) {
 			if ((beeponsignon > 1) || ((awaytime == 0) && (beeponsignon == 1)))
 				beep();
 		}
-	} else if (bwin != NULL) {
-		if ((isaway == 1) && (blist->isaway == 0)) {
-			blist->isaway = 1;
-			if ((conn->online+30) < now) {
-				awayc++;
-				awayar = realloc(awayar, awayc*sizeof(*awayar));
-				awayar[awayc-1].name = strdup(buddy);
-				awayar[awayc-1].gotaway = 0;
-				firetalk_im_get_info(conn->conn, buddy);
-			} else
-				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now away.\n",
-					user_name(NULL, 0, conn, blist));
-		} else if ((isaway == 0) && (blist->isaway == 1)) {
-			free(bwin->blurb);
-			bwin->blurb = NULL;
-			blist->isaway = 0;
-			window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer away!\n",
-				user_name(NULL, 0, conn, blist));
-		}
-
-		if ((isidle == 1) && (blist->isidle == 0)) {
-			blist->isidle = 1;
-			window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now idle.\n",
-				user_name(NULL, 0, conn, blist));
-		} else if ((isidle == 0) && (blist->isidle == 1)) {
-			blist->isidle = 0;
-			window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer idle!\n",
-				user_name(NULL, 0, conn, blist));
-		}
-	} else {
-		if ((isaway == 1) && (blist->isaway == 0))
-			blist->isaway = 1;
-		else if ((isaway == 0) && (blist->isaway == 1))
-			blist->isaway = 0;
-
-		if ((isidle == 1) && (blist->isidle == 0))
-			blist->isidle = 1;
-		else if ((isidle == 0) && (blist->isidle == 1))
-			blist->isidle = 0;
 	}
 	bupdate();
 }
@@ -1011,6 +989,66 @@ void	bgoing(conn_t *conn, const char *buddy) {
 			return;
 		}
 	} while ((bwin = bwin->next) != conn->curbwin);
+}
+
+void	bidle(conn_t *conn, const char *buddy, int isidle) {
+	buddywin_t	*bwin = NULL;
+	buddylist_t	*blist = NULL;
+
+	assert(buddy != NULL);
+	bwin = bgetwin(conn, buddy, BUDDY);
+	if (bwin == NULL)
+		blist = rgetlist(conn, buddy);
+	else
+		blist = bwin->e.buddy;
+	assert(blist != NULL);
+
+	if (bwin != NULL) {
+		if ((isidle == 1) && (blist->isidle == 0))
+			window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now idle.\n",
+				user_name(NULL, 0, conn, blist));
+		else if ((isidle == 0) && (blist->isidle == 1))
+			window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer idle!\n",
+				user_name(NULL, 0, conn, blist));
+	}
+
+	blist->isidle = isidle;
+}
+
+void	baway(conn_t *conn, const char *buddy, int isaway) {
+	buddywin_t	*bwin = NULL;
+	buddylist_t	*blist = NULL;
+
+	assert(buddy != NULL);
+	bwin = bgetwin(conn, buddy, BUDDY);
+	if (bwin == NULL)
+		blist = rgetlist(conn, buddy);
+	else
+		blist = bwin->e.buddy;
+	assert(blist != NULL);
+
+	if ((isaway == 0) && (bwin->blurb != NULL)) {
+		free(bwin->blurb);
+		bwin->blurb = NULL;
+	}
+
+	if (bwin != NULL) {
+		if ((isaway == 1) && (blist->isaway == 0)) {
+			if ((conn->online+30) < now) {
+				awayc++;
+				awayar = realloc(awayar, awayc*sizeof(*awayar));
+				awayar[awayc-1].name = strdup(buddy);
+				awayar[awayc-1].gotaway = 0;
+				firetalk_im_get_info(conn->conn, buddy);
+			} else
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now away.\n",
+					user_name(NULL, 0, conn, blist));
+		} else if ((isaway == 0) && (blist->isaway == 1))
+			window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer away!\n",
+				user_name(NULL, 0, conn, blist));
+	}
+
+	blist->isaway = isaway;
 }
 
 static void

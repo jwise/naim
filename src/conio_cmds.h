@@ -17,6 +17,8 @@
 # define CONIOAOPT(x,y)
 #endif
 
+#ifndef CONIO_NOPROTOS
+
 CONIOFUNC(jump);
 CONIOFUNC(jumpback);
 CONIOFUNC(info);
@@ -44,14 +46,14 @@ CONIOFUNC(topic);
 CONIOFUNC(kick);
 CONIOFUNC(invite);
 CONIOFUNC(help);
-CONIOFUNC(exit);
 CONIOFUNC(unblock);
-CONIOFUNC(ignore);
 CONIOFUNC(block);
+CONIOFUNC(ignore);
 CONIOFUNC(chains);
 CONIOFUNC(filter);
 CONIOFUNC(save);
 CONIOFUNC(sync);
+CONIOFUNC(exit);
 CONIOFUNC(warn);
 CONIOFUNC(nick);
 CONIOFUNC(echo);
@@ -75,6 +77,8 @@ CONIOFUNC(modload);
 CONIOFUNC(modunload);
 CONIOFUNC(resize);
 CONIOFUNC(status);
+
+#endif
 
 typedef struct {
 	const char
@@ -129,14 +133,14 @@ cmdar_t	cmdar[] = {
 	{ "kick",	conio_kick,	{ NULL },	"Temporarily remove someone from a chat",	{ { 1, 'B', "name" }, { 0, 's', "reason" }, { -1, -1, NULL } },	1,	2,	C_INCHAT },
 	{ "invite",	conio_invite,	{ NULL },	"Invite someone to a chat",	{ { 1, 'B', "name" }, { 0, 's', "chat" }, { -1, -1, NULL } },	1,	2,	C_INCHAT },
 	{ "help",	conio_help,	{ "about", NULL },	"Display topical help on using naim",	{ { 0, 's', "topic" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
-	{ "exit",	conio_exit,	{ "quit", NULL },	"Disconnect and exit naim",	{ { -1, -1, NULL } },	0,	0,	C_ANYWHERE },
 	{ "unblock",	conio_unblock,	{ "unignore", NULL },	"Remove someone from the ignore list",	{ { 1, 'B', "name" }, { -1, -1, NULL } },	1,	1,	C_ANYWHERE },
-	{ "ignore",	conio_ignore,	{ NULL },	"Ignore all private/public messages",	{ { 0, 'B', "name" }, { 0, 's', "reason" }, { -1, -1, NULL } },	0,	2,	C_ANYWHERE },
 	{ "block",	conio_block,	{ NULL },	"Server-enforced /ignore",	{ { 1, 'B', "name" }, { 0, 's', "reason" }, { -1, -1, NULL } },	1,	2,	C_ANYWHERE },
+	{ "ignore",	conio_ignore,	{ NULL },	"Ignore all private/public messages",	{ { 0, 'B', "name" }, { 0, 's', "reason" }, { -1, -1, NULL } },	0,	2,	C_ANYWHERE },
 	{ "chains",	conio_chains,	{ "tables", NULL },	"Manipulate data control tables",	{ { 0, 's', "chain" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
 	{ "filter",	conio_filter,	{ NULL },	"Manipulate content filters",	{ { 0, 's', "table" }, { 0, 's', "target" }, { 0, 's', "action" }, { -1, -1, NULL } },	0,	3,	C_ANYWHERE },
 	{ "save",	conio_save,	{ NULL },	"Write current settings to ~/.naimrc to be loaded at startup",	{ { 0, 's', "filename" }, { -1, -1, NULL } },	0,	1,	C_ANYWHERE },
 	{ "sync",	conio_sync,	{ NULL },	"Save buddy list to server",	{ { -1, -1, NULL } },	0,	0,	C_ANYWHERE },
+	{ "exit",	conio_exit,	{ "quit", NULL },	"Disconnect and exit naim",	{ { -1, -1, NULL } },	0,	0,	C_ANYWHERE },
 	{ "warn",	conio_warn,	{ NULL },	"Send a warning about someone",	{ { 1, 'B', "name" }, { -1, -1, NULL } },	1,	1,	C_ANYWHERE },
 	{ "nick",	conio_nick,	{ NULL },	"Change or reformat your name",	{ { 1, 's', "name" }, { -1, -1, NULL } },	1,	1,	C_ANYWHERE },
 	{ "echo",	conio_echo,	{ NULL },	"Display something on the screen with $-variable expansion",	{ { 1, 's', "script" }, { -1, -1, NULL } },	1,	1,	C_ANYWHERE },

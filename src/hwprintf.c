@@ -28,7 +28,7 @@ typedef struct {
 	int	pair;
 } h_t;
 
-void	h_zero(h_t *h, win_t *win) {
+static void h_zero(h_t *h, win_t *win) {
 	h->win = win;
 	{
 		int	i, max;

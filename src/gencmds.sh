@@ -18,6 +18,8 @@ echo '
 # define CONIOAREQ(x,y)
 # define CONIOAOPT(x,y)
 #endif
+
+#ifndef CONIO_NOPROTOS
 '
 
 echo '#include "conio.c"' \
@@ -26,6 +28,8 @@ echo '#include "conio.c"' \
 	| sed 's/^\(CONIOFUNC(.*)\).*$/\1;/g'
 
 echo '
+#endif
+
 typedef struct {
 	const char
 		*c;

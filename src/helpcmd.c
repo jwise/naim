@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -67,9 +67,8 @@ void	help_printhelp(const char *topic) {
 		nwin = &(curconn->nwin);
 	}
 
-	if (topic == NULL) {
+	if (topic == NULL)
 		topic = "topics";
-	}
 
 	if (strcasecmp(topic, "keys") == 0) {
 		hwprintf(nwin, col, "Help on <B>%s</B>:<br>", topic);
@@ -161,4 +160,5 @@ void	help_printhelp(const char *topic) {
 		set_echof(" %s\n", buf);
 	}
 	hwprintf(nwin, col, "Type <font color=\"#00FF00\">/help</font> or visit <font color=\"#0000FF\">http://naim.n.ml.org/</font> for more information.<br>");
+	hwprintf(nwin, col, "To reduce clutter, you may wish to bring down the status window. To do this, press the F1 key before using /help.<br>");
 }

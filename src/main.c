@@ -22,14 +22,32 @@ extern mod_fd_list_t
 extern int
 	mod_fd_listc;
 
+extern conn_t
+	*curconn G_GNUC_INTERNAL;
+extern faimconf_t
+	faimconf G_GNUC_INTERNAL;
+extern int
+	stayconnected G_GNUC_INTERNAL;
+extern time_t
+	startuptime G_GNUC_INTERNAL,
+	now G_GNUC_INTERNAL;
+extern double
+	nowf G_GNUC_INTERNAL,
+	changetime G_GNUC_INTERNAL;
+extern const char
+	*home G_GNUC_INTERNAL,
+	*sty G_GNUC_INTERNAL,
+	*invocation G_GNUC_INTERNAL;
+extern char
+	naimrcfilename[1024] G_GNUC_INTERNAL;
 conn_t	*curconn = NULL;
 faimconf_t
 	faimconf;
-int	stayconnected;
-time_t	startuptime,
-	now;
-double	nowf,
-	changetime;
+int	stayconnected = 0;
+time_t	startuptime = 0,
+	now = 0;
+double	nowf = 0.0,
+	changetime = 0.0;
 const char
 	*home = NULL,
 	*sty = NULL,

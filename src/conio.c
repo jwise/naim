@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -34,6 +34,16 @@ extern time_t	now, awaytime;
 extern double	nowf, changetime;
 extern const char	*home;
 
+extern int
+	scrollbackoff G_GNUC_INTERNAL,
+	needpass G_GNUC_INTERNAL,
+	doredraw G_GNUC_INTERNAL,
+	consolescroll G_GNUC_INTERNAL,
+	inpaste G_GNUC_INTERNAL,
+	withtextcomp G_GNUC_INTERNAL;
+extern char
+	*namesbuf G_GNUC_INTERNAL,
+	*lastclose G_GNUC_INTERNAL;
 int	scrollbackoff = 0,
 	needpass = 0,
 	doredraw = 0,
@@ -433,6 +443,7 @@ CONIOAREQ(string,message)
 	logim(conn, conn->sn, args[0], args[1]);
 	naim_send_im(conn, args[0], args[1], 0);
 }
+//void	(*conio_msg)() = conio_msg__internal;
 
 CONIOFUNC(say) {
 CONIODESC(Send a message to the current window; as in /say I am happy)
@@ -511,6 +522,7 @@ CONIOWHER(NOTSTATUS)
 	bclose(conn, bwin, 0);
 	bwin = NULL;
 }
+//void	(*conio_close)() = conio_close__internal;
 
 CONIOFUNC(closeall) {
 CONIODESC(Close stale windows for offline buddies)
@@ -744,6 +756,7 @@ CONIOAOPT(chat,chat)
 		}
 	}
 }
+//void	(*conio_names)() = conio_names__internal;
 
 CONIOFUNC(join) {
 CONIODESC(Participate in a chat)
@@ -860,6 +873,7 @@ CONIOAOPT(string,realname)
 
 	firetalk_im_add_buddy(conn->conn, args[0], USER_GROUP(blist));
 }
+//void	(*conio_addbuddy)() = conio_addbuddy__internal;
 
 CONIOFUNC(namebuddy) {
 CONIODESC(Change the real name for a buddy)
@@ -1046,27 +1060,6 @@ static void do_delconn(conn_t *conn) {
 	free(conn);
 }
 
-CONIOFUNC(exit) {
-CONIOALIA(quit)
-CONIODESC(Disconnect and exit naim)
-	conn_t	*c, *cnext;
-
-	if (secs_getvar_int("autosave") != 0)
-		conio_save(conn, 0, NULL);
-
-	c = conn;
-	do {
-		firetalk_disconnect(c->conn);
-	} while ((c = c->next) != conn);
-
-	for (c = curconn; curconn != NULL; c = cnext) {
-		cnext = c->next;
-		do_delconn(c);
-		statrefresh();
-	}
-	stayconnected = 0;
-}
-
 CONIOFUNC(unblock) {
 CONIOALIA(unignore)
 CONIODESC(Remove someone from the ignore list)
@@ -1078,6 +1071,18 @@ CONIOAREQ(buddy,name)
 				args[0], args[0]);
 	rdelidiot(conn, args[0]);
 }
+//void	(*conio_unblock)() = conio_unblock__internal;
+
+CONIOFUNC(block) {
+CONIODESC(Server-enforced /ignore)
+CONIOAREQ(buddy,name)
+CONIOAOPT(string,reason)
+	echof(conn, NULL, "Now blocking <font color=\"#00FFFF\">%s</font>.\n", args[0]);
+	if (conn->online > 0)
+		firetalk_im_add_deny(conn->conn, args[0]);
+	raddidiot(conn, args[0], "block");
+}
+//void	(*conio_block)() = conio_block__internal;
 
 CONIOFUNC(ignore) {
 CONIODESC(Ignore all private/public messages)
@@ -1116,16 +1121,7 @@ CONIOAOPT(string,reason)
 	}
 }
 
-CONIOFUNC(block) {
-CONIODESC(Server-enforced /ignore)
-CONIOAREQ(buddy,name)
-CONIOAOPT(string,reason)
-	echof(conn, NULL, "Now blocking <font color=\"#00FFFF\">%s</font>.\n", args[0]);
-	if (conn->online > 0)
-		firetalk_im_add_deny(conn->conn, args[0]);
-	raddidiot(conn, args[0], "block");
-}
-
+//extern void	(*conio_chains)();
 CONIOFUNC(chains) {
 CONIOALIA(tables)
 CONIODESC(Manipulate data control tables)
@@ -1188,6 +1184,7 @@ CONIOAOPT(string,chain)
 			i, modname, hookname, chain->hooks[i].weight, chain->hooks[i].func, chain->hooks[i].passes, chain->hooks[i].hits);
 	}
 }
+//void	(*conio_chains)() = conio_chains__internal;
 
 CONIOFUNC(filter) {
 CONIODESC(Manipulate content filters)
@@ -1237,7 +1234,9 @@ CONIOAOPT(string,action)
 				if (strcasecmp(arg, "FLUSH") == 0) {
 					for (i = 0; i < html_cleanc; i++) {
 						free(html_cleanar[i].from);
+						html_cleanar[i].from = NULL;
 						free(html_cleanar[i].replace);
+						html_cleanar[i].replace = NULL;
 					}
 					free(html_cleanar);
 					html_cleanar = NULL;
@@ -1755,11 +1754,33 @@ CONIOAOPT(string,filename)
 	fclose(file);
 	echof(conn, NULL, "Settings saved to %s.\n", filename);
 }
+//void	(*conio_save)() = conio_save__internal;
 
 CONIOFUNC(sync) {
 CONIODESC(Save buddy list to server)
 	firetalk_save_config(conn->conn);
 	echof(conn, NULL, "Settings saved to server.\n");
+}
+
+CONIOFUNC(exit) {
+CONIOALIA(quit)
+CONIODESC(Disconnect and exit naim)
+	conn_t	*c, *cnext;
+
+	if (secs_getvar_int("autosave") != 0)
+		conio_save(conn, 0, NULL);
+
+	c = conn;
+	do {
+		firetalk_disconnect(c->conn);
+	} while ((c = c->next) != conn);
+
+	for (c = curconn; curconn != NULL; c = cnext) {
+		cnext = c->next;
+		do_delconn(c);
+		statrefresh();
+	}
+	stayconnected = 0;
 }
 
 CONIOFUNC(warn) {
@@ -2062,6 +2083,7 @@ CONIOAOPT(string,script)
 			key, args[0], args[1]);
 	}
 }
+//void	(*conio_bind)() = conio_bind__internal;
 
 CONIOFUNC(alias) {
 CONIODESC(Create a new command alias)
@@ -2086,6 +2108,7 @@ CONIOAOPT(string,dummy)
 		echof(conn, "SET", "Try <font color=\"#00FF00\">/set %s \"%s %s\"</font>.\n",
 			args[0], args[1], args[2]);
 }
+//void	(*conio_set)() = conio_set__internal;
 
 static void conio_listprotocols(conn_t *conn, const char *prefix) {
 	int	i;
@@ -2175,6 +2198,7 @@ CONIOAOPT(string,protocol)
 	}
 	bupdate();
 }
+//void	(*conio_newconn)() = conio_newconn__internal;
 
 CONIOFUNC(delconn) {
 CONIODESC(Close a connection window)
@@ -2203,6 +2227,7 @@ CONIOAOPT(string,label)
 
 	do_delconn(conn);
 }
+//void	(*conio_delconn)() = conio_delconn__internal;
 
 CONIOFUNC(connect) {
 CONIODESC(Connect to a service)
@@ -2300,6 +2325,7 @@ CONIOAOPT(int,port)
 		break;
 	}
 }
+//void	(*conio_connect)() = conio_connect__internal;
 
 CONIOFUNC(server) {
 CONIODESC(Connect to a service)
@@ -2642,6 +2668,7 @@ CONIOAOPT(int,height)
 	echof(conn, NULL, "Windows resized.");
 }
 
+//extern void	(*conio_status)();
 CONIOFUNC(status) {
 CONIODESC(Connection status report)
 CONIOAOPT(string,connection)
@@ -2739,6 +2766,7 @@ CONIOAOPT(string,connection)
 	else
 		echof(conn, NULL, "See <font color=\"#00FF00\">/%s:names</font> for buddy list information.\n", c->winname);
 }
+//void	(*conio_status)() = conio_status__internal;
 
 
 
@@ -3175,7 +3203,8 @@ const char
 	}
 }
 
-void	gotkey_real(int c) {
+static void
+	gotkey_real(int c) {
 	static char	**histar = NULL;
 	static int	histc = 0,
 			histpos = 0;

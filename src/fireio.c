@@ -19,11 +19,16 @@ extern double	nowf;
 extern char	*namesbuf;
 extern faimconf_t	faimconf;
 extern char	*sty;
+
+extern int
+	awayc G_GNUC_INTERNAL;
+extern awayar_t
+	*awayar G_GNUC_INTERNAL;
 int	awayc = 0;
 awayar_t	*awayar = NULL;
 
 #define NAIM_VERSION_STRING	"naim:" PACKAGE_VERSION NAIM_SNAPSHOT
-char	naim_version[1024];
+static char naim_version[1024];
 
 #define nFIRE_HANDLER(func) static void func (void *sess, void *client, ...)
 #define nFIRE_CTCPHAND(func) static void func (void *sess, void *client, \
@@ -335,9 +340,9 @@ nFIRE_HANDLER(naim_buddy_idle) {
 	va_end(msg);
 
 	if (idletime >= 10)
-		bcoming(conn, who, -1, 1);
+		bidle(conn, who, 1);
 	else
-		bcoming(conn, who, -1, 0);
+		bidle(conn, who, 0);
 }
 
 nFIRE_HANDLER(naim_buddy_away) {
@@ -349,7 +354,7 @@ nFIRE_HANDLER(naim_buddy_away) {
 	who = va_arg(msg, const char *);
 	va_end(msg);
 
-	bcoming(conn, who, 1, -1);
+	baway(conn, who, 1);
 }
 
 nFIRE_HANDLER(naim_buddy_unaway) {
@@ -361,7 +366,7 @@ nFIRE_HANDLER(naim_buddy_unaway) {
 	who = va_arg(msg, const char *);
 	va_end(msg);
 
-	bcoming(conn, who, 0, -1);
+	baway(conn, who, 0);
 }
 
 nFIRE_HANDLER(naim_buddy_coming) {
@@ -373,7 +378,7 @@ nFIRE_HANDLER(naim_buddy_coming) {
 	who = va_arg(msg, const char *);
 	va_end(msg);
 
-	bcoming(conn, who, 0, 0);
+	bcoming(conn, who);
 }
 
 nFIRE_HANDLER(naim_buddy_going) {

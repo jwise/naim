@@ -1,14 +1,16 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include "naim-int.h"
 typedef struct {
 	WINDOW	*win;
 	FILE	*logfile;
+	int	height;
 	unsigned char
-		dirty:1;
+		dirty:1,
+		small:1;
 } win_t;
 
 #define WIN_T
@@ -21,7 +23,16 @@ extern time_t	now, awaytime;
 extern double	nowf, changetime;
 extern int	wbuddy_widthy;
 
-win_t	win_input,
+extern win_t
+	win_input G_GNUC_INTERNAL,
+	win_buddy G_GNUC_INTERNAL,
+	win_info G_GNUC_INTERNAL,
+	win_away G_GNUC_INTERNAL;
+extern int
+	wsetup_called G_GNUC_INTERNAL,
+	quakeoff G_GNUC_INTERNAL;
+win_t
+	win_input,
 	win_buddy,
 	win_info,
 	win_away;
@@ -30,21 +41,32 @@ int	wsetup_called = 0,
 
 
 void	do_resize(conn_t *conn, buddywin_t *bwin) {
+	int	small, height;
+
+	if ((scrollbackoff == 0) || (conn != curconn) || !inconn || (bwin != curconn->curbwin)) {
+		small = 1;
+		height = 3*faimconf.wstatus.widthy/2;
+	} else {
+		small = 0;
+		height = faimconf.wstatus.pady;
+	}
+
 	assert(bwin->nwin.win != NULL);
-	wresize(bwin->nwin.win, faimconf.wstatus.pady,
-		faimconf.wstatus.widthx);
+	nw_resize(&(bwin->nwin), height, faimconf.wstatus.widthx);
 	werase(bwin->nwin.win);
-	nw_move(&(bwin->nwin), faimconf.wstatus.pady-1, 0);
+	nw_move(&(bwin->nwin), height-1, 0);
 	nw_printf(&(bwin->nwin), 0, 0, "\n\n\n");
-	playback(conn, bwin);
+	playback(conn, bwin, height);
+	bwin->nwin.small = small;
 }
 
 void	statrefresh(void) {
 	int	waiting, buddies, autohide = secs_getvar_int("autohide");
 
 	if (inconn) {
-		if (curconn->curbwin->nwin.dirty != 0)
+		if ((curconn->curbwin->nwin.dirty != 0) || ((scrollbackoff > 0) && (curconn->curbwin->nwin.small != 0)))
 			do_resize(curconn, curconn->curbwin);
+		assert(curconn->curbwin->nwin.dirty == 0);
 		curconn->curbwin->viewtime = nowf;
 	}
 
@@ -54,7 +76,7 @@ void	statrefresh(void) {
 		;
 	else if (inconn_real) {
 		pnoutrefresh(curconn->curbwin->nwin.win,
-			faimconf.wstatus.pady-faimconf.wstatus.widthy-1-scrollbackoff-quakeoff,
+			curconn->curbwin->nwin.height-faimconf.wstatus.widthy-1-scrollbackoff-quakeoff,
 			0,
 			faimconf.wstatus.starty,
 			faimconf.wstatus.startx,
@@ -344,12 +366,10 @@ void	win_resize(void) {
 			faimconf.wstatus.widthx);
 		if (bwin != NULL)
 			do {
-				if ((conn != curconn) || (bwin != curconn->curbwin))
-					bwin->nwin.dirty = 1;
+				nw_resize(&(bwin->nwin), 1, 1);
+				bwin->nwin.dirty = 1;
 			} while ((bwin = bwin->next) != conn->curbwin);
 	} while ((conn = conn->next) != curconn);
-	if (inconn)
-		do_resize(curconn, curconn->curbwin);
 }
 
 int	nw_printf(win_t *win, int pair, int bold, const unsigned char *format, ...) {
@@ -440,6 +460,7 @@ void	nw_touchwin(win_t *win) {
 
 void	nw_newwin(win_t *win) {
 	nw_delwin(win);
+	win->height = faimconf.wstatus.pady;
 	win->win = NPAD(wstatus);
 	assert(win->win != NULL);
 }
@@ -457,6 +478,7 @@ void	nw_mvwin(win_t *win, int row, int col) {
 }
 
 void	nw_resize(win_t *win, int row, int col) {
+	win->height = row;
 	wresize(win->win, row, col);
 }
 
@@ -506,12 +528,16 @@ void	nw_getpass(win_t *win, char *pass, int len) {
 
 		if ((ch == '\b') || (ch == 0x7F) || (ch == KEY_BACKSPACE)) {
 			if (i > -1) {
+				assert(i >= 0);
+				assert(i < len);
 				pass[i] = 0;
 				i--;
 				nw_printf(win, C(INPUT,TEXT), 1, "\b \b");
 			}
 		} else {
 			i++;
+			assert(i >= 0);
+			assert(i < len);
 			pass[i] = ch;
 			nw_printf(win, C(INPUT,TEXT), 1, ".");
 		}

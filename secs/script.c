@@ -41,7 +41,7 @@ char	*secs_script_expand(secs_block_t *block, const char *instr) {
 				signed int	vallen = strlen(val);
 
 				str += 1+strlen(var->name);
-				assert((worklen - slen - vallen) < worklen);
+				assert((worklen - slen - vallen) <= worklen);
 				while ((worklen - slen - vallen) < 2) {
 					worklen += 256;
 					workstr = secs_mem_realloc(workstr, worklen);
@@ -58,7 +58,7 @@ char	*secs_script_expand(secs_block_t *block, const char *instr) {
 		workstr[slen++] = *str++;
 	}
 	assert(slen < worklen);
-	assert((worklen - slen - 256) < worklen);
+	assert((worklen - slen - 256) <= worklen);
 	workstr[slen] = 0;
 	if ((worklen - slen - 256) > 2) {
 		worklen -= 256;

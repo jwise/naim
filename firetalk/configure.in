@@ -79,35 +79,8 @@ AC_CHECK_TYPE(uint32_t,
 
 AC_CHECK_FUNCS(getuid getpwuid strptime inet_aton)
 
-#NETLIB=
-#for func in inet_ntoa gethostbyname gethostbyaddr socket connect; do
-#	AC_CHECK_FUNC($func, [
-#			NETLIB="${NETLIB}"
-#		], [
-#			AC_CHECK_LIB(dns, $func,
-#				NETLIB="${NETLIB} -ldns",
-#				AC_CHECK_LIB(bind, $func,
-#					NETLIB="${NETLIB} -lbind",
-#					AC_CHECK_LIB(resolv, $func,
-#						NETLIB="${NETLIB} -lresolv",
-#						AC_CHECK_LIB(nsl, $func,
-#							NETLIB="${NETLIB} -lnsl",
-#							AC_CHECK_LIB(socket, $func,
-#								NETLIB="${NETLIB} -lsocket",
-#								AC_MSG_ERROR(unable to find $func)
-#							)
-#						)
-#					)
-#				)
-#			)
-#		]
-#	)
-#done
-
 echo ""
 echo ""
-
-#AC_SUBST(NETLIB)
 
 AC_CONFIG_FILES([
 Makefile

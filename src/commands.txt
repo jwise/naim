@@ -116,23 +116,18 @@ COMMAND: help
   DESCRIPTION: Display topical help on using naim
   SYNTAX: /help [topic]
 
-COMMAND: exit
-  ALIASES: quit
-  DESCRIPTION: Disconnect and exit naim
-  SYNTAX: /exit
-
 COMMAND: unblock
   ALIASES: unignore
   DESCRIPTION: Remove someone from the ignore list
   SYNTAX: /unblock name
 
-COMMAND: ignore
-  DESCRIPTION: Ignore all private/public messages
-  SYNTAX: /ignore [name [reason]]
-
 COMMAND: block
   DESCRIPTION: Server-enforced /ignore
   SYNTAX: /block name [reason]
+
+COMMAND: ignore
+  DESCRIPTION: Ignore all private/public messages
+  SYNTAX: /ignore [name [reason]]
 
 COMMAND: chains
   ALIASES: tables
@@ -150,6 +145,11 @@ COMMAND: save
 COMMAND: sync
   DESCRIPTION: Save buddy list to server
   SYNTAX: /sync
+
+COMMAND: exit
+  ALIASES: quit
+  DESCRIPTION: Disconnect and exit naim
+  SYNTAX: /exit
 
 COMMAND: warn
   DESCRIPTION: Send a warning about someone

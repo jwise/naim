@@ -139,7 +139,9 @@ void	rdelidiot(conn_t *conn, const char *screenname) {
 	if (firetalk_compare_nicks(conn->conn, screenname, idiot->screenname) == FE_SUCCESS) {
 		conn->idiotar = idiot->next;
 		free(idiot->screenname);
+		idiot->screenname = NULL;
 		free(idiot->notes);
+		idiot->notes = NULL;
 		free(idiot);
 		return;
 	}
@@ -149,7 +151,9 @@ void	rdelidiot(conn_t *conn, const char *screenname) {
 
 			idiot->next = idiot->next->next;
 			free(b->screenname);
+			b->screenname = NULL;
 			free(b->notes);
+			b->notes = NULL;
 			free(b);
 			return;
 		}

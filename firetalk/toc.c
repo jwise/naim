@@ -63,7 +63,6 @@ struct s_toc_connection {
 	struct s_toc_infoget *infoget_head;
 	time_t lasttalk;				/* last time we talked */
 	long lastidle;					/* last idle that we told the server */
-	double lastsend;
 	int passchange;					/* whether we're changing our password right now */
 	int connectstate;
 	unsigned char
@@ -258,11 +257,13 @@ static int toc_internal_disconnect(client_t c, const int error) {
 		c->profar = NULL;
 		c->profc = 0;
 	}
+	assert(c->profar == NULL);
 	if (c->proflen > 0) {
 		free(c->profstr);
 		c->profstr = NULL;
 		c->proflen = 0;
 	}
+	assert(c->profstr == NULL);
 	if (c->ectqc > 0) {
 		int	i;
 
@@ -276,6 +277,7 @@ static int toc_internal_disconnect(client_t c, const int error) {
 		c->ectqar = NULL;
 		c->ectqc = 0;
 	}
+	assert(c->ectqar == NULL);
 
 	firetalk_callback_disconnect(c,error);
 	return FE_SUCCESS;
@@ -1195,8 +1197,12 @@ static fte_t
 					memmove(c->ectqar+i, c->ectqar+i+1,
 						c->ectqc-i-1);
 					c->ectqc--;
-					c->ectqar = realloc(c->ectqar, 
-						(c->ectqc)*sizeof(*(c->ectqar)));
+					assert(c->ectqc >= 0);
+					if (c->ectqc == 0) {
+						free(c->ectqar);
+						c->ectqar = NULL;
+					} else
+						c->ectqar = realloc(c->ectqar, (c->ectqc)*sizeof(*(c->ectqar)));
 
 					return(fte);
 				}

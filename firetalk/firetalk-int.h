@@ -123,14 +123,6 @@ struct s_firetalk_subcode_callback {
 	ptrtofnct callback;
 };
 
-struct s_firetalk_queued_data {
-	struct s_firetalk_queued_data *next;
-	struct s_firetalk_queued_data *prev;
-	char *data;
-	int length;
-	double delta;
-};
-
 struct s_firetalk_handle {
 	void *handle;
 	void *clientstruct;
@@ -158,9 +150,6 @@ struct s_firetalk_handle {
 	struct s_firetalk_subcode_callback *subcode_reply_head;
 	struct s_firetalk_subcode_callback *subcode_request_default;
 	struct s_firetalk_subcode_callback *subcode_reply_default;
-	double lastsend;
-	struct s_firetalk_queued_data *datahead;
-	struct s_firetalk_queued_data *datatail;
 	unsigned char deleted:1;
 };
 

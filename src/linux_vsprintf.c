@@ -16,7 +16,7 @@
 
 #include "linux_vsprintf.h"
 
-int skip_atoi(const char **s)
+static int skip_atoi(const char **s)
 {
 	int i=0;
 
@@ -25,7 +25,7 @@ int skip_atoi(const char **s)
 	return i;
 }
 
-char *number(char * buf, char * end, long long num, int base, int size, int precision, int type)
+static char *number(char * buf, char * end, long long num, int base, int size, int precision, int type)
 {
 	char c,sign,tmp[66];
 	const char *digits;

@@ -12,7 +12,10 @@
 extern conn_t	*curconn;
 extern time_t	now;
 extern faimconf_t	faimconf;
-time_t	awaytime;
+
+extern time_t
+	awaytime G_GNUC_INTERNAL;
+time_t	awaytime = -1;
 
 void	logim(conn_t *conn, const char *source, const char *target,
 	const unsigned char *msg) {

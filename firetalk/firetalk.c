@@ -178,7 +178,6 @@ const char *firetalk_debase64(const char *const str) {
 
 fte_t	firetalk_im_internal_add_deny(firetalk_t conn, const char *const nickname) {
 	struct s_firetalk_deny *iter;
-	struct s_firetalk_buddy *buddyiter;
 
 	VERIFYCONN
 
@@ -195,11 +194,7 @@ fte_t	firetalk_im_internal_add_deny(firetalk_t conn, const char *const nickname)
 	if (conn->deny_head->nickname == NULL)
 		abort();
 
-	for (buddyiter = conn->buddy_head; buddyiter != NULL; buddyiter = buddyiter->next)
-		if (firetalk_protocols[conn->protocol]->comparenicks(buddyiter->nickname,nickname) == FE_SUCCESS) {
-			if ((buddyiter->online == 1) && (conn->callbacks[FC_IM_BUDDYOFFLINE] != NULL))
-				conn->callbacks[FC_IM_BUDDYOFFLINE](conn,conn->clientstruct,buddyiter->nickname);
-		}
+	firetalk_callback_im_buddyonline(conn->handle, nickname, 0);
 
 	return FE_SUCCESS;
 }
@@ -2230,6 +2225,7 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 			continue;
 		if (fchandle->fd >= n)
 			n = fchandle->fd + 1;
+		assert(fchandle->fd >= 0);
 		FD_SET(fchandle->fd, my_except);
 		if (fchandle->connected == FCS_WAITING_SYNACK)
 			FD_SET(fchandle->fd, my_write);
@@ -2242,20 +2238,24 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 					n = fileiter->sockfd + 1;
 				switch (fileiter->direction) {
 				  case FF_DIRECTION_SENDING:
+					assert(fileiter->sockfd >= 0);
 					FD_SET(fileiter->sockfd, my_write);
 					FD_SET(fileiter->sockfd, my_except);
 					break;
 				  case FF_DIRECTION_RECEIVING:
+					assert(fileiter->sockfd >= 0);
 					FD_SET(fileiter->sockfd, my_read);
 					FD_SET(fileiter->sockfd, my_except);
 					break;
 				}
 			} else if (fileiter->state == FF_STATE_WAITREMOTE) {
+				assert(fileiter->sockfd >= 0);
 				if (fileiter->sockfd >= n)
 					n = fileiter->sockfd + 1;
 				FD_SET(fileiter->sockfd, my_read);
 				FD_SET(fileiter->sockfd, my_except);
 			} else if (fileiter->state == FF_STATE_WAITSYNACK) {
+				assert(fileiter->sockfd >= 0);
 				if (fileiter->sockfd >= n)
 					n = fileiter->sockfd + 1;
 				FD_SET(fileiter->sockfd, my_write);
@@ -2299,6 +2299,7 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 
 		if (fchandle->connected == FCS_NOTCONNECTED)
 			continue;
+		assert(fchandle->fd >= 0);
 		if (FD_ISSET(fchandle->fd, my_except))
 			firetalk_protocols[fchandle->protocol]->disconnect(fchandle->handle);
 		else if (FD_ISSET(fchandle->fd, my_read)) {
@@ -2324,16 +2325,18 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 		for (fileiter = fchandle->file_head; fileiter != NULL; fileiter = filenext) {
 			filenext = fileiter->next;
 			if (fileiter->state == FF_STATE_TRANSFERRING) {
+				assert(fileiter->sockfd >= 0);
 				if (FD_ISSET(fileiter->sockfd, my_write))
 					firetalk_handle_send(fchandle, fileiter);
-				if (FD_ISSET(fileiter->sockfd, my_read))
+				if ((fileiter->sockfd != -1) && FD_ISSET(fileiter->sockfd, my_read))
 					firetalk_handle_receive(fchandle, fileiter);
-				if (FD_ISSET(fileiter->sockfd, my_except)) {
+				if ((fileiter->sockfd != -1) && FD_ISSET(fileiter->sockfd, my_except)) {
 					if (fchandle->callbacks[FC_FILE_ERROR])
 						fchandle->callbacks[FC_FILE_ERROR](fchandle, fchandle->clientstruct, fileiter, fileiter->clientfilestruct, FE_IOERROR);
 					firetalk_file_cancel(fchandle, fileiter);
 				}
 			} else if (fileiter->state == FF_STATE_WAITREMOTE) {
+				assert(fileiter->sockfd >= 0);
 				if (FD_ISSET(fileiter->sockfd, my_read)) {
 					unsigned int l = sizeof(struct sockaddr_in);
 					struct sockaddr_in addr;
@@ -2357,6 +2360,7 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 					firetalk_file_cancel(fchandle, fileiter);
 				}
 			} else if (fileiter->state == FF_STATE_WAITSYNACK) {
+				assert(fileiter->sockfd >= 0);
 				if (FD_ISSET(fileiter->sockfd, my_write))
 					firetalk_handle_file_synack(fchandle, fileiter);
 				if (FD_ISSET(fileiter->sockfd, my_except))
