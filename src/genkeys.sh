@@ -24,7 +24,7 @@ echo "#endif"
 echo '#include <ncurses.h>' \
 	| ${CPP} -dD - \
 	| grep '^#define KEY_' \
-	| tail +3 \
+	| tail -n +3 \
 	| ${AWK} '{printf("%s\n", $2);}' \
 	| grep -v '(.*)' \
 	| sed 's/^KEY_\(.*\)$/\1/g' \

@@ -1,7 +1,7 @@
 /*
 firetalk.c - FireTalk wrapper definitions
 Copyright (C) 2000 Ian Gulliver
-Copyright 2002-2003 Daniel Reed <n@ml.org>
+Copyright 2002-2004 Daniel Reed <n@ml.org>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of version 2 of the GNU General Public License as
@@ -30,7 +30,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <time.h>
 #include <sys/stat.h>
 #include <netdb.h>
-#include <math.h>
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -1360,7 +1359,7 @@ const char *firetalk_strerror(const fte_t e) {
 		case FE_USERUNAVAILABLE:
 			return "User is currently unavailable";
 		case FE_USERINFOUNAVAILABLE:
-			return "User information is currently unavilable";
+			return "User information is currently unavailable";
 		case FE_TOOFAST:
 			return "You are sending messages too fast; last message was dropped";
 		case FE_ROOMUNAVAILABLE:
@@ -1686,7 +1685,7 @@ fte_t	firetalk_im_send_message(firetalk_t conn, const char *const dest, const ch
 
 	VERIFYCONN
 
-	if (conn->connected != FCS_ACTIVE)
+	if ((conn->connected != FCS_ACTIVE) && (strcasecmp(dest, ":RAW") != 0))
 		return FE_NOTCONNECTED;
 
 	e = firetalk_protocols[conn->protocol]->im_send_message(conn->handle, dest, message, auto_flag);

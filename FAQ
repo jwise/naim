@@ -235,14 +235,49 @@ naimhelp, which you will need to remove manually (or /delbuddy me and type
 `/save' again).
 
 
-Do you ever regret the decision to put yourself on the default buddy list? 
+One of my contacts *always* shows up offline, even when he is talking to me. 
+  What is wrong?
+Some of my contacts show up as offline even though I can see them online from 
+  another client. What is wrong?
 
-Nope, I added myself to the default buddy list a long time ago in order to give
-new users easy access to me. I've met a small number of disagreeable people over
-the years, but nowhere near enough to make me remove myself from the next
-release: I met an average of 7.5 new naim users every day during the months of
-June and July, 2002, many of whom I was able to help with some issue related to
-naim. Plus, I love all of the positive feedback I get.
+There are several possibilities. If you have not received any messages from the 
+buddy:
+  1. Your buddy has you blocked. This will prevent your buddy from seeing you
+online, and will prevent you from seeing your buddy online. Neither of you will
+be able to send messages to each other or retrieve each other's profile. You can
+check for this by using the "/info buddyname" command from two accounts at the
+same time. If one "/info buddyname" fails while the other succeeds, it is likely
+your contact has blocked the account where /info fails.
+  2. You have your buddy blocked. Blocking has the same effects regardless of 
+which user is doing the blocking. You can check to see if you have blocked the 
+buddy by checking /ignore (which provides a list).
+  3. Your buddy has privacy mode enabled and has not added you to the allow 
+list. Privacy mode makes it so only people on a special "allow" list can 
+communicate with the user, and all other users are treated as if they are 
+blocked (as with 1. or 2.). Many clients use their buddy list as the "allow" 
+list. You can tell this is happening if you are able to "/info buddyname" from 
+one account but not from any others.
+
+If you have or have not received messages from the buddy in question, it may be 
+one of the following:
+  4. You have exceeded the maximum number of buddies for your account. At the
+time of writing, AOL's Instant Messenger servers limit each account to 200
+simultaneous buddies. The protocol does not declare this limit and the server
+does not emit an error message if you go over it; your buddy tracking simply
+starts behaving erratically. You can check for this by using the "/names"  
+command and manually counting entries.
+  5. Your buddy is using the "invisible" feature of AOL Instant Messenger. This 
+feature is similar to the "privacy" feature mentioned in 3., but only blocks 
+tracking information. Userinfo requests and private messages can still be sent 
+between clients. Unfortunately, this clashes with naim's automatic message 
+queueing features, and causes the unfortunate side effect of not being able to 
+send messages to "invisible" users. You can tell this is happening if you have 
+less than 200 buddies, a user is showing up as "offline", but the user is also 
+able to send you messages (and you are unable to reply).
+  6. The AIM service is experiencing technical difficulties and your session has 
+become unstable. This happens from time to time, and breaks naim's session 
+tracking ability in the same way as the "invisible" feature. You can not usually 
+confirm or rule out this possibility.
 
 
 

@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <time.h>
 #include <stdio.h>
+#include <string.h>
 
 int	aimcmp(const unsigned char *sn1, const unsigned char *sn2) {
 	register const unsigned char
@@ -170,4 +171,47 @@ const char
 	else
 		snprintf(buf, sizeof(buf), "%lu.%lu %s", bint, (unsigned long)(dig*(b-bint)), suf);
 	return(buf);
+}
+
+void	htmlstrip(char *bb) {
+	char	*start, *end;
+
+	while ((start = strchr(bb, '<')) != NULL)
+		if ((end = strchr(start, '>')) != NULL)
+			memmove(start, end+1, strlen(end));
+		else
+			break;
+	end = bb;
+	while ((start = strchr(end, '&')) != NULL)
+		if ((end = strchr(start, ';')) != NULL) {
+			if (strncasecmp(start+1, "nbsp;", 5) == 0)
+				*start = ' ';
+			else if (strncasecmp(start+1, "amp;", 4) == 0)
+				*start = '&';
+			else if (strncasecmp(start+1, "gt;", 3) == 0)
+				*start = '>';
+			else if (strncasecmp(start+1, "lt;", 3) == 0)
+				*start = '<';
+			else if (strncasecmp(start+1, "quot;", 5) == 0)
+				*start = '"';
+			else
+				continue;
+			memmove(start+1, end+1, strlen(end));
+			end = start+1;
+		} else
+			break;
+}
+
+void	htmlreplace(char *bb, char what) {
+	char	*start, *end;
+
+	while ((start = strchr(bb, '<')) != NULL)
+		if ((end = strchr(start, '>')) != NULL) {
+			char	*tmp;
+
+			for (tmp = start; tmp <= end; tmp++)
+				*tmp = what;
+		} else
+			break;
+	end = bb;
 }

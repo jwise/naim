@@ -112,6 +112,16 @@ typedef struct {
 		isaddressed:1,	// message addressed sent to me
 		offline:1;
 	char	*key;
+	struct {
+		unsigned char
+			*line;
+		char	*name;
+		int	reps;
+		time_t	lasttime;
+		int	flags;
+		unsigned char
+			istome:1;
+	} last;
 } chatlist_t;
 
 typedef struct {
@@ -283,16 +293,16 @@ static inline int naim_strtocol(const char *str) {
 }
 
 #define STRREPLACE(target, source) do { \
-	assert(source != NULL); \
-	assert(source != target); \
-	if ((target = realloc(target, strlen(source)+1)) == NULL) { \
+	assert((source) != NULL); \
+	assert((source) != (target)); \
+	if (((target) = realloc((target), strlen(source)+1)) == NULL) { \
 		echof(curconn, NULL, "Fatal error %i in strdup(%s): %s\n", errno, \
-			source, strerror(errno)); \
+			(source), strerror(errno)); \
 		statrefresh(); \
 		sleep(5); \
 		abort(); \
 	} \
-	strcpy(target, source); \
+	strcpy((target), (source)); \
 } while (0)
 
 #define FREESTR(x) do { \
@@ -302,8 +312,8 @@ static inline int naim_strtocol(const char *str) {
 	} \
 } while (0)
 
-#define WINTIME(win, cpre) do { \
-	struct tm	*tptr = localtime(&now); \
+#define WINTIME_NOTNOW(win, cpre, t) do { \
+	struct tm	*tptr = localtime(&t); \
 	unsigned char	buf[64]; \
 	char		*format; \
 	\
@@ -312,6 +322,8 @@ static inline int naim_strtocol(const char *str) {
 	strftime(buf, sizeof(buf), format, tptr); \
 	hwprintf(win, C(cpre,EVENT), "</B>%s", buf); \
 } while (0)
+
+#define WINTIME(win, cpre)	WINTIME_NOTNOW(win, cpre, now)
 
 #define WINTIMENOLOG(win, cpre) do { \
 	struct tm	*tptr = localtime(&now); \
@@ -336,7 +348,6 @@ static inline int naimisprint(int c) {
 }
 
 /* buddy.c */
-void	htmlstrip(char *bb);
 const unsigned char *const
 	naim_normalize(const unsigned char *const name) G_GNUC_INTERNAL;
 void	playback(conn_t *const conn, buddywin_t *const, const int) G_GNUC_INTERNAL;
@@ -361,13 +372,17 @@ void	conio_handleline(const char *line);
 void	gotkey(int) G_GNUC_INTERNAL;
 void	conio_hook_init(void) G_GNUC_INTERNAL;
 
+/* echof.c */
+void	status_echof(conn_t *conn, const unsigned char *format, ...);
+void	window_echof(buddywin_t *bwin, const unsigned char *format, ...);
+void	echof(conn_t *conn, const unsigned char *where, const unsigned char *format, ...);
+
 /* events.c */
 void	updateidletime(void) G_GNUC_INTERNAL;
 void	event_handle(time_t) G_GNUC_INTERNAL;
 
 /* fireio.c */
-int	getvar_int(conn_t *conn, const char *);
-char	*getvar(conn_t *conn, const char *);
+void	chat_flush(buddywin_t *bwin) G_GNUC_INTERNAL;
 conn_t	*naim_newconn(int);
 void	naim_set_info(void *, const char *) G_GNUC_INTERNAL;
 void	naim_lastupdate(conn_t *conn) G_GNUC_INTERNAL;
@@ -390,6 +405,8 @@ void	hamster_hook_init(void) G_GNUC_INTERNAL;
 void	setaway(const int auto_flag);
 void	unsetaway(void);
 void	sendaway(conn_t *conn, const char *);
+int	getvar_int(conn_t *conn, const char *);
+char	*getvar(conn_t *conn, const char *);
 
 /* helpcmd.c */
 void	help_printhelp(const char *) G_GNUC_INTERNAL;
@@ -397,11 +414,6 @@ void	help_printhelp(const char *) G_GNUC_INTERNAL;
 /* hwprintf.c */
 int	vhwprintf(win_t *, int, const unsigned char *, va_list);
 int	hwprintf(win_t *, int, const unsigned char *, ...);
-
-/* echof.c */
-void	status_echof(conn_t *conn, const unsigned char *format, ...);
-void	window_echof(buddywin_t *bwin, const unsigned char *format, ...);
-void	echof(conn_t *conn, const unsigned char *where, const unsigned char *format, ...);
 
 /* rc.c */
 const char
@@ -425,6 +437,8 @@ const char
 	*dtime(double t) G_GNUC_INTERNAL;
 const char
 	*dsize(double b) G_GNUC_INTERNAL;
+void	htmlstrip(char *bb);
+void	htmlreplace(char *bb, char what);
 
 /* script.c */
 void	script_makealias(const char *, const char *);

@@ -31,6 +31,8 @@ extern win_t
 extern int
 	wsetup_called G_GNUC_INTERNAL,
 	quakeoff G_GNUC_INTERNAL;
+extern char
+	*statusbar_text G_GNUC_INTERNAL;
 win_t
 	win_input,
 	win_buddy,
@@ -38,6 +40,7 @@ win_t
 	win_away;
 int	wsetup_called = 0,
 	quakeoff = 0;
+char	*statusbar_text = NULL;
 
 
 void	do_resize(conn_t *conn, buddywin_t *bwin) {
@@ -63,6 +66,9 @@ void	do_resize(conn_t *conn, buddywin_t *bwin) {
 void	statrefresh(void) {
 	int	waiting, buddies, autohide = secs_getvar_int("autohide");
 
+	if (curconn == NULL)
+		return;
+
 	if (inconn) {
 		if ((curconn->curbwin->nwin.dirty != 0) || ((scrollbackoff > 0) && (curconn->curbwin->nwin.small != 0)))
 			do_resize(curconn, curconn->curbwin);
@@ -72,9 +78,7 @@ void	statrefresh(void) {
 
 	bupdate();
 
-	if (curconn == NULL)
-		;
-	else if (inconn_real) {
+	if (inconn_real) {
 		pnoutrefresh(curconn->curbwin->nwin.win,
 			curconn->curbwin->nwin.height-faimconf.wstatus.widthy-1-scrollbackoff-quakeoff,
 			0,
@@ -128,11 +132,11 @@ void	statrefresh(void) {
 	if (buddies > wbuddy_widthy)
 		buddies = wbuddy_widthy;
 	if ((changetime != -1) && (waiting || (changetime == 0)
-		|| (autohide == 0) || (inconn_real && (curconn->online == 0))
+		|| (autohide == 0) || (curconn->online == 0)
 		|| ((nowf - changetime) < autohide))) {
 		int	sheight = secs_getvar_int("winlistchars"), sneak;
 
-		if (waiting || (changetime == 0) || (autohide == 0) || (inconn_real && (curconn->online == 0)))
+		if (waiting || (changetime == 0) || (autohide == 0) || (curconn->online == 0))
 			sneak = sheight;
 		else if ((nowf - changetime) <= SLIDETIME)
 			sneak = sheight*(nowf - changetime)/SLIDETIME;
@@ -147,7 +151,11 @@ void	statrefresh(void) {
 			faimconf.wstatus.starty+buddies-1,
 			faimconf.wstatus.startx+faimconf.wstatus.widthx-1);
 	}
-	if (withtextcomp == 1) {
+	if (statusbar_text != NULL) {
+		nw_erase(&win_info);
+		nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " %*s ", -faimconf.winfo.widthx,
+			statusbar_text);
+	} else if (withtextcomp == 1) {
 		nw_erase(&win_info);
 		nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " %*s ", -faimconf.winfo.widthx,
 			"I can finish what you're typing; just press Tab.");
@@ -283,9 +291,9 @@ void	wsetup(void) {
 	fprintf(stderr, " done: LINES=%i COLS=%i\r\n", LINES, COLS);
 
 	fprintf(stderr, "Checking for large enough screen dimensions...");
-	if ((LINES < 10) || (COLS < 20)) {
+	if ((LINES < 10) || (COLS < 44)) {
 		fprintf(stderr, " failed\r\n");
-		fprintf(stderr, "naim requires at least 10 rows and at least 20 columns.\r\n");
+		fprintf(stderr, "naim requires at least 10 rows and at least 44 columns.\r\n");
 		exit(1);
 	}
 	fprintf(stderr, " done\r\n");

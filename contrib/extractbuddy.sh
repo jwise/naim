@@ -7,6 +7,10 @@ if [ x"$1" = x"--help" ]; then
 	echo "  Where <infile> is a valid .naimrc file, or else stdin is used."
 	exit
 fi
+if [ x"$1" = x"--version" ]; then
+	echo "$0 (naim) contrib"
+	exit
+fi
 
 if [ x"$1" = x"--blt" ]; then
 	BLTFORMAT=1

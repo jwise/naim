@@ -9,7 +9,7 @@
 
 extern win_t	win_info, win_buddy;
 extern conn_t	*curconn;
-extern faimconf_t	faimconf;
+extern faimconf_t faimconf;
 extern time_t	now, awaytime;
 extern double	nowf, changetime;
 extern char	*lastclose;
@@ -25,35 +25,6 @@ extern int
 int	buddyc = -1,
 	wbuddy_widthy = -1,
 	inplayback = 0;
-
-void	htmlstrip(char *bb) {
-	char	*start, *end;
-
-	while ((start = strchr(bb, '<')) != NULL)
-		if ((end = strchr(start, '>')) != NULL)
-			memmove(start, end+1, strlen(end));
-		else
-			break;
-	end = bb;
-	while ((start = strchr(end, '&')) != NULL)
-		if ((end = strchr(start, ';')) != NULL) {
-			if (strncasecmp(start+1, "nbsp;", 5) == 0)
-				*start = ' ';
-			else if (strncasecmp(start+1, "amp;", 4) == 0)
-				*start = '&';
-			else if (strncasecmp(start+1, "gt;", 3) == 0)
-				*start = '>';
-			else if (strncasecmp(start+1, "lt;", 3) == 0)
-				*start = '<';
-			else if (strncasecmp(start+1, "quot;", 5) == 0)
-				*start = '"';
-			else
-				continue;
-			memmove(start+1, end+1, strlen(end));
-			end = start+1;
-		} else
-			break;
-}
 
 static void
 	iupdate(void) {
@@ -647,6 +618,12 @@ void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 	  case CHAT:
 		if (bwin->winname[0] != ':')
 			firetalk_chat_part(conn->conn, bwin->winname);
+		free(bwin->e.chat->key);
+		bwin->e.chat->key = NULL;
+		free(bwin->e.chat->last.line);
+		bwin->e.chat->last.line = NULL;
+		free(bwin->e.chat->last.name);
+		bwin->e.chat->last.name = NULL;
 		free(bwin->e.chat);
 		bwin->e.chat = NULL;
 		break;
@@ -781,7 +758,7 @@ static FILE
 void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 	FILE	*rfile;
 
-	assert (bwin->nwin.logfile != NULL);
+	assert(bwin->nwin.logfile != NULL);
 	fflush(bwin->nwin.logfile);
 	bwin->nwin.dirty = 0;
 
@@ -851,7 +828,7 @@ void	bnewwin(conn_t *conn, const char *name, et_t et) {
 		assert(bwin->e.buddy != NULL);
 		break;
 	  case CHAT:
-		bwin->e.chat = calloc(1, sizeof(chatlist_t));
+		bwin->e.chat = calloc(1, sizeof(*(bwin->e.chat)));
 		assert(bwin->e.chat != NULL);
 		bwin->e.chat->offline = 1;
 		break;

@@ -39,6 +39,9 @@ void	window_echof(buddywin_t *bwin, const unsigned char *format, ...) {
 	assert(bwin != NULL);
 	assert(format != NULL);
 
+	if (bwin->et == CHAT)
+		chat_flush(bwin);
+
 	inplayback = 1;
 	WINTIME(&(bwin->nwin), IMWIN);
 	vhwprintf(&(bwin->nwin), C(IMWIN,EVENT_ALT), "<B>***</B>", msg);

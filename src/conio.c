@@ -33,6 +33,7 @@ extern int	stayconnected, quakeoff;
 extern time_t	now, awaytime;
 extern double	nowf, changetime;
 extern const char	*home, *sty;
+extern char	*statusbar_text;
 
 extern int
 	scrollbackoff G_GNUC_INTERNAL,
@@ -366,6 +367,7 @@ CONIOAREQ(string,message)
 
 		switch (bwin->et) {
 		  case CHAT:
+			chat_flush(bwin);
 			format = "&lt;<B>%s</B>&gt;";
 			break;
 		  case BUDDY:
@@ -1157,7 +1159,7 @@ CONIOAREQ(string,message)
 CONIOWHER(NOTSTATUS)
 	WINTIME(&(conn->curbwin->nwin), IMWIN);
 	hwprintf(&(conn->curbwin->nwin), C(IMWIN,SELF), "* <B>%s</B>", conn->sn);
-	hwprintf(&(conn->curbwin->nwin), C(IMWIN,TEXT), " %s<br>", args[0]);
+	hwprintf(&(conn->curbwin->nwin), C(IMWIN,TEXT), "%s%s<br>", (strncmp(args[0], "'s ", 3) == 0)?"":" ", args[0]);
 	logim(conn, conn->sn, conn->curbwin->winname, args[0]);
 	naim_send_act(conn, conn->curbwin->winname, args[0]);
 }
@@ -1690,7 +1692,7 @@ CONIOAOPT(string,chain)
 	int	i;
 
 	if (argc == 0) {
-		const char *chains[] = { "getcmd", "notify", "periodic", "recvfrom", "sendto" };
+		const char *chains[] = { "getcmd", "notify", "periodic", "recvfrom", "sendto", "proto_user_onlineval" };
 
 		for (i = 0; i < sizeof(chains)/sizeof(*chains); i++) {
 			if (i > 0)
@@ -3804,6 +3806,11 @@ static void
 void	gotkey(int c) {
 	fd_set	rfd;
 	struct timeval	timeout = { 0, 0 };
+
+	if (statusbar_text != NULL) {
+		free(statusbar_text);
+		statusbar_text = NULL;
+	}
 
 	gotkey_real(c);
 

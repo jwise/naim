@@ -1,3 +1,5 @@
+EXTRA_DIST = firetalk.m4
+
 noinst_LIBRARIES = libfiretalk.a
 libfiretalk_a_SOURCES = \
 	aim.c \

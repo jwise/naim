@@ -160,5 +160,6 @@ void	help_printhelp(const char *topic) {
 		set_echof(" %s\n", buf);
 	}
 	hwprintf(nwin, col, "Type <font color=\"#00FF00\">/help</font> or visit <font color=\"#0000FF\">http://naim.n.ml.org/</font> for more information.<br>");
-	hwprintf(nwin, col, "To reduce clutter, you may wish to bring down the status window. To do this, press the F1 key before using /help.<br>");
+	if (inconn && (curconn->curbwin != NULL))
+		hwprintf(nwin, col, "To reduce clutter, you may wish to bring down the status window. To do this, press the F1 key before using /help.<br>");
 }

@@ -101,9 +101,9 @@ static void
 
 	wshutitdown();
 	len = backtrace(bt, sizeof(bt)/sizeof(*bt));
-	fprintf(stderr, "\r\n\r\n\r\nSegmentation violation, partial symbolic backtrace:\r\n");
+	fprintf(stderr, "\r\n\r\n\r\nSegmentation violation; partial symbolic backtrace:\r\n");
 	backtrace_symbols_fd(bt, len, STDERR_FILENO);
-	fprintf(stderr, "\r\nThis information is not a replacement for running naim in gdb. If you are interested in debugging this problem, please re-run naim within gdb and reproduce the fault. When you are presented with the (gdb) prompt again, type \"backtrace\" to receive the full, symbolic backtrace.\r\n\r\n");
+	fprintf(stderr, "\r\nThis information is not a replacement for running naim in gdb. If you are interested in debugging this problem, please re-run naim within gdb and reproduce the fault. When you are presented with the (gdb) prompt again, type \"backtrace\" to receive the full symbolic backtrace and mail this to Daniel Reed <n@ml.org>.\r\n\r\n");
 	abort();
 }
 #endif
@@ -134,23 +134,14 @@ int	main_stub(int argc, char **args) {
 
 		if (term != NULL) {
 			if (strcmp(term, "ansi") == 0) {
-				printf("Your $TERM is set to \"ansi\", but I don't believe that. I'm going to reset it to \"linux\", since that seems to work best in most situations. If you are using the Windows telnet client, there is very little hope for you any way, so you might want to grab PuTTy, available for free from http://www.tucows.com/ . If your terminal type really should be \"ansi\" and \"linux\" doesn't work for you, email Daniel Reed <n@ml.org> and let me know.\n");
-				sleep(1);
-				printf("5");
-				fflush(stdout);
-				sleep(1);
-				printf("\r4");
-				fflush(stdout);
-				sleep(1);
-				printf("\r3");
-				fflush(stdout);
-				sleep(1);
-				printf("\r2");
-				fflush(stdout);
-				sleep(1);
-				printf("\r1");
-				fflush(stdout);
-				sleep(1);
+				int	i;
+
+				printf("The environment variable $TERM is set to \"ansi\", but that does not mean anything. I am going to reset it to \"linux\", since that seems to work best in most situations. If you are using the Windows telnet client, you might want to grab PuTTy, available for free from http://www.tucows.com/\n");
+				for (i = 5; i > 0; i--) {
+					printf("\r%i", i);
+					fflush(stdout);
+					sleep(1);
+				}
 				putenv("TERM=linux");
 			} else if ((strncmp(term, "xterm", sizeof("xterm")-1) == 0)
 				|| (strncmp(term, "screen", sizeof("screen")-1) == 0)) {

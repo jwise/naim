@@ -9,10 +9,10 @@ char *naimrc_sample[] = {
 	"eval if ($want_lily != 0) /newconn Lily Lily",
 	"/clear",
 
-	"eval if ($want_aim != 0) /echo <B>You do not have a .naimrc file, so I am using a built-in default. You can use the <font color=#00FF00>/save</font> command to create a new .naimrc file. Here's the basic help:</B>",
-	"eval if ($want_irc != 0) /echo <B>You do not have a .nircrc file, so I am using a built-in default. You can use the <font color=#00FF00>/save</font> command to create a new .nircrc file. Here's the basic help:</B>",
-	"eval if ($want_icq != 0) /echo <B>You do not have a .nicqrc file, so I am using a built-in default. You can use the <font color=#00FF00>/save</font> command to create a new .nicqrc file. Here's the basic help:</B>",
-	"eval if ($want_lily != 0) /echo <B>You do not have a .nlilyrc file, so I am using a built-in default. You can use the <font color=#00FF00>/save</font> command to create a new .nlilyrc file. Here's the basic help:</B>",
+	"eval if ($want_aim != 0) /echo <B>You do not have a .naimrc file, so I am using defaults. You can use the <font color=#00FF00>/save</font> command to create a new .naimrc file.</B>",
+	"eval if ($want_irc != 0) /echo <B>You do not have a .nircrc file, so I am using defaults. You can use the <font color=#00FF00>/save</font> command to create a new .nircrc file.</B>",
+	"eval if ($want_icq != 0) /echo <B>You do not have a .nicqrc file, so I am using defaults. You can use the <font color=#00FF00>/save</font> command to create a new .nicqrc file.</B>",
+	"eval if ($want_lily != 0) /echo <B>You do not have a .nlilyrc file, so I am using defaults. You can use the <font color=#00FF00>/save</font> command to create a new .nlilyrc file.</B>",
 	"/help",
 
 	"eval if ($want_aim != 0) /aim:addbuddy \"naim help\" \"naim author\" Dan Reed",

@@ -215,8 +215,12 @@ static int parsehtml_pair(const unsigned char *buf, int _pair, char *inbold, cha
 		buf += sizeof("rgb(")-1;
 		R = atoi(buf);
 		buf = strchr(buf, ',');
+		if (buf == NULL)
+			return(_pair);
 		G = atoi(buf);
 		buf = strchr(buf, ',');
+		if (buf == NULL)
+			return(_pair);
 		B = atoi(buf);
 	} else
 		return(_pair);
@@ -288,14 +292,15 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 					t++;
 					while (isspace(*t))
 						t++;
-					if (*t == '"') {
-						t++;
-						while ((*t != 0) && (*t != '"')) {
+					if ((*t == '"') || (*t == '\'')) {
+						char	q = *t++;
+
+						while ((*t != 0) && (*t != q)) {
 							if (i < (sizeof(refbuf)-1))
 								refbuf[i++] = *t;
 							t++;
 						}
-						if (*t == '"')
+						if (*t == q)
 							t++;
 					} else {
 						while ((*t != 0) && (!isspace(*t))) {
@@ -318,10 +323,12 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 						t++;
 						while (isspace(*t))
 							t++;
-						if (*t == '"') {
-							while ((*t != 0) && (*t != '"'))
+						if ((*t == '"') || (*t == '\'')) {
+							char	q = *t++;
+
+							while ((*t != 0) && (*t != q))
 								t++;
-							if (*t == '"')
+							if (*t == q)
 								t++;
 						} else
 							while ((*t != 0) && (!isspace(*t)))
@@ -369,14 +376,15 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 					t++;
 					while (isspace(*t))
 						t++;
-					if (*t == '"') {
-						t++;
-						while ((*t != 0) && (*t != '"')) {
+					if ((*t == '"') || (*t == '\'')) {
+						char	q = *t++;
+
+						while ((*t != 0) && (*t != q)) {
 							if (i < (sizeof(colbuf)-1))
 								colbuf[i++] = *t;
 							t++;
 						}
-						if (*t == '"')
+						if (*t == q)
 							t++;
 					} else {
 						while ((*t != 0) && (!isspace(*t))) {
@@ -408,10 +416,12 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 						t++;
 						while (isspace(*t))
 							t++;
-						if (*t == '"') {
-							while ((*t != 0) && (*t != '"'))
+						if ((*t == '"') || (*t == '\'')) {
+							char	q = *t++;
+
+							while ((*t != 0) && (*t != q))
 								t++;
-							if (*t == '"')
+							if (*t == q)
 								t++;
 						} else
 							while ((*t != 0) && (!isspace(*t)))
@@ -453,14 +463,15 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 					t++;
 					while (isspace(*t))
 						t++;
-					if (*t == '"') {
-						t++;
-						while ((*t != 0) && (*t != '"')) {
+					if ((*t == '"') || (*t == '\'')) {
+						char	q = *t++;
+
+						while ((*t != 0) && (*t != q)) {
 							if (i < (sizeof(colbuf)-1))
 								colbuf[i++] = *t;
 							t++;
 						}
-						if (*t == '"')
+						if (*t == q)
 							t++;
 					} else {
 						while ((*t != 0) && (!isspace(*t))) {
@@ -492,10 +503,12 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 						t++;
 						while (isspace(*t))
 							t++;
-						if (*t == '"') {
-							while ((*t != 0) && (*t != '"'))
+						if ((*t == '"') || (*t == '\'')) {
+							char	q = *t++;
+
+							while ((*t != 0) && (*t != q))
 								t++;
-							if (*t == '"')
+							if (*t == q)
 								t++;
 						} else
 							while ((*t != 0) && (!isspace(*t)))

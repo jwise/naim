@@ -113,23 +113,12 @@ static int
 			if (blist->crypt != NULL) {
 				int	i, j = 0;
 
-#if 0
-				echof(curconn, "ENCRYPT", "--> %s %s ^ %s", *dest, blist->crypt, *message);
-				for (i = 0; blist->crypt[i] != 0; i++)
-					echof(curconn, "ENCRYPT", "%i: %c ^ %c = %02X", i, (*message)[i], (unsigned char)blist->crypt[i], (*message)[i] ^ (unsigned char)blist->crypt[i]);
-#endif
-
 				for (i = 0; i < *len; i++) {
 					(*message)[i] = (*message)[i] ^ (unsigned char)blist->crypt[j++];
 					if (blist->crypt[j] == 0)
 						j = 0;
 				}
 				*flags |= RF_ENCRYPTED;
-
-#if 0
-				echof(curconn, "ENCRYPT", "--> %s = %s", *dest, *message);
-#endif
-
 			} else if (getvar_int(conn, "autopeer") != 0) {
 				if (blist->peer == 0) {
 					blist->peer = -1;
@@ -152,10 +141,6 @@ static int
 
 		for (i = 0; (i < *len) && (i < (sizeof(buf)-1)/2); i++)
 			sprintf(buf+i*2, "%02X", (*message)[i]);
-
-#if 0
-			echof(curconn, "HEXTEXT", "--> %s %s %s", *dest, buf, *message);
-#endif
 
 		if (*flags & RF_AUTOMATIC)
 			ret = firetalk_subcode_send_reply(conn->conn, *dest, "HEXTEXT", buf);
@@ -215,13 +200,9 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 	const char	*pre = getvar(conn, "im_prefix"),
 			*post = getvar(conn, "im_suffix");
 
-	if ((conn->online > 0)			// if you are online
-		&& (	   (bwin == NULL)	// and it's someone random
-			|| (bwin->et == CHAT)	//  or it's a chat
-			|| ((bwin->et == BUDDY) && (bwin->e.buddy->offline == 0))
-						//  or it's an online buddy
-		)
-	) {
+	if ((bwin == NULL) || (bwin->et != BUDDY)		// if the target is not queueable (let the protocol layer handle errors)
+		|| (	   (conn->online > 0)			// or if you are online
+			&& (bwin->e.buddy->offline == 0))) {	//  and the target is also tracked online
 		if (_auto == 0)
 			updateidletime();
 		if ((pre != NULL) || (post != NULL)) {
@@ -229,7 +210,8 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 			msg = buf;
 		}
 		naim_send_message(conn, SN, msg, ((bwin != NULL) && (bwin->et == CHAT)), 0, 0);
-	} else if (bwin != NULL) {
+								// send the message through the protocol layer
+	} else {
 		struct tm	*tmptr = NULL;
 
 		tmptr = localtime(&now);
@@ -240,6 +222,7 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 				tmptr->tm_hour, tmptr->tm_min, msg);
 			msg = buf;
 		}
+		assert(bwin != NULL);
 		bwin->pouncec++;
 		bwin->pouncear = realloc(bwin->pouncear,
 			bwin->pouncec*sizeof(*(bwin->pouncear)));
@@ -256,7 +239,7 @@ void	naim_send_im_away(conn_t *conn, const char *SN, const char *msg, int force)
 	const char	*pre,
 			*post;
 
-	if (lastauto < now-1)
+	if (force || (lastauto < now-1))
 		lastauto = now;
 	else {
 		echof(conn, "SEND-IM-AWAY", "Suppressing away message to %s (%s).\n", SN, msg);
@@ -322,4 +305,22 @@ void	unsetaway(void) {
 		if (conn->online > 0)
 			naim_set_info(conn->conn, conn->profile);
 	} while ((conn = conn->next) != curconn);
+}
+
+int	getvar_int(conn_t *conn, const char *str) {
+	char	buf[1024], *ptr;
+
+	snprintf(buf, sizeof(buf), "%s:%s", conn->winname, str);
+	if ((ptr = secs_getvar(buf)) != NULL)
+		return(atoi(ptr));
+	return(secs_getvar_int(str));
+}
+
+char	*getvar(conn_t *conn, const char *str) {
+	char	buf[1024], *val;
+
+	snprintf(buf, sizeof(buf), "%s:%s", conn->winname, str);
+	if ((val = secs_getvar(buf)) != NULL)
+		return(val);
+	return(secs_getvar(str));
 }

@@ -19,7 +19,7 @@ extern double	nowf;
 extern char	*namesbuf;
 extern namescomplete_t	namescomplete;
 extern faimconf_t	faimconf;
-extern char	*sty;
+extern char	*sty, *statusbar_text;
 
 extern int
 	awayc G_GNUC_INTERNAL;
@@ -98,26 +98,6 @@ static const unsigned char
 	for (i = 0; i < html_cleanc; i++)
 		str_replace(html_cleanar[i].from, html_cleanar[i].replace, buf, sizeof(buf));
 	return(buf);
-}
-
-int	getvar_int(conn_t *conn, const char *str) {
-	char	*ptr;
-	char	buf[1024];
-
-	snprintf(buf, sizeof(buf), "%s:%s", conn->winname, str);
-	if ((ptr = secs_getvar(buf)) != NULL)
-		return(atoi(ptr));
-	return(secs_getvar_int(str));
-}
-
-char	*getvar(conn_t *conn, const char *str) {
-	char	buf[1024];
-	char	*val;
-
-	snprintf(buf, sizeof(buf), "%s:%s", conn->winname, str);
-	if ((val = secs_getvar(buf)) != NULL)
-		return(val);
-	return(secs_getvar(str));
 }
 
 nFIRE_HANDLER(naim_newnick) {
@@ -203,6 +183,10 @@ void	naim_set_info(void *sess, const char *str) {
 "What have you done today to make you feel proud?<br>\n"
 			STANDARD_TRAILER,
 "<a href=\"http://creativecommons.org/\">Creativity always builds on the past.</a><br>\n"
+			STANDARD_TRAILER,
+"Those who make peaceful revolution impossible will make violent\n"
+"revolution inevitable.<br>\n"
+"&nbsp; &nbsp; &nbsp; &nbsp; -- John F. Kennedy"
 			STANDARD_TRAILER,
 	};
 
@@ -377,6 +361,8 @@ nFIRE_HANDLER(naim_buddy_unaway) {
 	baway(conn, who, 0);
 }
 
+HOOK_DECLARE(proto_user_onlineval);
+
 nFIRE_HANDLER(naim_buddy_coming) {
 	conn_t		*conn = (conn_t *)client;
 	va_list		msg;
@@ -387,6 +373,7 @@ nFIRE_HANDLER(naim_buddy_coming) {
 	va_end(msg);
 
 	bcoming(conn, who);
+	HOOK_CALL(proto_user_onlineval, (client, conn, who, NULL, NULL, 1));
 }
 
 nFIRE_HANDLER(naim_buddy_going) {
@@ -399,6 +386,7 @@ nFIRE_HANDLER(naim_buddy_going) {
 	va_end(msg);
 
 	bgoing(conn, who);
+	HOOK_CALL(proto_user_onlineval, (client, conn, who, NULL, NULL, 0));
 }
 
 
@@ -452,12 +440,6 @@ static int
 		if ((blist != NULL) && (blist->crypt != NULL) && ((blist->peer <= 3) || (*flags & RF_ENCRYPTED))) {
 			int	i, j = 0;
 
-#if 0
-			echof(curconn, "DECRYPT", "<-- %s = %s", *name, *message);
-			for (i = 0; blist->crypt[i] != 0; i++)
-				echof(curconn, "DECRYPT", "%i: %c ^ %c = %02X", i, (*message)[i] ^ (unsigned char)blist->crypt[i], (unsigned char)blist->crypt[i], (*message)[i]);
-#endif
-
 			for (i = 0; i < *len; i++) {
 				(*message)[i] = (*message)[i] ^ (unsigned char)blist->crypt[j++];
 				if (blist->crypt[j] == 0)
@@ -468,10 +450,6 @@ static int
 					*len, i, (*message)[i]);
 				return(HOOK_STOP);
 			}
-
-#if 0
-			echof(curconn, "DECRYPT", "<-- %s %s ^ %s", *name, blist->crypt, *message);
-#endif
 		}
 	}
 	return(HOOK_CONTINUE);
@@ -541,7 +519,7 @@ static int
 
 		naim_lastupdate(conn);
 
-		if (*flags & RF_AUTOMATIC) {
+		if (*flags & RF_ACTION) {
 			if ((blist != NULL) && (blist->crypt != NULL))
 				format = "<B>*&gt; %s</B>";
 			else
@@ -563,7 +541,7 @@ static int
 		** window, and we want them to remain unambiguous.
 		*/
 		hwprintf(&(conn->nwin), C(CONN,BUDDY), format, *name);
-		hwprintf(&(conn->nwin), C(CONN,TEXT), " <body>%s</body><br>", *message);
+		hwprintf(&(conn->nwin), C(CONN,TEXT), "%s<body>%s</body><br>", (strncmp(*message, "'s ", 3) == 0)?"":" ", *message);
 	} else {
 		const char *format;
 
@@ -594,7 +572,7 @@ static int
 
 		WINTIME(&(bwin->nwin), IMWIN);
 		hwprintf(&(bwin->nwin), C(IMWIN,BUDDY), format, USER_NAME(blist));
-		hwprintf(&(bwin->nwin), C(IMWIN,TEXT), " <body>%s</body><br>", *message);
+		hwprintf(&(bwin->nwin), C(IMWIN,TEXT), "%s<body>%s</body><br>", (strncmp(*message, "'s ", 3) == 0)?"":" ", *message);
 
 		if (!(*flags & RF_AUTOMATIC)) {
 			int	autoreply = getvar_int(conn, "autoreply");
@@ -616,12 +594,54 @@ static int
 	return(HOOK_CONTINUE);
 }
 
+static void
+	recvfrom_display_chat_print(buddywin_t *bwin, const int flags, const int istome, const char *name, const char *prefix, const unsigned char *message) {
+	const char	*format;
+
+	if (prefix == NULL)
+		prefix = "&gt;";
+
+	if (flags & RF_ACTION)
+		format = "* <B>%s</B>";
+	else if (flags & RF_AUTOMATIC)
+		format = "-<B>%s</B>-";
+	else
+		format = "&lt;<B>%s</B>%s";
+	hwprintf(&(bwin->nwin), istome?C(IMWIN,BUDDY_ADDRESSED):C(IMWIN,BUDDY), 
+		format, name, prefix);
+
+	hwprintf(&(bwin->nwin), C(IMWIN,TEXT), " <body>%s%s%s</body><br>",
+		istome?"<B>":"", message, istome?"</B>":"");
+}
+
+void	chat_flush(buddywin_t *bwin) {
+	assert(bwin->et == CHAT);
+	assert(bwin->e.chat->last.reps >= 0);
+	if (bwin->e.chat->last.reps > 0) {
+		if (bwin->e.chat->last.reps == 1) {
+			assert(bwin->e.chat->last.lasttime != 0);
+			WINTIME_NOTNOW(&(bwin->nwin), IMWIN, bwin->e.chat->last.lasttime);
+			recvfrom_display_chat_print(bwin, bwin->e.chat->last.flags, bwin->e.chat->last.istome, bwin->e.chat->last.name, NULL, bwin->e.chat->last.line);
+		} else {
+			assert(bwin->e.chat->last.lasttime != 0);
+			WINTIME_NOTNOW(&(bwin->nwin), IMWIN, bwin->e.chat->last.lasttime);
+			hwprintf(&(bwin->nwin), C(IMWIN,TEXT), "<B>[Last message repeated %i more times]</B><br>", bwin->e.chat->last.reps);
+		}
+		bwin->e.chat->last.reps = 0;
+	}
+	free(bwin->e.chat->last.line);
+	bwin->e.chat->last.line = NULL;
+	free(bwin->e.chat->last.name);
+	bwin->e.chat->last.name = NULL;
+}
+
 static int
 	recvfrom_display_chat(conn_t *conn, char **name, char **dest,
 		unsigned char **message, int *len, int *flags) {
 	buddywin_t	*bwin;
 	int		istome;
-	const char	*format;
+	char		*prefix = NULL;
+	unsigned char	*message_save;
 
 	if (*dest == NULL)
 		return(HOOK_CONTINUE);
@@ -647,17 +667,64 @@ static int
 			bwin->e.chat->isaddressed = 1;
 	}
 
+	if (bwin->e.chat->last.line != NULL)
+		assert(bwin->e.chat->last.name != NULL);
+	if ((bwin->e.chat->last.line != NULL) && (*flags == bwin->e.chat->last.flags)
+		&& (firetalk_compare_nicks(conn->conn, *name, bwin->e.chat->last.name) == FE_SUCCESS)
+		&& (strcasecmp(*message, bwin->e.chat->last.line) == 0)) {
+		bwin->e.chat->last.reps++;
+		bwin->e.chat->last.lasttime = now;
+		return(HOOK_CONTINUE);
+	}
+	if (bwin->e.chat->last.reps > 0)
+		chat_flush(bwin);
+	assert(bwin->e.chat->last.reps == 0);
+
+	message_save = strdup(*message);
+
+	if ((bwin->winname[0] != ':') && (bwin->e.chat->last.line != NULL)) {
+		char	*tmp = strdup(*message);
+		size_t	off, add;
+
+		htmlreplace(tmp, '_');
+		off = strspn(tmp, "_");
+		add = strcspn(tmp+off, " ");
+		assert(bwin->e.chat->last.name != NULL);
+		if ((add > off) && isalpha(tmp[off]) && !isalpha(tmp[off+add-1])) {
+			if (strncasecmp(tmp+off, bwin->e.chat->last.name, strlen(bwin->e.chat->last.name)) == 0) {
+				static int	sent_carat_desc = 0;
+
+				if (!sent_carat_desc) {
+					statusbar_text = strdup("A ^ near a speaker name indicates that message was addressed to the previous speaker.");
+					sent_carat_desc = 1;
+				}
+				prefix = "^";
+				memmove((*message)+off, (*message)+off+add, strlen((*message)+off+add)+1);
+			} else if (strncasecmp(*message, bwin->e.chat->last.line, off+add) == 0) {
+				static int	sent_plus_desc = 0;
+
+				if (!sent_plus_desc) {
+					statusbar_text = strdup("A + near a speaker name indicates that message was addressed to the same person as the previous message.");
+					sent_plus_desc = 1;
+				}
+				if (firetalk_compare_nicks(conn->conn, *name, bwin->e.chat->last.name) != FE_SUCCESS)
+					prefix = "+";
+				memmove((*message)+off, (*message)+off+add, strlen((*message)+off+add)+1);
+			}
+		}
+		free(tmp);
+	}
+
 	WINTIME(&(bwin->nwin), IMWIN);
-	if (*flags & RF_ACTION)
-		format = "* <B>%s</B>";
-	else if (*flags & RF_AUTOMATIC)
-		format = "-<B>%s</B>-";
-	else
-		format = "&lt;<B>%s</B>&gt;";
-	hwprintf(&(bwin->nwin), istome?C(IMWIN,EVENT):C(IMWIN,BUDDY), 
-		format, *name);
-	hwprintf(&(bwin->nwin), C(IMWIN,TEXT), " <body>%s%s%s</body><br>",
-		istome?"<B>":"", *message, istome?"</B>":"");
+	recvfrom_display_chat_print(bwin, *flags, istome, *name, prefix, *message);
+
+	free(bwin->e.chat->last.line);
+	bwin->e.chat->last.line = message_save;
+	STRREPLACE(bwin->e.chat->last.name, (*name));
+	bwin->e.chat->last.reps = 0;
+	bwin->e.chat->last.lasttime = now;
+	bwin->e.chat->last.flags = *flags;
+	bwin->e.chat->last.istome = istome;
 
 	bupdate();
 	return(HOOK_CONTINUE);

@@ -1,5 +1,11 @@
-pkgdoc_DATA = commands.txt keyboard.txt
+nodist_pkgdoc_DATA = commands.txt 
+pkgdoc_DATA = keyboard.txt
 
+DISTCLEANFILES = \
+	conio_keys.h \
+	conio_cmds.h \
+	commands.txt
+	
 EXTRA_DIST = \
 	${pkgdoc_DATA} \
 	cmplhlp2.sh \
@@ -15,8 +21,6 @@ bin_PROGRAMS = naim
 NAIM_CORE = \
 	buddy.c \
 	conio.c \
-	conio_cmds.h \
-	conio_keys.h \
 	echof.c \
 	events.c \
 	fireio.c \
@@ -46,7 +50,7 @@ libnaim_core_la_SOURCES = ${NAIM_CORE}
 libnaim_core_la_CFLAGS = ${AM_CFLAGS} -DDLSEARCHPATH='"${pkgmoddir}"'
 libnaim_core_la_LIBADD = \
 	@LIBLTDL@ \
-	@CURSESLIB@ @NETLIB@ @DLLIB@
+	@CURSESLIB@ @NETLIB@
 libnaim_core_la_LDFLAGS = -export-dynamic -no-undefined \
 	-Wl,--whole-archive -Wl,../firetalk/libfiretalk.a -Wl,../secs/libsecs.a -Wl,--no-whole-archive
 else
@@ -55,7 +59,7 @@ NAIM_LDADD = \
 	../firetalk/libfiretalk.a \
 	@LIBLTDL@ \
 	../secs/libsecs.a \
-	@CURSESLIB@ @NETLIB@ @DLLIB@
+	@CURSESLIB@ @NETLIB@
 endif
 
 naim_SOURCES = ${NAIM_SOURCES}
@@ -65,26 +69,33 @@ naim_LDFLAGS = -dlopen self -export-dynamic -no-undefined
 INCLUDES = -I${top_srcdir}/include -I${top_srcdir}/firetalk ${INCLTDL}
 
 
-${srcdir}/conio_keys.h: ${srcdir}/conio.c
-	AWK="${AWK}" CPP="${CPP} ${CPPFLAGS} ${DEFAULT_INCLUDES} ${INCLUDES} ${DEFS}" SRCDIR=${srcdir} ${srcdir}/genkeys.sh > ${srcdir}/conio_keys.h
+conio_keys.h: ${srcdir}/conio.c
+	AWK="${AWK}" CPP="${CPP} ${CPPFLAGS} ${DEFAULT_INCLUDES} ${INCLUDES} ${DEFS}" SRCDIR=${srcdir} ${srcdir}/genkeys.sh > conio_keys.h
 
-${srcdir}/conio_cmds.h: ${srcdir}/conio.c config.h
-	AWK="${AWK}" CPP="${CPP} ${CPPFLAGS} ${DEFAULT_INCLUDES} ${INCLUDES} ${DEFS}" ${srcdir}/gencmds.sh > ${srcdir}/conio_cmds.h
+conio_cmds.h: ${srcdir}/conio.c config.h
+	AWK="${AWK}" CPP="${CPP} ${CPPFLAGS} ${DEFAULT_INCLUDES} ${INCLUDES} ${DEFS}" ${srcdir}/gencmds.sh > conio_cmds.h
 
-${srcdir}/commands.txt: ${srcdir}/conio.c config.h
-	AWK="${AWK}" CPP="${CPP} ${CPPFLAGS} ${DEFAULT_INCLUDES} ${INCLUDES} ${DEFS}" ${srcdir}/gencmd2.sh > ${srcdir}/commands.txt
+commands.txt: ${srcdir}/conio.c config.h
+	AWK="${AWK}" CPP="${CPP} ${CPPFLAGS} ${DEFAULT_INCLUDES} ${INCLUDES} ${DEFS}" ${srcdir}/gencmd2.sh > commands.txt
 
-conio.o: ${srcdir}/conio.c ${srcdir}/conio_keys.h ${srcdir}/conio_cmds.h ${srcdir}/commands.txt
+conio.o: ${srcdir}/conio.c conio_keys.h conio_cmds.h commands.txt
 	@echo $(COMPILE) -c `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
 	@$(COMPILE) -c `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
-conio.lo: ${srcdir}/conio.c ${srcdir}/conio_keys.h ${srcdir}/conio_cmds.h ${srcdir}/commands.txt
+conio.lo: ${srcdir}/conio.c conio_keys.h conio_cmds.h commands.txt
 	@echo $(LTCOMPILE) -c -o $@ `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
 	@$(LTCOMPILE) -c -o $@ `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
 
-helpcmd.o: ${srcdir}/helpcmd.c ${srcdir}/conio_cmds.h
+fireio.o: ${srcdir}/fireio.c conio_cmds.h
+	@echo $(COMPILE) -c `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
+	@$(COMPILE) -c `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
+fireio.lo: ${srcdir}/fireio.c conio_cmds.h
+	@echo $(LTCOMPILE) -c -o $@ `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
+	@$(LTCOMPILE) -c -o $@ `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
+
+helpcmd.o: ${srcdir}/helpcmd.c conio_cmds.h
 	@echo $(COMPILE) -c `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
 	@$(COMPILE) -c `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
-helpcmd.lo: ${srcdir}/helpcmd.c ${srcdir}/conio_cmds.h
+helpcmd.lo: ${srcdir}/helpcmd.c conio_cmds.h
 	@echo $(LTCOMPILE) -c -o $@ `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
 	@$(LTCOMPILE) -c -o $@ `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
 

@@ -393,12 +393,17 @@ void	rc_initdefs(faimconf_t *conf) {
 			*autozone = 0;
 	}
 #elif HAVE_TZNAME
-	localtime(&now);
-	if (strchr(tzname[0], ' ') == NULL)
-		snprintf(autozone, sizeof(autozone), "%s%c%04li", tzname[0], chrtimeoff, 
-			abstimeoff);
-	else
-		*autozone = 0;
+	{
+		extern char
+			*tzname[2];
+
+		localtime(&now);
+		if (strchr(tzname[0], ' ') == NULL)
+			snprintf(autozone, sizeof(autozone), "%s%c%04li", tzname[0], chrtimeoff, 
+				abstimeoff);
+		else
+			*autozone = 0;
+	}
 #else
 	*autozone = 0;
 #endif

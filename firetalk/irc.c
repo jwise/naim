@@ -192,6 +192,16 @@ static fte_t
 	return(FE_INVALIDFORMAT);
 }
 
+static fte_t
+	irc_isnickfirst(const int c) {
+	return(isalpha(c) || (c == '[') || (c == ']') || (c == '\\') || (c == '`') || (c == '^') || (c == '{') || (c == '}'));
+}
+
+static fte_t
+	irc_isnick(const int c) {
+	return(irc_isnickfirst(c) || isdigit(c) || (c == '-'));
+}
+
 static char *irc_html_to_irc(const char *const string) {
 	static char *output = NULL;
 	int o = 0;
@@ -971,31 +981,30 @@ static fte_t
 						irc_internal_disconnect(c,FE_PACKET);
 						return FE_PACKET;
 					}
-				}
-				if ((strstr(args[3],"Password changed") != NULL) && (c->passchange != 0)) {
+				} else if ((strstr(args[3],"Password changed") != NULL) && (c->passchange != 0)) {
 					/* successful change */
 					c->passchange--;
 					firetalk_callback_passchanged(c);
-				}
-				if ((strstr(args[3],"authentication required") != NULL) && (c->passchange != 0)) {
+				} else if ((strstr(args[3],"authentication required") != NULL) && (c->passchange != 0)) {
 					/* didn't log in with the right password initially, not happening */
 					c->identified = 0;
 					c->passchange--;
 					firetalk_callback_error(c,FE_NOCHANGEPASS,NULL,args[3]);
-				}
-				if ((strstr(args[3],"isn't registered") != NULL) && (c->passchange != 0)) {
+				} else if ((strstr(args[3],"isn't registered") != NULL) && (c->passchange != 0)) {
 					/* nick not registered, fail */
 					c->passchange--;
 					firetalk_callback_error(c,FE_NOCHANGEPASS,NULL,args[3]);
-				}
-				if (strstr(args[3],"Password accepted") != NULL) {
+				} else if (strstr(args[3],"Password accepted") != NULL) {
 					/* we're recognized */
 					c->identified = 1;
 					if (irc_send_printf(c,"PRIVMSG ChanServ :OP ALL") != FE_SUCCESS) {
 						irc_internal_disconnect(c,FE_PACKET);
 						return FE_PACKET;
 					}
-				}
+				} else if (strchr(ROOMSTARTS, args[2][0]))
+					firetalk_callback_chat_getmessage(c, args[2], name, 1, irc_irc_to_html(args[3]));
+				else
+					firetalk_callback_im_getmessage(c, name, 1, irc_irc_to_html(args[3]));
 			} else if (strchr(name, '.') != NULL) {
 				if (strncmp(args[3], "*** Notice -- ", sizeof("*** Notice -- ")-1) == 0)
 					firetalk_callback_chat_getmessage(c, ":RAW", name, 1, irc_irc_to_html(args[3]+sizeof("*** Notice -- ")-1));
@@ -1248,7 +1257,7 @@ static fte_t
 				if ((sp = strchr(str, ' ')) != NULL)
 					*sp = 0;
 
-				while ((*str == '@') || (*str == '+')) {
+				while ((*str != 0) && !irc_isnickfirst(*str)) {
 					if (*str == '@')
 						oped = 1;
 					else if (*str == '+')
