@@ -193,7 +193,7 @@ typedef struct s_firetalk_protocol_functions {
 	fte_t	(*chat_send_action)(client_t, const char *const, const char *const, const int);
 	fte_t	(*subcode_send_request)(client_t, const char *const, const char *const, const char *const);
 	fte_t	(*subcode_send_reply)(client_t, const char *const, const char *const, const char *const);
-	const char *const (*room_normalize)(const char *const);
+	const char *(*room_normalize)(const char *const);
 	client_t (*create_handle)();
 	void	(*destroy_handle)(client_t);
 } firetalk_protocol_t;

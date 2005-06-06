@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2005 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include "naim-int.h"
@@ -94,10 +94,10 @@ void	statrefresh(void) {
 				faimconf.wstatus.startx,
 				faimconf.wstatus.starty+2*faimconf.wstatus.widthy/3-1,
 				faimconf.wstatus.startx+faimconf.wstatus.widthx-1);
-		else if (((nowf - curconn->lastupdate) < autohide) || (curconn->online == 0)) {
+		else if (((nowf - curconn->lastupdate) < autohide) || (curconn->online <= 0)) {
 			int	sheight = faimconf.wstatus.widthy/4, sneak;
 
-			if (curconn->online == 0)
+			if (curconn->online <= 0)
 				sneak = sheight;
 			else if ((nowf - curconn->lastupdate) <= SLIDETIME)
 				sneak = sheight*(nowf - curconn->lastupdate)/SLIDETIME;
@@ -132,11 +132,11 @@ void	statrefresh(void) {
 	if (buddies > wbuddy_widthy)
 		buddies = wbuddy_widthy;
 	if ((changetime != -1) && (waiting || (changetime == 0)
-		|| (autohide == 0) || (curconn->online == 0)
+		|| (autohide == 0) || (curconn->online <= 0)
 		|| ((nowf - changetime) < autohide))) {
 		int	sheight = secs_getvar_int("winlistchars"), sneak;
 
-		if (waiting || (changetime == 0) || (autohide == 0) || (curconn->online == 0))
+		if (waiting || (changetime == 0) || (autohide == 0) || (curconn->online <= 0))
 			sneak = sheight;
 		else if ((nowf - changetime) <= SLIDETIME)
 			sneak = sheight*(nowf - changetime)/SLIDETIME;
@@ -173,18 +173,18 @@ void	statrefresh(void) {
 		nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " %*s ", -faimconf.winfo.widthx,
 			"Status console is visible; press F1 to hide. Anything typed is a command.");
 	} else if (inconn_real && (curconn->curbwin->et == CHAT) && (*(curconn->curbwin->winname) == ':')) {
-		nw_erase(&win_info);
-		if (strcmp(curconn->curbwin->winname, ":AWAYLOG") == 0)
-			nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " %*s ", -faimconf.winfo.widthx,
-				"This is your /away log. Type /close to dismiss it, /set awaylog 0 to disable.");
 #ifdef DEBUG_ECHO
-		else if (strcmp(curconn->curbwin->winname, ":RAW") == 0)
-			nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " %*s ", -faimconf.winfo.widthx,
-				"This is a debug window. I'll re-open it if you /close it, so don't bother.");
+		if (strcmp(curconn->curbwin->winname, ":RAW") != 0)
 #endif
-		else
-			nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " %*s ", -faimconf.winfo.widthx,
-				"This is a special naim window. You may /close this if it is not needed.");
+		{
+			nw_erase(&win_info);
+			if (strcmp(curconn->curbwin->winname, ":AWAYLOG") == 0)
+				nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " %*s ", -faimconf.winfo.widthx,
+					"This is your /away log. Type /close to dismiss it, /set awaylog 0 to disable.");
+			else
+				nw_printf(&win_info, CB(CONN,STATUSBAR), 1, " %*s ", -faimconf.winfo.widthx,
+					"This is a special naim window. You may /close this if it is not needed.");
+		}
 	}
 	wnoutrefresh(win_info.win);
 	wnoutrefresh(win_input.win);
@@ -544,7 +544,7 @@ void	nw_getline(win_t *win, char *buf, int buflen) {
 		max = buflen-1;
 	mvwinnstr(win->win, row, 0, buf, max);
 	buf[max] = 0;
-	wmove(win->win, row, col);
+	nw_move(win, row, col);
 }
 
 int	nw_getch(void) {

@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2005 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -326,7 +326,7 @@ void	bupdate(void) {
 			nw_hline(&win_buddy, ACS_HLINE_C | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS), widthx);
 
 			nw_move(&win_buddy, line++, widthx-strlen(conn->winname));
-			if (conn->online == 0) {
+			if (conn->online <= 0) {
 				nw_printf(&win_buddy, C(WINLIST,BUDDY_OFFLINE), 1, " %s", conn->winname);
 				if (line < wbuddy_widthy) {
 					nw_move(&win_buddy, line++, 1);
@@ -407,7 +407,10 @@ void	bupdate(void) {
 					assert(bwin->waiting);
 					col = C(WINLIST,BUDDY_ADDRESSED);
 				} else if (bwin->waiting)
-					col = C(WINLIST,BUDDY_WAITING);
+					if (bwin->et == BUDDY)
+						col = C(WINLIST,BUDDY_ADDRESSED);
+					else
+						col = C(WINLIST,BUDDY_WAITING);
 				else if (bwin->pouncec > 0)
 					col = C(WINLIST,BUDDY_QUEUED);
 				else
@@ -669,8 +672,7 @@ void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 		nw_touchwin(&(conn->nwin));
 }
 
-const unsigned char *const
-	naim_normalize(const unsigned char *const name) {
+const unsigned char *naim_normalize(const unsigned char *const name) {
 	static char	newname[2048];
 	int	i, j = 0;
 

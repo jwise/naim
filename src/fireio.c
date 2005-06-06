@@ -843,7 +843,7 @@ nFIRE_HANDLER(naim_connected) {
 	conn_t		*conn = (conn_t *)client;
 	buddywin_t	*bwin = conn->curbwin;
 
-	if (conn->online != 0) {
+	if (conn->online > 0) {
 		status_echof(conn, "naim just received notification that you have connected to %s at %lu,"
 			" but I'm pretty sure you've been connected since %lu."
 			" This is a bug, and your session may be unstable.\n",
@@ -895,6 +895,26 @@ nFIRE_HANDLER(naim_connectfailed) {
 		echof(conn, "CONNECT", "Unable to connect to %s: %s.\n",
 			firetalk_strprotocol(conn->proto),
 			firetalk_strerror(err));
+
+	if (err == FE_BADUSER) {
+		char	*str;
+
+		echof(conn, NULL, "Attempting to reconnect using a different name...\n");
+		str = malloc(strlen(conn->sn)+2);
+		strcpy(str, conn->sn);
+		if (strlen(conn->sn) > 8) {
+			int	pos = rand()%(strlen(conn->sn)-1)+1;
+
+			if (str[pos] == '_')
+				str[pos] = rand()%9+'1';
+			else
+				str[pos] = '_';
+		} else
+			strcat(str, "_");
+		free(conn->sn);
+		conn->sn = str;
+		conio_connect(conn, 0, NULL);
+	}
 }
 
 nFIRE_HANDLER(naim_error_msg) {
@@ -950,7 +970,7 @@ nFIRE_HANDLER(naim_error_disconnect) {
 
 	echof(conn, NULL, "Disconnected from %s: %s.\n",
 		conn->winname, firetalk_strerror(error));
-	conn->online = 0;
+	conn->online = -1;
 	bclearall(conn, 0);
 
 	if (error == FE_RECONNECTING)

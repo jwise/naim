@@ -110,6 +110,15 @@ firetalk_t firetalk_find_handle(client_t c) {
 	abort();
 }
 
+firetalk_t firetalk_find_clientstruct(void *clientstruct) {
+	struct s_firetalk_handle *iter;
+
+	for (iter = handle_head; iter != NULL; iter = iter->next)
+		if (iter->clientstruct == clientstruct)
+			return(iter);
+	return(NULL);
+}
+
 #define DEBUG
 
 #ifdef DEBUG
@@ -1106,7 +1115,7 @@ void firetalk_callback_subcode_request(client_t c, const char *const from, const
 		/* we don't support chatroom subcodes, so we're just going to assume that this is a private ACTION and let the protocol code handle the other case */
 		firetalk_callback_im_getaction(c, from, 0, args);
 	else if (strcasecmp(command, "VERSION") == 0)
-		firetalk_subcode_send_reply(conn, from, "VERSION", "firetalk " LIBFIRETALK_VERSION);
+		firetalk_subcode_send_reply(conn, from, "VERSION", PACKAGE_TARNAME ":" PACKAGE_VERSION ":" PACKAGE_STRING);
 	else if (strcasecmp(command, "SOURCE") == 0)
 		firetalk_subcode_send_reply(conn, from, "SOURCE", LIBFIRETALK_HOMEPAGE);
 	else if (strcasecmp(command, "CLIENTINFO") == 0)

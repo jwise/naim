@@ -52,11 +52,11 @@ libnaim_core_la_LIBADD = \
 	@LIBLTDL@ \
 	@CURSESLIB@ @NETLIB@
 libnaim_core_la_LDFLAGS = -export-dynamic -no-undefined \
-	-Wl,--whole-archive -Wl,../firetalk/libfiretalk.a -Wl,../secs/libsecs.a -Wl,--no-whole-archive
+	-Wl,--whole-archive -Wl,../libfiretalk/libfiretalk.a -Wl,../secs/libsecs.a -Wl,--no-whole-archive
 else
 NAIM_SOURCES = ${NAIM_CORE}
 NAIM_LDADD = \
-	../firetalk/libfiretalk.a \
+	../libfiretalk/libfiretalk.a \
 	@LIBLTDL@ \
 	../secs/libsecs.a \
 	@CURSESLIB@ @NETLIB@
@@ -66,7 +66,7 @@ naim_SOURCES = ${NAIM_SOURCES}
 naim_LDADD = ${NAIM_LDADD}
 naim_LDFLAGS = -dlopen self -export-dynamic -no-undefined
 
-INCLUDES = -I${top_srcdir}/include -I${top_srcdir}/firetalk ${INCLTDL}
+INCLUDES = -I${top_srcdir}/include -I${top_srcdir}/libfiretalk ${INCLTDL}
 
 
 conio_keys.h: ${srcdir}/conio.c

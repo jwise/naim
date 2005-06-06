@@ -99,7 +99,7 @@ char	*aim_interpolate_variables(const char *const input, const char *const nickn
 	return output;
 }
 
-const char *const aim_normalize_room_name(const char *const name) {
+const char *aim_normalize_room_name(const char *const name) {
 	static char newname[2048];
 
 	if (name == NULL)

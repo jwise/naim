@@ -2352,7 +2352,7 @@ CONIOAOPT(int,port)
 
 CONIOFUNC(disconnect) {
 CONIODESC(Disconnect from a server)
-	if (conn->online == 0)
+	if (conn->online <= 0)
 		echof(conn, "DISCONNECT", "You aren't connected.\n");
 	else if (firetalk_disconnect(conn->conn) == FE_SUCCESS) {
 		bclearall(conn, 0);

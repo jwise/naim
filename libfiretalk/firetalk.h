@@ -196,6 +196,7 @@ enum firetalk_protocol firetalk_get_protocol(firetalk_t conn);
 fte_t	firetalk_disconnect(firetalk_t conn);
 fte_t	firetalk_signon(firetalk_t conn, const char *const server, const short port, const char *const username);
 fte_t	firetalk_register_callback(firetalk_t conn, const int type, void (*function)(firetalk_t, void *, ...));
+firetalk_t firetalk_find_clientstruct(void *clientstruct);
 
 fte_t	firetalk_im_add_buddy(firetalk_t conn, const char *const name, const char *const group);
 fte_t	firetalk_im_remove_buddy(firetalk_t conn, const char *const name);

@@ -24,7 +24,7 @@ typedef enum {
 
 typedef struct {
 	int		 handle;
-	unsigned char	*name;
+	char		*name;
 #if 0
 	unsigned char	*blurb,
 			*attrib,
@@ -40,7 +40,7 @@ typedef struct {
 
 typedef struct {
 	int		 handle;
-	unsigned char	*name,
+	char		*name,
 			*title;
 	time_t		 creation,
 			 idle;
@@ -77,7 +77,7 @@ static lily_user_t
 }
 
 static lily_user_t
-	*lily_user_find_name(lily_conn_t *c, const unsigned char *name) {
+	*lily_user_find_name(lily_conn_t *c, const char *name) {
 	int	i;
 
 	for (i = 0; i < c->lily_userc; i++)
@@ -86,8 +86,7 @@ static lily_user_t
 	return(NULL);
 }
 
-static const char *const
-	lily_normalize_user_name(const char *const name) {
+static const char *lily_normalize_user_name(const char *const name) {
 	static char	newname[2048];
 	char		*ptr = strchr(name, ' ');
 
@@ -100,9 +99,8 @@ static const char *const
 	return(newname);
 }
 
-static void
-	lily_user_add(lily_conn_t *c, int handle, const unsigned char *name, const unsigned char *blurb,
-	time_t login, time_t idle, lily_state_t state, const unsigned char *attrib, const unsigned char *pronoun) {
+static void lily_user_add(lily_conn_t *c, const int handle, const char *const name, const char *const blurb,
+	const time_t login, const time_t idle, lily_state_t state, const char *const attrib, const char *const pronoun) {
 
 	assert(name != NULL);
 
@@ -148,7 +146,7 @@ static void
 }
 
 static lily_state_t
-	lily_user_state(const unsigned char *state) {
+	lily_user_state(const char *state) {
 	if (strcasecmp(state, "here") == 0)
 		return(HERE);
 	else if (strcasecmp(state, "away") == 0)
@@ -170,7 +168,7 @@ static lily_chat_t
 }
 
 static lily_chat_t
-	*lily_chat_find_name(lily_conn_t *c, const unsigned char *name) {
+	*lily_chat_find_name(lily_conn_t *c, const char *name) {
 	int	i;
 
 	for (i = 0; i < c->lily_chatc; i++)
@@ -179,8 +177,7 @@ static lily_chat_t
 	return(NULL);
 }
 
-static const char *const
-	lily_normalize_room_name(const char *const name) {
+static const char *lily_normalize_room_name(const char *const name) {
 	static char	newname[2048];
 
 	if (strchr(ROOMSTARTS, *name))
@@ -191,8 +188,8 @@ static const char *const
 }
 
 static void
-	lily_chat_add(lily_conn_t *c, int handle, const unsigned char *name, const unsigned char *title,
-	time_t creation, time_t idle, const unsigned char *attrib, int users) {
+	lily_chat_add(lily_conn_t *c, int handle, const char *const name, const char *const title,
+	const time_t creation, const time_t idle, const char *const attrib, const int users) {
 	lily_chat_t	*lily_chat;
 
 	if ((lily_chat = lily_chat_find_hand(c, handle)) != NULL) {
@@ -560,8 +557,7 @@ static fte_t
 	return(FE_SUCCESS);
 }
 
-static unsigned char
-	*lily_recv_line(lily_conn_t *c, unsigned char *buffer, unsigned short *bufferpos) {
+static char *lily_recv_line(lily_conn_t *c, char *buffer, unsigned short *bufferpos) {
 #if 0
 	static unsigned char
 			str[1025];
@@ -587,8 +583,8 @@ static unsigned char
 	*bufferpos -= (split-buffer+1);
 	memmove(buffer, split+1, *bufferpos+1);
 #else
-	static unsigned char *str = NULL;
-	unsigned char	*r;
+	static char *str = NULL;
+	char	*r;
 
 	r = memchr(buffer, '\r', *bufferpos);
 	if (r == NULL)
@@ -616,8 +612,7 @@ struct {
 } *lily_recvar = NULL;
 int	lily_recvc = 0;
 
-static void
-	lily_recv_parse(lily_conn_t *c, unsigned char *line) {
+static void lily_recv_parse(lily_conn_t *c, char *line) {
 	lily_recvc = 0;
 
 	assert(line != NULL);
@@ -672,8 +667,8 @@ static void
 	}
 }
 
-static const unsigned char
-	*lily_recv_get(const unsigned char *what) {
+static const char
+	*lily_recv_get(const char *what) {
 	int	i;
 
 	for (i = 0; i < lily_recvc; i++)
@@ -863,12 +858,11 @@ static fte_t
 
 static fte_t
 	lily_got_notify(lily_conn_t *c) {
-	const unsigned char
-			*event = lily_recv_get("EVENT"),
+	const char	*event = lily_recv_get("EVENT"),
 			*source,
 			*_recips = lily_recv_get("RECIPS"),
 			*_value = lily_recv_get("VALUE");
-	unsigned char	buf[1024],
+	char		buf[1024],
 			*recips,
 			reciplist[1024],
 			*comma;
@@ -1155,10 +1149,8 @@ static fte_t
 }
 
 
-static fte_t
-	lily_got_DATA(lily_conn_t *c) {
-	const unsigned char
-			*name = lily_recv_get("NAME"),
+static fte_t lily_got_DATA(lily_conn_t *c) {
+	const char 	*name = lily_recv_get("NAME"),
 			*_value = lily_recv_get("VALUE");
 	int		handle = atoi(lily_recv_get("SOURCE")+1);
 	const lily_chat_t
@@ -1168,9 +1160,9 @@ static fte_t
 		return(FE_PACKET);
 
 	if (strcasecmp(name, "members") == 0) {
-		unsigned char	buf[1024],
-				*value = buf,
-				*comma = NULL;
+		char	buf[1024],
+			*value = buf,
+			*comma = NULL;
 
 		firetalk_callback_chat_joined(c, lily_chat_source->name);
 
@@ -1220,8 +1212,7 @@ static fte_t
 }
 
 
-static fte_t
-	lily_got_cmd(lily_conn_t *c, unsigned char *str) {
+static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 	static int	infolen = 0,
 			blocknum = -1;
 	static char	*blockwhat = NULL,
@@ -1242,8 +1233,7 @@ static fte_t
 		lily_recv_parse(c, str);
 		return(lily_got_DATA(c));
 	} else if BMATCH("USER") {
-		const unsigned char
-				*login,
+		const char	*login,
 				*input;
 
 		lily_recv_parse(c, str);
@@ -1265,8 +1255,7 @@ static fte_t
 			lily_recv_get("ATTRIB"),
 			lily_recv_get("PRONOUN"));
 	} else if BMATCH("DISC") {
-		const unsigned char
-				*creation,
+		const char	*creation,
 				*input,
 				*users;
 
@@ -1291,7 +1280,7 @@ static fte_t
 			lily_recv_get("ATTRIB"),
 			atoi(users));			
 	} else if BMATCH("command") {
-		unsigned char	*sp = strchr(str, ' ');
+		char	*sp = strchr(str, ' ');
 
 		assert(blocknum != -1);
 		assert(blockwhat != NULL);
@@ -1382,7 +1371,7 @@ static fte_t
 				else
 					firetalk_callback_error(c, FE_BADROOM, blockwhat+sizeof("/CREATE ")-1, sp);
 			} else if (strcasecmp(blockwhat, "/WHERE") == 0) {
-				unsigned char	*comma;
+				char	*comma;
 
 				if (strncmp(sp, "You are a member of ", sizeof("You are a member of ")-1) == 0) {
 
@@ -1418,8 +1407,7 @@ static fte_t
 			} else
 				firetalk_callback_chat_getmessage(c, ":RAW", blockwhat, 0, sp);
 		} else if (strstr(str, " is ignoring you ") != NULL) {
-			unsigned char
-				*co;
+			char	*co;
 
 			if ((co = strchr(blockwhat, ':')) != NULL) {
 				*co = 0;
@@ -1442,7 +1430,7 @@ static fte_t
 		//assert(blocknum == atoi(str+1));
 
 		if (infolen) {
-			unsigned char	*who = strchr(blockwhat, ' ');
+			char	*who = strchr(blockwhat, ' ');
 
 			assert(who != NULL);
 			*who++ = 0;
@@ -1494,9 +1482,8 @@ static fte_t
 	return(FE_SUCCESS);
 }
 
-static fte_t
-	lily_got_data(lily_conn_t *c, unsigned char *buffer, unsigned short *bufferpos) {
-	unsigned char	*str;
+static fte_t lily_got_data(lily_conn_t *c, unsigned char *_buffer, unsigned short *bufferpos) {
+	char	*buffer = (char *)_buffer, *str;
 
 	while ((str = lily_recv_line(c, buffer, bufferpos)) != NULL)
 		lily_got_cmd(c, str);
@@ -1504,15 +1491,14 @@ static fte_t
 	return(FE_SUCCESS);
 }
 
-static fte_t
-	lily_got_data_connecting(lily_conn_t *c, unsigned char *buffer, unsigned short *bufferpos) {
-	unsigned char	*str;
+static fte_t lily_got_data_connecting(lily_conn_t *c, unsigned char *_buffer, unsigned short *bufferpos) {
+	char	*buffer = (char *)_buffer, *str;
 
 	while ((str = lily_recv_line(c, buffer, bufferpos)) != NULL) {
 		if (strncmp(str, "%whoami ", sizeof("%whoami ")-1) == 0) {
-			unsigned char	*s = strstr(str, " name="),
-					buf[1024];
-			int		len;
+			char	*s = strstr(str, " name="),
+				buf[1024];
+			int	len;
 
 			s += sizeof(" name=")-1;
 			len = atoi(s);

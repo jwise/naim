@@ -1,6 +1,7 @@
 /*
 toc.c - FireTalk TOC protocol definitions
 Copyright (C) 2000 Ian Gulliver
+Copyright 2002-2005 Daniel Reed <n@ml.org>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of version 2 of the GNU General Public License as
@@ -114,12 +115,12 @@ static fte_t
 	toc_im_send_message(client_t c, const char *const dest, const char *const message, const int auto_flag);
 
 const char
-	*firetalk_htmlentities(const char *str) {
+	*firetalk_nhtmlentities(const char *str, int len) {
 	static char
 		buf[1024];
 	int	i, b = 0;
 
-	for (i = 0; (str[i] != 0) && (b < sizeof(buf)-6-1); i++)
+	for (i = 0; (str[i] != 0) && (b < sizeof(buf)-6-1) && ((len < 0) || (i < len)); i++)
 		switch (str[i]) {
 		  case '<':
 			buf[b++] = '&';
@@ -162,6 +163,11 @@ const char
 	return(buf);
 }
 
+const char
+	*firetalk_htmlentities(const char *str) {
+	return(firetalk_nhtmlentities(str, -1));
+}
+
 static unsigned char toc_get_frame_type_from_header(const unsigned char *const header) {
 	return header[1];
 }
@@ -192,12 +198,12 @@ static void toc_echof(client_t c, const char *const where, const char *const for
 	while (buf[strlen(buf)-1] == '\n')
 		buf[strlen(buf)-1] = 0;
 	if (*buf != 0)
-		firetalk_callback_chat_getmessage(c, ":RAW", where, 0, firetalk_htmlentities(buf));
+		firetalk_callback_chat_getmessage(c, ":RAW", where, 0, buf);
 
 	statrefresh();
 }
 
-static void toc_echo_send(client_t c, const char *const where, const char *const data, size_t _length) {
+static void toc_echo_send(client_t c, const char *const where, const unsigned char *const data, size_t _length) {
 	unsigned char	ft;
 	unsigned short	sequence,
 			length;
@@ -210,8 +216,8 @@ static void toc_echo_send(client_t c, const char *const where, const char *const
 
 	assert(length == (_length-6));
 
-	toc_echof(c, where, "frame=%X, sequence=out:%i, length=%i, value=[%.*s]\n",
-		ft, sequence, length, length, data+TOC_HEADER_LENGTH);
+	toc_echof(c, where, "frame=%X, sequence=out:%i, length=%i<br>&gt;&gt;&gt;&nbsp;%s\n",
+		ft, sequence, length, firetalk_nhtmlentities((char *)data+TOC_HEADER_LENGTH, length));
 }
 #endif
 
@@ -320,13 +326,13 @@ static fte_t
 		for (j = 0; j < length; j++)
 			if (buf[j] == 0)
 				buf[j] = '0';
-			else if (buf[j] == '\n')
-				buf[j] = 'N';
+//			else if (buf[j] == '\n')
+//				buf[j] = 'N';
 			else if (buf[j] == '\r')
 				buf[j] = 'R';
 
-		toc_echof(c, "find_packet", "frame=%X, sequence=in:%i, length=%i, value=[%s]\n",
-			ft, sequence, length, buf);
+		toc_echof(c, "find_packet", "frame=%X, sequence=in:%i, length=%i<br>&lt;&lt;&lt;&nbsp;%s\n",
+			ft, sequence, length, firetalk_htmlentities(buf));
 	}
 #endif
 
@@ -379,7 +385,7 @@ static void
 
 	i->buffer[i->buflen] = 0;
 #ifdef DEBUG_ECHO
-	toc_echof(c, "infoget_parse", "str=[%s]\n", str);
+	toc_echof(c, "infoget_parse", "&lt;&lt;&lt;&nbsp;%s\n", firetalk_htmlentities(str));
 #endif
 
 #define USER_STRING "Username : <B>"
@@ -449,7 +455,7 @@ static void
 		}
 # ifdef DEBUG_ECHO
 		{
-			extern time_t now;
+			time_t	now = time(NULL);
 
 			toc_echof(c, "infoget_parse", "tmp=[%s], tm={ tm_year=%i, tm_mon=%i, tm_mday=%i }, online=%li, now=%li [%li], diff=%li [%li]\n",
 				tmp, tm.tm_year, tm.tm_mon, tm.tm_mday, online, time(NULL), now, time(NULL)-online, now-online);
@@ -901,9 +907,9 @@ static int toc_send_printf(client_t c, const char *const format, ...) {
 	va_end(ap);
 
 #ifdef DEBUG_ECHO
-	toc_echof(c, "send_printf", "frame=%X, sequence=out:%i, length=%i, value=[%.*s]\n",
+	toc_echof(c, "send_printf", "frame=%X, sequence=out:%i, length=%i<br>&gt;&gt;&gt;&nbsp;%s\n",
 		SFLAP_FRAME_DATA, c->local_sequence+1,
-		datai-TOC_HEADER_LENGTH, datai-TOC_HEADER_LENGTH, data+TOC_HEADER_LENGTH);
+		datai-TOC_HEADER_LENGTH, firetalk_nhtmlentities(data+TOC_HEADER_LENGTH, datai-TOC_HEADER_LENGTH));
 #endif
 
 	{
@@ -945,7 +951,7 @@ static char **toc_parse_args(char *const instring, const int maxargs) {
 	curarg = 0;
 	tempchr = instring;
 
-	while (curarg < (maxargs - 1) && curarg < 256 && ((tempchr2 = strchr(tempchr,':')) != NULL)) {
+	while ((curarg < (maxargs - 1)) && (curarg < sizeof(args)/sizeof(*args)-1) && ((tempchr2 = strchr(tempchr, ':')) != NULL)) {
 		args[curarg++] = tempchr;
 		tempchr2[0] = '\0';
 		tempchr = tempchr2 + 1;
@@ -1018,7 +1024,7 @@ static fte_t
 	/* send the signon string to indicate that we're speaking FLAP here */
 
 #ifdef DEBUG_ECHO
-	toc_echof(c, "signon", "frame=0, length=%i, value=[%s]\n", strlen(SIGNON_STRING), SIGNON_STRING);
+	toc_echof(c, "signon", "frame=0, length=%i<br>&gt;&gt;&gt;&nbsp;%s\n", strlen(SIGNON_STRING), firetalk_htmlentities(SIGNON_STRING));
 #endif
 	firetalk_internal_send_data(conn,SIGNON_STRING,strlen(SIGNON_STRING));
 
@@ -1105,7 +1111,7 @@ static fte_t
 
 static fte_t
 	toc_im_upload_buddies(client_t c) {
-	char data[2048];
+	char	data[2048];
 	struct s_firetalk_buddy *buddyiter;
 	struct s_firetalk_handle *fchandle;
 	unsigned short length; 
@@ -1126,7 +1132,7 @@ static fte_t
 			length = toc_fill_header((unsigned char *)data, SFLAP_FRAME_DATA, ++c->local_sequence, strlen(&data[TOC_HEADER_LENGTH])+1);
 
 #ifdef DEBUG_ECHO
-			toc_echo_send(c, "im_upload_buddies", data, length);
+			toc_echo_send(c, "im_upload_buddies", (unsigned char *)data, length);
 #endif
 			firetalk_internal_send_data(fchandle, data, length);
 			safe_strncpy(&data[TOC_HEADER_LENGTH], "toc_add_buddy", (size_t)2048 - TOC_HEADER_LENGTH);
@@ -1135,7 +1141,7 @@ static fte_t
 	length = toc_fill_header((unsigned char *)data, SFLAP_FRAME_DATA, ++c->local_sequence, strlen(&data[TOC_HEADER_LENGTH])+1);
 
 #ifdef DEBUG_ECHO
-	toc_echo_send(c, "im_upload_buddies", data, length);
+	toc_echo_send(c, "im_upload_buddies", (unsigned char *)data, length);
 #endif
 	firetalk_internal_send_data(fchandle, data, length);
 	return FE_SUCCESS;
@@ -1143,7 +1149,7 @@ static fte_t
 
 static fte_t
 	toc_im_upload_denies(client_t c) {
-	char data[2048];
+	char	data[2048];
 	struct s_firetalk_deny *denyiter;
 	unsigned short length; 
 	struct s_firetalk_handle *fchandle;
@@ -1161,7 +1167,7 @@ static fte_t
 			length = toc_fill_header((unsigned char *)data, SFLAP_FRAME_DATA, ++c->local_sequence, strlen(&data[TOC_HEADER_LENGTH])+1);
 
 #ifdef DEBUG_ECHO
-			toc_echo_send(c, "im_upload_denies", data, length);
+			toc_echo_send(c, "im_upload_denies", (unsigned char *)data, length);
 #endif
 			firetalk_internal_send_data(fchandle, data, length);
 			safe_strncpy(&data[TOC_HEADER_LENGTH], "toc_add_deny", (size_t)2048 - TOC_HEADER_LENGTH);
@@ -1170,7 +1176,7 @@ static fte_t
 	length = toc_fill_header((unsigned char *)data, SFLAP_FRAME_DATA, ++c->local_sequence, strlen(&data[TOC_HEADER_LENGTH])+1);
 
 #ifdef DEBUG_ECHO
-	toc_echo_send(c, "im_upload_denies", data, length);
+	toc_echo_send(c, "im_upload_denies", (unsigned char *)data, length);
 #endif
 	firetalk_internal_send_data(fchandle, data, length);
 	return FE_SUCCESS;
@@ -1280,7 +1286,7 @@ static fte_t
 static fte_t
 	toc_set_away(client_t c, const char *const message, const int auto_flag) {
 #ifdef DEBUG_ECHO
-	toc_echof(c, "set_away", "message=%#p \"%s\", auto_flag=%i\n", message, message, auto_flag);
+	toc_echof(c, "set_away", "message=%#p \"%s\", auto_flag=%i\n", message, firetalk_htmlentities(message), auto_flag);
 #endif
 	if (message)
 		return toc_send_printf(c, "toc_set_away %s", message);
@@ -1511,7 +1517,7 @@ static fte_t
 		}
 #ifdef DEBUG_ECHO
 			toc_echof(c, "got_data", "CHAT_IN args[1]=%s, args[2]=%s, args[3]=%s, args[4]=%s\n",
-				args[1], args[2], args[3], args[4]);
+				args[1], args[2], args[3], firetalk_htmlentities(args[4]));
 #endif
 		if (strncasecmp(args[4], "<HTML><PRE>", 11) == 0) {
 			args[4] = &args[4][11];
@@ -1634,11 +1640,11 @@ static fte_t
 
 			fchandle = firetalk_find_handle(c);
 #ifdef DEBUG_ECHO
-			toc_echo_send(c, "got_data_connecting", data, length);
+			toc_echo_send(c, "got_data_connecting", (unsigned char *)data, length);
 #endif
-			firetalk_internal_send_data(fchandle,data,length);
+			firetalk_internal_send_data(fchandle, data, length);
 
-			firetalk_callback_needpass(c,password,128);
+			firetalk_callback_needpass(c, password, 128);
 
 			c->connectstate = 1;
 			r = toc_send_printf(c,"toc_signon login.oscar.aol.com 5190 %s %s english \"" PACKAGE_NAME ":" PACKAGE_VERSION ":contact " PACKAGE_BUGREPORT "\"",c->nickname,toc_hash_password(password));

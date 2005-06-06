@@ -84,6 +84,11 @@ void	event_handle(time_t now) {
 	do {
 		buddywin_t	*bwin = conn->curbwin;
 
+		if ((conn->online == -1) && (getvar_int(conn, "autoreconnect") != 0)) {
+			echof(conn, NULL, "Attempting to reconnect...\n");
+			conio_connect(conn, 0, NULL);
+		}
+
 		if (conn->curbwin != NULL)
 			verify_winlist_sanity(conn, NULL);
 
