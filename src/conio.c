@@ -2232,7 +2232,7 @@ CONIOAOPT(string,protocol)
 			protostr = "IRC";
 		else if ((strcasecmp(args[0], "AIM") == 0)
 			|| (strcasecmp(args[0], "ICQ") == 0))
-			protostr = "TOC";
+			protostr = "TOC2";
 		else if (strcasecmp(args[0], "lily") == 0)
 			protostr = "SLCP";
 		else {
@@ -2244,9 +2244,12 @@ CONIOAOPT(string,protocol)
 	} else {
 		if ((strcasecmp(args[1], "AIM") == 0)
 			|| (strcasecmp(args[1], "AIM/TOC") == 0)
+			|| (strcasecmp(args[1], "AIM/TOC2") == 0)
 			|| (strcasecmp(args[1], "ICQ") == 0)
-			|| (strcasecmp(args[1], "ICQ/TOC") == 0))
-			protostr = "TOC";
+			|| (strcasecmp(args[1], "ICQ/TOC") == 0)
+			|| (strcasecmp(args[1], "ICQ/TOC2") == 0)
+			|| (strcasecmp(args[1], "TOC") == 0))
+			protostr = "TOC2";
 		else if (strcasecmp(args[1], "Lily") == 0)
 			protostr = "SLCP";
 		else
@@ -2352,7 +2355,7 @@ CONIOAOPT(int,port)
 
 CONIOFUNC(disconnect) {
 CONIODESC(Disconnect from a server)
-	if (conn->online == 0)
+	if (conn->online <= 0)
 		echof(conn, "DISCONNECT", "You aren't connected.\n");
 	else if (firetalk_disconnect(conn->conn) == FE_SUCCESS) {
 		bclearall(conn, 0);

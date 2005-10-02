@@ -348,8 +348,7 @@ static inline int naimisprint(int c) {
 }
 
 /* buddy.c */
-const unsigned char *const
-	naim_normalize(const unsigned char *const name) G_GNUC_INTERNAL;
+const unsigned char *naim_normalize(const unsigned char *const name) G_GNUC_INTERNAL;
 void	playback(conn_t *const conn, buddywin_t *const, const int) G_GNUC_INTERNAL;
 void	bnewwin(conn_t *conn, const char *, et_t);
 void	bupdate(void);

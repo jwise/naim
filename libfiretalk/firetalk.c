@@ -68,13 +68,13 @@ static void firetalk_register_default_protocols(void) {
 	extern const firetalk_protocol_t
 		firetalk_protocol_irc,
 		firetalk_protocol_slcp,
-		firetalk_protocol_toc;
+		firetalk_protocol_toc2;
 
 	if (firetalk_register_protocol(&firetalk_protocol_irc) != FE_SUCCESS)
 		abort();
 	if (firetalk_register_protocol(&firetalk_protocol_slcp) != FE_SUCCESS)
 		abort();
-	if (firetalk_register_protocol(&firetalk_protocol_toc) != FE_SUCCESS)
+	if (firetalk_register_protocol(&firetalk_protocol_toc2) != FE_SUCCESS)
 		abort();
 }
 
@@ -108,6 +108,15 @@ firetalk_t firetalk_find_handle(client_t c) {
 		if (iter->handle == c)
 			return(iter);
 	abort();
+}
+
+firetalk_t firetalk_find_clientstruct(void *clientstruct) {
+	struct s_firetalk_handle *iter;
+
+	for (iter = handle_head; iter != NULL; iter = iter->next)
+		if (iter->clientstruct == clientstruct)
+			return(iter);
+	return(NULL);
 }
 
 #define DEBUG
@@ -649,10 +658,12 @@ void firetalk_callback_im_getaction(client_t c, const char *const sender, const 
 	}
 }
 
-void firetalk_callback_im_buddyonline(client_t c, const char *const nickname, const int online) {
+void firetalk_callback_im_buddyonline(client_t c, const char *const nickname, int online) {
 	struct s_firetalk_handle
 		*conn = firetalk_find_handle(c);
 	struct s_firetalk_buddy *buddyiter;
+
+	online = online?1:0;
 
 	for (buddyiter = conn->buddy_head; buddyiter != NULL; buddyiter = buddyiter->next)
 		if (firetalk_protocols[conn->protocol]->comparenicks(buddyiter->nickname, nickname) == FE_SUCCESS) {
@@ -1106,7 +1117,7 @@ void firetalk_callback_subcode_request(client_t c, const char *const from, const
 		/* we don't support chatroom subcodes, so we're just going to assume that this is a private ACTION and let the protocol code handle the other case */
 		firetalk_callback_im_getaction(c, from, 0, args);
 	else if (strcasecmp(command, "VERSION") == 0)
-		firetalk_subcode_send_reply(conn, from, "VERSION", "firetalk " LIBFIRETALK_VERSION);
+		firetalk_subcode_send_reply(conn, from, "VERSION", PACKAGE_TARNAME ":" PACKAGE_VERSION ":" PACKAGE_STRING);
 	else if (strcasecmp(command, "SOURCE") == 0)
 		firetalk_subcode_send_reply(conn, from, "SOURCE", LIBFIRETALK_HOMEPAGE);
 	else if (strcasecmp(command, "CLIENTINFO") == 0)

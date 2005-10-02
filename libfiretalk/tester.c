@@ -364,8 +364,8 @@ int	main(int argc, char *argv[]) {
 		DO_TEST(register_callback, (conn1.handle, FC_CHAT_USER_JOINED, (ptrtofnct)chat_user_joined), ret != FE_SUCCESS, ret);
 		DO_TEST(register_callback, (conn2.handle, FC_CHAT_JOINED, (ptrtofnct)chat_joined), ret != FE_SUCCESS, ret);
 		DO_TEST(chat_join, (conn2.handle, fttest), ret != FE_SUCCESS, ret);
-		DO_WAITFOR(conn1, WF_CHAT_USER_JOINED, conn2.username);
 		DO_WAITFOR(conn2, WF_CHAT_JOINED, fttest);
+		DO_WAITFOR(conn1, WF_CHAT_USER_JOINED, conn2.username);
 
 		DO_TEST(register_callback, (conn1.handle, FC_IM_BUDDYONLINE, (ptrtofnct)buddy_online), ret != FE_SUCCESS, ret);
 		DO_TEST(im_remove_buddy, (conn1.handle, conn2.username), (ret != FE_SUCCESS) && (ret != (void *)FE_NOTFOUND), ret);

@@ -142,8 +142,7 @@ static void
 		irc_disc_user_rem(c, disc, mem->nickname);
 }
 
-static const char *const
-	irc_normalize_room_name(const char *const name) {
+static const char *irc_normalize_room_name(const char *const name) {
 	static char	newname[2048];
 
 	if (strchr(ROOMSTARTS, *name))
@@ -315,7 +314,7 @@ static const char *ANSIar[] = {
 	"#FFFFFF",	// 37 white
 };
 
-static const char *const irc_mIRC_to_html(const char *const string, size_t *pos) {
+static const char *irc_mIRC_to_html(const char *const string, size_t *pos) {
 	int	i, col = 0;
 
 	for (i = 0; (i < 2) && isdigit(string[*pos]); i++, (*pos)++) {

@@ -99,7 +99,7 @@ char	*aim_interpolate_variables(const char *const input, const char *const nickn
 	return output;
 }
 
-const char *const aim_normalize_room_name(const char *const name) {
+const char *aim_normalize_room_name(const char *const name) {
 	static char newname[2048];
 
 	if (name == NULL)
@@ -179,4 +179,55 @@ char	*aim_handle_ect(void *conn, const char *const from,
 			break;
 	}
 	return message;
+}
+
+const char *firetalk_nhtmlentities(const char *str, int len) {
+	static char buf[1024];
+	int	i, b = 0;
+
+	for (i = 0; (str[i] != 0) && (b < sizeof(buf)-6-1) && ((len < 0) || (i < len)); i++)
+		switch (str[i]) {
+		  case '<':
+			buf[b++] = '&';
+			buf[b++] = 'l';
+			buf[b++] = 't';
+			buf[b++] = ';';
+			break;
+		  case '>':
+			buf[b++] = '&';
+			buf[b++] = 'g';
+			buf[b++] = 't';
+			buf[b++] = ';';
+			break;
+		  case '&':
+			buf[b++] = '&';
+			buf[b++] = 'a';
+			buf[b++] = 'm';
+			buf[b++] = 'p';
+			buf[b++] = ';';
+			break;
+		  case '"':
+			buf[b++] = '&';
+			buf[b++] = 'q';
+			buf[b++] = 'u';
+			buf[b++] = 'o';
+			buf[b++] = 't';
+			buf[b++] = ';';
+			break;
+		  case '\n':
+			buf[b++] = '<';
+			buf[b++] = 'b';
+			buf[b++] = 'r';
+			buf[b++] = '>';
+			break;
+		  default:
+			buf[b++] = str[i];
+			break;
+		}
+	buf[b] = 0;
+	return(buf);
+}
+
+const char *firetalk_htmlentities(const char *str) {
+	return(firetalk_nhtmlentities(str, -1));
 }

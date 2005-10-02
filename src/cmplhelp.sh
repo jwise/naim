@@ -1,7 +1,7 @@
 #!/bin/sh
 # Adapted for naim January 28, 1999 by Daniel Reed <n@ml.org>
 #
-# $Id: cmplhelp.sh,v 4.7 1998/02/21 00:49:31 mikes Exp $
+# $Id: cmplhelp.sh,v 1.1.1.1 2005/03/22 20:07:55 djr Exp $
 #
 #            T H E    P I N E    M A I L   S Y S T E M
 #

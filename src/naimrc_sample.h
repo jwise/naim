@@ -3,9 +3,9 @@
 #endif
 
 char *naimrc_sample[] = {
-	"eval if ($want_aim != 0) /newconn AIM TOC",
+	"eval if ($want_aim != 0) /newconn AIM TOC2",
 	"eval if ($want_irc != 0) /newconn IRC IRC",
-	"eval if ($want_icq != 0) /newconn ICQ TOC",
+	"eval if ($want_icq != 0) /newconn ICQ TOC2",
 	"eval if ($want_lily != 0) /newconn Lily Lily",
 	"/clear",
 

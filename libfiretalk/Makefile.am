@@ -10,7 +10,8 @@ libfiretalk_a_SOURCES = \
 	lily.c \
 	safestring.c \
 	safestring.h \
-	toc.c
+	toc2.c \
+	toc2_uuids.h
 
 check_PROGRAMS = tester
 tester_SOURCES = \

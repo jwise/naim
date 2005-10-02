@@ -1,8 +1,8 @@
 AC_PREREQ(2.50)
-AC_INIT(naim, 0.11.7.3.1, n@ml.org)
+AC_INIT(naim, 0.11.8, n@ml.org)
 AC_CONFIG_SRCDIR([doc/naim.hlp])
 AC_CONFIG_HEADER([src/config.h])
-AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip no-define no-dependencies subdir-objects std-options])
+AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip no-define no-dependencies subdir-objects std-options 1.8])
 AM_PROG_CC_C_O
 
 echo ""
@@ -10,13 +10,6 @@ echo ""
 echo "Configuring firetalk"
 echo ""
 AC_LIB_FIRETALK
-
-
-#echo ""
-#echo ""
-#echo "Configuring naimng"
-#echo ""
-#AC_PROG_NAIMNG
 
 
 echo ""
@@ -53,7 +46,7 @@ test "$mandir" != '${prefix}/man' || mandir='${datadir}/man'
 
 AC_CONFIG_FILES([
 Makefile
-firetalk/Makefile
+libfiretalk/Makefile
 libltdl/Makefile
 secs/Makefile
 src/Makefile

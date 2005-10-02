@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2005 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -455,6 +455,9 @@ int	main_stub(int argc, char **args) {
 		now60 = now-(now%60);
 		if ((now60 - lastcycle) >= 60)
 			event_handle(lastcycle = now60);
+		else if (lastcycle > now60)
+			lastcycle = now60;
+
 		if (FD_ISSET(STDIN_FILENO, &rfd)) {
 			int	k = nw_getch();
 
