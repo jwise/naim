@@ -59,13 +59,13 @@ char	naimrcfilename[1024];
 
 #ifdef KEY_MAX
 # ifdef SIGHUP
-#  define KEY_SIGHUP (KEY_MAX+SIGHUP)
+#  define KEY_SIGHUP (2*KEY_MAX+SIGHUP)
 # endif
 # ifdef SIGUSR1
-#  define KEY_SIGUSR1 (KEY_MAX+SIGUSR1)
+#  define KEY_SIGUSR1 (2*KEY_MAX+SIGUSR1)
 # endif
 # ifdef SIGUSR2
-#  define KEY_SIGUSR2 (KEY_MAX+SIGUSR2)
+#  define KEY_SIGUSR2 (2*KEY_MAX+SIGUSR2)
 # endif
 #endif
 

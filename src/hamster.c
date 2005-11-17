@@ -159,7 +159,10 @@ static int
 	}
 
 	if (ret != FE_SUCCESS) {
-		buddywin_t	*bwin = bgetanywin(conn, *dest);
+		buddywin_t	*bwin = bgetwin(conn, *dest, BUDDY);
+
+		if (bwin == NULL)
+			bwin = bgetwin(conn, *dest, CHAT);
 
 		if (bwin == NULL)
 			echof(conn, NULL, "Unable to send message to %s: %s.\n", *dest, firetalk_strerror(ret));
@@ -187,20 +190,20 @@ static void
 }
 
 void	naim_send_act(conn_t *const conn, const char *const dest, const unsigned char *const message) {
-	buddywin_t	*bwin = bgetanywin(conn, dest);
-	int	ischat = ((bwin == NULL) || (bwin->et != CHAT))?0:1;
+	int	ischat = (bgetwin(conn, dest, CHAT) == NULL)?0:1;
 
 	updateidletime();
 	naim_send_message(conn, dest, message, ischat, 0, 1);
 }
 
 void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto) {
-	buddywin_t	*bwin = bgetanywin(conn, SN);
+	buddywin_t	*bwin = bgetwin(conn, SN, BUDDY);
 	unsigned char	buf[2048];
 	const char	*pre = getvar(conn, "im_prefix"),
 			*post = getvar(conn, "im_suffix");
 
-	if ((bwin == NULL) || (bwin->et != BUDDY)		// if the target is not queueable (let the protocol layer handle errors)
+	assert((bwin == NULL) || (bwin->et == BUDDY));
+	if ((bwin == NULL)					// if the target is not queueable (let the protocol layer handle errors)
 		|| (	   (conn->online > 0)			// or if you are online
 			&& (bwin->e.buddy->offline == 0))) {	//  and the target is also tracked online
 		if (_auto == 0)
@@ -223,6 +226,7 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 			msg = buf;
 		}
 		assert(bwin != NULL);
+		assert(bwin->et == BUDDY);
 		bwin->pouncec++;
 		bwin->pouncear = realloc(bwin->pouncear,
 			bwin->pouncec*sizeof(*(bwin->pouncear)));

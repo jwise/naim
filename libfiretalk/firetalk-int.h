@@ -60,11 +60,15 @@ typedef void (*ptrtofnct)(firetalk_t, void *, ...);
 struct s_firetalk_buddy {
 	struct s_firetalk_buddy *next;
 	char	*nickname,
-		*group;
-	long	idletime;
+		*group,
+		*friendly;
+	long	idletime,
+		warnval;
 	unsigned char
 		online:1,
 		away:1;
+	int	typing;
+	char	*capabilities;
 };
 
 struct s_firetalk_deny {
@@ -173,7 +177,8 @@ typedef struct s_firetalk_protocol_functions {
 	fte_t	(*set_away)(client_t, const char *const, const int);
 	fte_t	(*set_nickname)(client_t, const char *const);
 	fte_t	(*set_password)(client_t, const char *const, const char *const);
-	fte_t	(*im_add_buddy)(client_t, const char *const, const char *const);
+	fte_t	(*set_privacy)(client_t, const char *const);
+	fte_t	(*im_add_buddy)(client_t, const char *const, const char *const, const char *const);
 	fte_t	(*im_remove_buddy)(client_t, const char *const);
 	fte_t	(*im_add_deny)(client_t, const char *const);
 	fte_t	(*im_remove_deny)(client_t, const char *const);
@@ -212,6 +217,9 @@ void firetalk_callback_im_getmessage(client_t c, const char *const sender, const
 void firetalk_callback_im_getaction(client_t c, const char *const sender, const int automessage, const char *const message);
 void firetalk_callback_im_buddyonline(client_t c, const char *const nickname, const int online);
 void firetalk_callback_im_buddyaway(client_t c, const char *const nickname, const int away);
+void firetalk_callback_typing(client_t c, const char *const name, const int typing);
+void firetalk_callback_capabilities(client_t c, char const *const nickname, const char *const caps);
+void firetalk_callback_warninfo(client_t c, char const *const nickname, const long warnval);
 void firetalk_callback_error(client_t c, const int error, const char *const roomoruser, const char *const description);
 void firetalk_callback_connectfailed(client_t c, const int error, const char *const description);
 void firetalk_callback_connected(client_t c);
@@ -273,7 +281,7 @@ int firetalk_internal_connect(struct sockaddr_in *inet4_ip
 fte_t firetalk_internal_resolve4(const char *const host, struct in_addr *inet4_ip);
 struct sockaddr_in *firetalk_internal_remotehost4(client_t c);
 #ifdef _FC_USE_IPV6
-int firetalk_internal_resolve6(const char *const host, struct in_addr6 *inet6_ip);
+fte_t firetalk_internal_resolve6(const char *const host, struct in6_addr *inet6_ip);
 struct sockaddr_in6 *firetalk_internal_remotehost6(client_t c);
 #endif
 enum firetalk_connectstate firetalk_internal_get_connectstate(client_t c);

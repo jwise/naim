@@ -376,6 +376,7 @@ void	win_resize(void) {
 		assert(conn->nwin.win != NULL);
 		nw_resize(&(conn->nwin), faimconf.wstatus.pady,
 			faimconf.wstatus.widthx);
+		nw_move(&(conn->nwin), faimconf.wstatus.pady-1, 0);
 		if (bwin != NULL)
 			do {
 				nw_resize(&(bwin->nwin), 1, 1);
@@ -550,7 +551,8 @@ void	nw_getline(win_t *win, char *buf, int buflen) {
 int	nw_getch(void) {
 	int	k = getch();
 
-	assert(k != ERR);
+	if (k == ERR)
+		return(0);
 	return(k);
 }
 

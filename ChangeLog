@@ -561,3 +561,14 @@ Summary of changes from 0.11.7.1 to 0.11.7.2
 [UI  bug] In some situations, the default abbreviated window playback did not quite cover the entire screen. Work around implemented.
 [UI  bug] If ncurses determined that your terminal supported more than 16 colors, but only provided 256 color pairings, naim would refuse to run. Fixed (naim only counts up to 16 colors).
 [UI  bug] If a buddy was signed on and away but did not have a window open, and became unaway, naim would dereference a NULL pointer. Fixed.
+
+
+Summary of changes from 0.11.8 to 0.11.8.1
+==========================================
+[UI  fea] The /wi command now displays buddy client capabilities.
+[UI  fea] The status bar now displays "TYPING" when your buddy is in the middle of typing a message to you. (Only if your buddy's client sends typing notifications, which naim does not do.)
+[UI  fea] Warning levels for yourself and for your buddies are now displayed in the UI.
+[UI  fea] New /setpriv command. Use to change between ALLOW ALL, BLOCK ALL, ALLOW PERMIT, BLOCK DENY, or ALLOW BUDDY. The default is BLOCK DENY.
+[FT  fea] Joshua Wise <joshua@joshuawise.com> updated the IPv6 code to work with the modern code base. If you have an IPv6 connection, you should be able to /connect to an IPv6 hostname without any special configuration.
+[IRC fea] The IRC driver now accepts incoming lines that end in a naked "\n". (The spec. requires lines to end in "\r\n", but Jon Postel would roll over in his grave if he heard we required such stringent protocol conformity. That and some poorly-maintained ircds do send naked "\n" characters.)
+[UI  fea] /names now sorts users before displaying them.

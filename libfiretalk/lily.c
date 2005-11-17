@@ -1631,7 +1631,7 @@ static fte_t
 }
 
 static fte_t
-	lily_im_add_buddy(lily_conn_t *c, const char *const nickname, const char *const group) {
+	lily_im_add_buddy(lily_conn_t *c, const char *const nickname, const char *const group, const char *const friendly) {
 	const lily_user_t
 		*lily_user = lily_user_find_name(c, nickname);
 

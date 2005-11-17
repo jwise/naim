@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2005 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -40,9 +40,10 @@ extern int
 	needpass G_GNUC_INTERNAL,
 	doredraw G_GNUC_INTERNAL,
 	inpaste G_GNUC_INTERNAL,
-	withtextcomp G_GNUC_INTERNAL;
+	withtextcomp G_GNUC_INTERNAL,
+	namec;
 extern char
-	*namesbuf G_GNUC_INTERNAL,
+	**names G_GNUC_INTERNAL,
 	*lastclose G_GNUC_INTERNAL;
 extern namescomplete_t
 	namescomplete G_GNUC_INTERNAL;
@@ -51,8 +52,9 @@ int	scrollbackoff = 0,
 	doredraw = 0,
 	consolescroll = -1,
 	inpaste = 0,
-	withtextcomp = 0;
-char	*namesbuf = NULL,
+	withtextcomp = 0,
+	namec = 0;
+char	**names = NULL,
 	*lastclose = NULL;
 namescomplete_t
 	namescomplete;
@@ -487,7 +489,7 @@ CONIOAOPT(string,realname)
 		}
 	}
 
-	firetalk_im_add_buddy(conn->conn, args[0], USER_GROUP(blist));
+	firetalk_im_add_buddy(conn->conn, args[0], USER_GROUP(blist), blist->_name);
 }
 
 static void do_delconn(conn_t *conn) {
@@ -535,7 +537,7 @@ static void do_delconn(conn_t *conn) {
 CONIOFUNC(exit) {
 CONIOALIA(quit)
 CONIODESC(Disconnect and exit naim)
-	conn_t	*c, *cnext;
+	conn_t	*c;
 
 	if (secs_getvar_int("autosave") != 0)
 		conio_save(conn, 0, NULL);
@@ -545,9 +547,8 @@ CONIODESC(Disconnect and exit naim)
 		firetalk_disconnect(c->conn);
 	} while ((c = c->next) != conn);
 
-	for (c = curconn; curconn != NULL; c = cnext) {
-		cnext = c->next;
-		do_delconn(c);
+	while (curconn != NULL) {
+		do_delconn(curconn);
 		statrefresh();
 	}
 	stayconnected = 0;
@@ -1180,7 +1181,7 @@ CONIOAREQ(buddy,name)
 		blist = rgetlist(conn, args[0]);
 		if (blist == NULL) {
 			blist = raddbuddy(conn, args[0], DEFAULT_GROUP, NULL);
-			firetalk_im_add_buddy(conn->conn, args[0], USER_GROUP(blist));
+			firetalk_im_add_buddy(conn->conn, args[0], USER_GROUP(blist), NULL);
 			added = 1;
 		} else
 			added = 0;
@@ -1320,6 +1321,14 @@ CONIOAOPT(string,message)
 	}
 }
 
+static int qsort_strcasecmp(const void *p1, const void *p2) {
+	register char
+		**b1 = (char **)p1,
+		**b2 = (char **)p2;
+
+	return(strcasecmp(*b1, *b2));
+}
+
 CONIOFUNC(names) {
 CONIOALIA(buddylist)
 CONIODESC(Display buddy list or members of a chat)
@@ -1428,6 +1437,8 @@ CONIOAOPT(chat,chat)
 					blist->tag?" TAGGED":"",
 					blist->isaway?" AWAY":"",
 					blist->isidle?" IDLE":"",
+					blist->warnval?" WARNED":"",
+					blist->typing?" TYPING":"",
 					(blist->peer > 0)?" PEER":"");
 			} while ((blist = blist->next) != NULL);
 			free(spaces);
@@ -1444,12 +1455,27 @@ CONIOAOPT(chat,chat)
 		buddywin_t	*bwin = cgetwin(conn, chat);
 
 		assert(bwin != NULL);
-		if (namesbuf == NULL)
+		if (names == NULL)
 			window_echof(bwin, "Nobody on %s\n", chat);
 		else {
+			int	i, namesbuflen = 0;
+			char	*namesbuf = NULL;
+
+			qsort(names, namec, sizeof(*names), qsort_strcasecmp);
+			for (i = 0; i < namec; i++) {
+				int	len = strlen(names[i])+1;
+
+				namesbuf = realloc(namesbuf, (namesbuflen+len+1)*sizeof(*namesbuf));
+				sprintf(namesbuf+namesbuflen, "%s ", names[i]);
+				namesbuflen += len;
+				free(names[i]);
+				names[i] = NULL;
+			}
+			free(names);
+			names = NULL;
+			namec = 0;
 			window_echof(bwin, "Users on %s: %s\n", chat, namesbuf);
 			free(namesbuf);
-			namesbuf = NULL;
 		}
 	}
 }
@@ -2084,6 +2110,15 @@ CONIOAOPT(string,colormodifier)
 	}
 }
 
+CONIOFUNC(setpriv) {
+CONIODESC(Change your privacy mode)
+CONIOAREQ(string,mode)
+	if (firetalk_set_privacy(conn->conn, args[0]) == FE_SUCCESS)
+		echof(conn, NULL, "Privacy mode changed.\n");
+	else
+		echof(conn, "SETPRIV", "Privacy mode not changed, a separate error may have been generated.\n");
+}
+
 CONIOFUNC(bind) {
 CONIODESC(View or change key bindings)
 CONIOAOPT(string,keyname)
@@ -2463,7 +2498,6 @@ CONIOAREQ(string,command)
 
 		close(pi[0]);
 		close(STDIN_FILENO);
-		close(STDERR_FILENO);
 		dup2(pi[1], STDOUT_FILENO);
 		dup2(pi[1], STDERR_FILENO);
 		if (sayit)
@@ -3817,6 +3851,7 @@ void	gotkey(int c) {
 
 	gotkey_real(c);
 
+	FD_ZERO(&rfd);
 	FD_SET(STDIN_FILENO, &rfd);
 	while (select(STDIN_FILENO+1, &rfd, NULL, NULL, &timeout) > 0)
 		gotkey_real(nw_getch());

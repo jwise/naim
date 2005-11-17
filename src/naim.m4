@@ -4,7 +4,7 @@ AC_DEFUN([AC_PROG_NAIM],
 
 	AC_SUBST([pkgmoddir], ['${libdir}/naim'])
 	AC_ARG_WITH(pkgmoddir,
-		AC_HELP_STRING([--with-pkgmoddir], [package modules [[LIBDIR/naim]]]),
+		AC_HELP_STRING([--with-pkgmoddir=DIR], [package modules [[LIBDIR/naim]]]),
 		[
 			pkgmoddir=${withval}
 		]
@@ -12,7 +12,7 @@ AC_DEFUN([AC_PROG_NAIM],
 
 	AC_SUBST([pkgincludedir], ['${includedir}/naim'])
 	AC_ARG_WITH(pkgincludedir,
-		AC_HELP_STRING([--with-pkgincludedir], [package header files [[INCLUDEDIR/naim]]]),
+		AC_HELP_STRING([--with-pkgincludedir=DIR], [package header files [[INCLUDEDIR/naim]]]),
 		[
 			pkgincludedir=${withval}
 		]
@@ -20,7 +20,7 @@ AC_DEFUN([AC_PROG_NAIM],
 
 	AC_SUBST([pkgtarball], ['${PACKAGE_TARNAME}-${PACKAGE_VERSION}-${host}.tbz2'])
 	AC_ARG_WITH(pkgtarball,
-		AC_HELP_STRING([--with-pkgtarball], [binary tarball file [[naim-VERSION-HOST.tbz2]]]),
+		AC_HELP_STRING([--with-pkgtarball=FILE], [binary tarball file [[naim-VERSION-HOST.tbz2]]]),
 		[
 			pkgtarball=${withval}
 		]
@@ -75,7 +75,7 @@ AC_DEFUN([AC_PROG_NAIM],
 	)
 
 	AC_ARG_WITH(update-message,
-		AC_HELP_STRING([--with-update-message], [message to display when an update is available]),
+		AC_HELP_STRING([--with-update-message=MESSAGE], [message to display when an update is available]),
 		[
 			if test "x${with_update_message}" != xyes && test "x${with_update_message}" != xno; then
 				enable_dnsupdate=yes
@@ -88,7 +88,7 @@ AC_DEFUN([AC_PROG_NAIM],
 	fi
 
 	AC_ARG_WITH(irc-support-channel,
-		AC_HELP_STRING([--with-irc-support-channel], [default channel to join when started as `nirc']),
+		AC_HELP_STRING([--with-irc-support-channel=CHANNEL], [default channel to join when started as `nirc' [[#naim]]]),
 		[
 			if test "x${with_irc_support_channel}" != xyes && test "x${with_irc_support_channel}" != xno; then
 				AC_DEFINE_UNQUOTED(IRC_SUPPORT_CHANNEL, "${with_irc_support_channel}", [Define to the default channel to join when started as `nirc'])

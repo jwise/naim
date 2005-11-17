@@ -80,6 +80,9 @@ char	*events[] = {
 #ifdef DEBUG_ECHO
 void statrefresh(void) {
 }
+void status_echof(void) {
+}
+void *curconn = NULL;
 #endif
 
 #define CALLBACK_SANITY()					\
@@ -271,7 +274,7 @@ void	chat_left(void *c, void *cs, char *room) {
 	conn.waitingfor = event;							\
 	conn.waitingstr = str;								\
 	time(&tt);									\
-	fprintf(stderr, "waiting (up to 20 seconds) for event %s...\r\n", events[event]); \
+	fprintf(stderr, "%s waiting (up to 20 seconds) for event %s...\r\n", conn.username, events[event]); \
 	while (((tt + 20) > time(NULL)) && (conn.waitingfor != 0)) {			\
 		t.tv_sec = 20 - (time(NULL)-tt);					\
 		t.tv_usec = 0;								\
@@ -279,11 +282,11 @@ void	chat_left(void *c, void *cs, char *room) {
 		DO_TEST(select_custom, (0, NULL, NULL, NULL, &t), ret != FE_SUCCESS, ret); \
 	}										\
 	if (conn.waitingfor != 0) {							\
-		fprintf(stderr, "waiting (up to 20 seconds) for event %s... timed out waiting for event %s\r\n", events[event], events[event]); \
+		fprintf(stderr, "%s waiting (up to 20 seconds) for event %s... timed out waiting for event %s\r\n", conn.username, events[event], events[event]); \
 		exit(EXIT_FAILURE);							\
 	}										\
-	fprintf(stderr, "waiting (up to 20 seconds) for event %s... done, %s event caught\r\n", events[event], events[event]); \
-	fprintf(stderr, "waiting for server sync...");					\
+	fprintf(stderr, "%s waiting (up to 20 seconds) for event %s... done, %s event caught\r\n", conn.username, events[event], events[event]); \
+	fprintf(stderr, "%s waiting for server sync...", conn.username);		\
 	fflush(stderr);									\
 	sleep(1);									\
 	fprintf(stderr, " done\r\n");							\
@@ -369,7 +372,7 @@ int	main(int argc, char *argv[]) {
 
 		DO_TEST(register_callback, (conn1.handle, FC_IM_BUDDYONLINE, (ptrtofnct)buddy_online), ret != FE_SUCCESS, ret);
 		DO_TEST(im_remove_buddy, (conn1.handle, conn2.username), (ret != FE_SUCCESS) && (ret != (void *)FE_NOTFOUND), ret);
-		DO_TEST(im_add_buddy, (conn1.handle, conn2.username, "Test Group"), ret != FE_SUCCESS, ret);
+		DO_TEST(im_add_buddy, (conn1.handle, conn2.username, "Test Group", "Test Friendly"), ret != FE_SUCCESS, ret);
 //		DO_WAITFOR(conn1, WF_BUDDYONLINE, conn2.username);
 
 		DO_TEST(register_callback, (conn1.handle, FC_IM_BUDDYAWAY, (ptrtofnct)im_buddyaway), ret != FE_SUCCESS, ret);

@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <unistd.h>
 #include <netinet/in.h>
 
+#define _FC_USE_IPV6
+
 #define LIBFIRETALK_HOMEPAGE "http://www.penguinhosting.net/~ian/firetalk/"
 
 #ifndef _HAVE_FIRETALK_T
@@ -69,6 +71,12 @@ enum firetalk_callback {
 		/* void *connection, void *clientstruct */
 	FC_IM_IDLEINFO,
 		/* void *connection, void *clientstruct, char *nickname, long idletime */
+	FC_IM_EVILINFO,
+		/* void *connection, void *clientstruct, char *nickname, long warnval */
+	FC_IM_TYPINGINFO,
+		/* void *connection, void *clientstruct, char *nickname, int typing */
+	FC_IM_CAPABILITIES,
+		/* void *connection, void *clientstruct, char *nickname, char *caps */
 	FC_IM_GOTINFO,
 		/* void *connection, void *clientstruct, char *nickname, char *info, int warning, int online, int idle, int flags */
 	FC_IM_USER_NICKCHANGED,
@@ -198,7 +206,7 @@ fte_t	firetalk_signon(firetalk_t conn, const char *const server, const short por
 fte_t	firetalk_register_callback(firetalk_t conn, const int type, void (*function)(firetalk_t, void *, ...));
 firetalk_t firetalk_find_clientstruct(void *clientstruct);
 
-fte_t	firetalk_im_add_buddy(firetalk_t conn, const char *const name, const char *const group);
+fte_t	firetalk_im_add_buddy(firetalk_t conn, const char *const name, const char *const group, const char *const friendly);
 fte_t	firetalk_im_remove_buddy(firetalk_t conn, const char *const name);
 fte_t	firetalk_im_add_deny(firetalk_t conn, const char *const name);
 fte_t	firetalk_im_remove_deny(firetalk_t conn, const char *const name);
@@ -243,6 +251,7 @@ fte_t	firetalk_set_away(firetalk_t c, const char *const message, const int auto_
 const char *firetalk_chat_normalize(firetalk_t conn, const char *const room);
 fte_t	firetalk_set_nickname(firetalk_t conn, const char *const nickname);
 fte_t	firetalk_set_password(firetalk_t conn, const char *const oldpass, const char *const newpass);
+fte_t	firetalk_set_privacy(firetalk_t conn, const char *const mode);
 fte_t	firetalk_select();
 fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *fd_except, struct timeval *timeout);
 

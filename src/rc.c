@@ -21,25 +21,18 @@ buddylist_t
 	assert(screenname != NULL);
 	assert(group != NULL);
 
-	buddy = conn->buddyar;
-	while (buddy != NULL) {
+	for (buddy = conn->buddyar; buddy != NULL; buddy = buddy->next)
 		if (firetalk_compare_nicks(conn->conn, screenname, buddy->_account) == FE_SUCCESS)
 			return(buddy);
-		buddy = buddy->next;
-	}
 
 	buddy = calloc(1, sizeof(buddylist_t));
 	assert(buddy != NULL);
 	STRREPLACE(buddy->_account, screenname);
-
+	STRREPLACE(buddy->_group, group);
 	if (notes != NULL)
 		STRREPLACE(buddy->_name, notes);
-	else {
-		free(buddy->_name);
-		buddy->_name = NULL;
-	}
-
-	STRREPLACE(buddy->_group, group);
+	else
+		FREESTR(buddy->_name);
 
 	if ((conn->buddyar == NULL) || (aimcmp(screenname, conn->buddyar->_account) <= 0)) {
 		buddy->next = conn->buddyar;
@@ -66,6 +59,7 @@ void	do_delbuddy(buddylist_t *b) {
 	FREESTR(b->crypt);
 	FREESTR(b->tzname);
 	FREESTR(b->tag);
+	FREESTR(b->caps);
 	free(b);
 }
 
@@ -288,25 +282,26 @@ int	rc_resize(faimconf_t *conf) {
 
 rc_var_s_t
 	rc_var_s_ar[] = {
-	{ "nameformat",		"$user_name_account",		"window list name format for unnamed users" },
-	{ "nameformat_named",	"$user_name_account ($user_name_name)",
+	{ "nameformat",		"$user_name_account$user_name_ifwarn",
+								"window list name format for unnamed users" },
+	{ "nameformat_named",	"$user_name_account$user_name_ifwarn ($user_name_name)",
 								"window list name format for named buddies" },
 	{ "awaymsg",		"I am currently away...",	"auto-response sent when you are away" },
 	{ "autoawaymsg",	"Must have stepped out...",	"auto-response used if you idle away (see $autoaway)" },
 	{ "autozone",		NULL,				"time zone to send to peers" },
 	{ "logdir",		".naimlog/$conn/$cur",		"base directory to store persistent window scrollback" },
-	{ "statusbar",		" %I:%M%p $ifoper$SN$ifaway$ifquery$ifchat+$ifpending$iftransfer [$conn $online]$iflag$ifidle naim ",
+	{ "statusbar",		" %I:%M%p $ifoper$SN$ifwarn$ifaway$ifquery$ifchat+$ifpending$iftransfer [$conn $online]$iflag$ifidle naim ",
 								"string to use for status bar, replace $if* with $statusbar_*" },
 	{ "statusbar_away",	" (away)",			"display if you are away" },
 	{ "statusbar_idle",	" [Idle $idle]",		"display if you haven't said anything for 10 minutes" },
 	{ "statusbar_lag",	" [Lag $lag]",			"display if there is network delay between you and the server" },
 	{ "statusbar_oper",	"@",				"display if the current window is a chat, and you are a channel operator" },
-/*	{ "statusbar_warn",	"/$warnval%",			"if your warning level is above 0%" }, */
+	{ "statusbar_warn",	"/$warnval%",			"if your warning level is above 0%" },
 	{ "statusbar_chat",	" on $cur$iftopic",		"display if the current window is a chat" },
 	{ "statusbar_crypt",	"ENCRYPTED ",			"display if the current window is a query, and query is automatically encrypted" },
-/*	{ "statusbar_typing",	" TYPING",			"if the current window is a query, and the other person is typing to you" }, */
+	{ "statusbar_typing",	" TYPING",			"if the current window is a query, and the other person is typing to you" },
 	{ "statusbar_tzname",	" <$tzname>",			"display if the current window is a query, and you know the buddy's time zone" },
-	{ "statusbar_query",	" [$ifcryptQuery: $cur$iftopic$iftzname]",
+	{ "statusbar_query",	" [$ifcryptQuery: $cur$iftopic$iftzname]$iftyping",
 								"display if the current window is a query" },
 	{ "timeformat",		"[%H:%M:%S]&nbsp;",		"strftime format prepended to all messages" },
 	{ "im_prefix",		"",				"string added to the beginning of every IM sent" },

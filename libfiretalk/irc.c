@@ -159,6 +159,7 @@ static const char *irc_normalize_room_name(const char *const name) {
 
 
 #ifdef DEBUG_ECHO
+extern void *curconn;
 static void irc_echof(irc_conn_t *c, const char *const where, const char *const format, ...) {
 	va_list	ap;
 	char	buf[513];
@@ -171,7 +172,8 @@ static void irc_echof(irc_conn_t *c, const char *const where, const char *const 
 	while (buf[strlen(buf)-1] == '\n')
 		buf[strlen(buf)-1] = 0;
 	if (*buf != 0)
-		firetalk_callback_chat_getmessage(c, ":RAW", where, 0, buf);
+		status_echof(curconn, firetalk_htmlentities(buf));
+//		firetalk_callback_chat_getmessage(c, ":RAW", where, 0, buf);
 
 	statrefresh();
 }
@@ -650,15 +652,18 @@ static char **irc_recv_parse(irc_conn_t *c, unsigned char *buffer, unsigned shor
 	args[0] = NULL;
 
 	assert(*bufferpos < sizeof(data));
-	memcpy(data,buffer,*bufferpos);
+	memcpy(data, buffer, *bufferpos);
 	data[*bufferpos] = '\0';
 
-	tempchr = strstr(data,"\r\n");
+	tempchr = strchr(data, '\n');
 	if (tempchr == NULL)
 		return NULL;
-	tempchr[0] = '\0';
-	*bufferpos -= (tempchr - data + 2);
-	memmove(buffer,&buffer[tempchr - data + 2],*bufferpos);
+	if ((tempchr > data) && (tempchr[-1] == '\r'))
+		tempchr[-1] = 0;
+	else
+		tempchr[0] = 0;
+	*bufferpos -= (tempchr - data + 1);
+	memmove(buffer, &buffer[tempchr - data + 1], *bufferpos);
 
 #ifdef DEBUG_ECHO
 	irc_echof(c, "recv_parse", "%s", data);
@@ -1500,7 +1505,7 @@ static fte_t
 }
 
 static fte_t
-	irc_im_add_buddy(irc_conn_t *c, const char *const name, const char *const group) {
+	irc_im_add_buddy(irc_conn_t *c, const char *const name, const char *const group, const char *const friendly) {
 	struct s_firetalk_handle *fchandle;
 
 	fchandle = firetalk_find_handle(c);

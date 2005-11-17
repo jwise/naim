@@ -66,6 +66,11 @@ static void
 		} else
 			secs_setvar("iftopic", "");
 
+		if ((curconn->curbwin->et != BUDDY) || (curconn->curbwin->e.buddy->typing == 0))
+			secs_setvar("iftyping", "");
+		else
+			secs_setvar("iftyping", secs_script_expand(NULL, getvar(curconn, "statusbar_typing")));
+
 		switch (curconn->curbwin->et) {
 		  case BUDDY:
 			if (curconn->curbwin->e.buddy->crypt != NULL)
@@ -104,6 +109,7 @@ static void
 		secs_setvar("cur", "");
 		secs_setvar("ifoper", "");
 		secs_setvar("ifquery", "");
+		secs_setvar("iftyping", "");
 		secs_setvar("ifchat", "");
 	}
 
@@ -131,6 +137,16 @@ static void
 	} else {
 		secs_setvar("lag", "0");
 		secs_setvar("iflag", "");
+	}
+
+	if (curconn->warnval > 0) {
+		snprintf(buf, sizeof(buf), "%li", curconn->warnval);
+		secs_setvar("warnval", buf);
+		secs_setvar("ifwarn",
+			secs_script_expand(NULL, getvar(curconn, "statusbar_warn")));
+	} else {
+		secs_setvar("warnval", "0");
+		secs_setvar("ifwarn", "");
 	}
 
 	if (strftime(buf, sizeof(buf), getvar(curconn, "statusbar"), tmptr) > 0) {
@@ -522,8 +538,8 @@ buddywin_t
 		if (bwin->et == et) {
 			if (firetalk_compare_nicks(conn->conn, buddy, bwin->winname) == FE_SUCCESS)
 				return(bwin);
-			if ((bwin->et == BUDDY) && (firetalk_compare_nicks(conn->conn, buddy, USER_NAME(bwin->e.buddy)) == FE_SUCCESS))
-				return(bwin);
+//			if ((bwin->et == BUDDY) && (firetalk_compare_nicks(conn->conn, buddy, USER_NAME(bwin->e.buddy)) == FE_SUCCESS))
+//				return(bwin);
 		}
 	} while ((bwin = bwin->next) != conn->curbwin);
 
@@ -964,7 +980,7 @@ void	bgoing(conn_t *conn, const char *buddy) {
 		status_echof(conn, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> has just logged off :(\n", 
 			user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 		blist->offline = 1;
-		blist->isidle = blist->isaway = 0;
+		blist->warnval = blist->typing = blist->isidle = blist->isaway = 0;
 	} else
 		return;
 

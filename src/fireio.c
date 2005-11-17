@@ -16,7 +16,8 @@ extern win_t	win_input;
 extern conn_t	*curconn;
 extern time_t	now, awaytime;
 extern double	nowf;
-extern char	*namesbuf;
+extern int	namec;
+extern char	**names;
 extern namescomplete_t	namescomplete;
 extern faimconf_t	faimconf;
 extern char	*sty, *statusbar_text;
@@ -145,19 +146,26 @@ nFIRE_HANDLER(naim_nickchange) {
 nFIRE_HANDLER(naim_buddylist) {
 	conn_t		*conn = (conn_t *)client;
 	va_list		msg;
-	const char	*screenname, *group;
+	const char	*screenname, *group, *friendly;
 	int		online, away;
 	buddylist_t	*blist;
 
 	va_start(msg, client);
 	screenname = va_arg(msg, const char *);
 	group = va_arg(msg, const char *);
+	friendly = va_arg(msg, const char *);
 	online = va_arg(msg, int);
 	away = va_arg(msg, int);
 	va_end(msg);
 
-	if (rgetlist(conn, screenname) == NULL)
-		blist = raddbuddy(conn, screenname, group, NULL);
+	if ((blist = rgetlist(conn, screenname)) == NULL)
+		blist = raddbuddy(conn, screenname, group, friendly);
+
+	STRREPLACE(blist->_group, group);
+	if (friendly != NULL)
+		STRREPLACE(blist->_name, friendly);
+	else
+		FREESTR(blist->_name);
 }
 
 #define STANDARD_TRAILER	\
@@ -166,13 +174,12 @@ nFIRE_HANDLER(naim_buddylist) {
 
 void	naim_set_info(void *sess, const char *str) {
 	const char *defar[] = {
-"Common sense and a sense of humor are the same thing, moving at\n"
-"different speeds. A sense of humor is just common sense, dancing.<br>\n"
-"&nbsp; &nbsp; &nbsp; &nbsp; -- Clive James<br>\n"
+"Play the game.<br>\n"
 			STANDARD_TRAILER,
-"If you pick up a starving dog and make him prosperous, he will not bite\n"
-"you. This is the principal difference between a dog and a man.<br>\n"
-"&nbsp; &nbsp; &nbsp; &nbsp; -- Mark Twain<br>\n"
+"TOUCHING WIRES CAUSES INSTANT DEATH<br>\n"
+"$200 fine<br>\n"
+			STANDARD_TRAILER,
+"Tepid! Tepid is no good for a star, but it'll do for stardust.<br>\n"
 			STANDARD_TRAILER,
 "Resisting temptation is easier when you think you'll probably get\n"
 "another chance later on.<br>\n"
@@ -187,6 +194,12 @@ void	naim_set_info(void *sess, const char *str) {
 "Those who make peaceful revolution impossible will make violent\n"
 "revolution inevitable.<br>\n"
 "&nbsp; &nbsp; &nbsp; &nbsp; -- John F. Kennedy"
+			STANDARD_TRAILER,
+"The question of whether computers can think is just like the question of whether submarines can swim.<br>\n"
+"&nbsp; &nbsp; &nbsp; &nbsp; -- Edsger W. Dijkstra"
+			STANDARD_TRAILER,
+"People sleep peaceably in their beds at night only because\n"
+"rough men stand ready to do violence on their behalf.<br>\n"
 			STANDARD_TRAILER,
 	};
 
@@ -276,7 +289,7 @@ nFIRE_HANDLER(naim_budprof) {
 	status_echof(conn, "Uploading buddy/block list and profile...\n");
 
 	for (buddy = conn->buddyar; buddy != NULL; buddy = buddy->next)
-		firetalk_im_add_buddy(sess, USER_ACCOUNT(buddy), USER_GROUP(buddy));
+		firetalk_im_add_buddy(sess, USER_ACCOUNT(buddy), USER_GROUP(buddy), buddy->_name);
 
 	for (idiot = conn->idiotar; idiot != NULL; idiot = idiot->next)
 		if (strcasecmp(idiot->notes, "block") == 0)
@@ -318,6 +331,7 @@ nFIRE_HANDLER(naim_warned) {
 
 	echof(conn, NULL, "<font color=\"#00FFFF\">%s</font> just warned you (%i).\n",
 		who, newlev);
+	conn->warnval = newlev;
 }
 
 nFIRE_HANDLER(naim_buddy_idle) {
@@ -335,6 +349,82 @@ nFIRE_HANDLER(naim_buddy_idle) {
 		bidle(conn, who, 1);
 	else
 		bidle(conn, who, 0);
+}
+
+nFIRE_HANDLER(naim_buddy_eviled) {
+	conn_t		*conn = (conn_t *)client;
+	va_list		msg;
+	const char	*who;
+	long		warnval;
+	buddylist_t	*blist;
+
+	va_start(msg, client);
+	who = va_arg(msg, const char *);
+	warnval = va_arg(msg, long);
+	va_end(msg);
+
+	if ((blist = rgetlist(conn, who)) != NULL)
+		blist->warnval = warnval;
+}
+
+nFIRE_HANDLER(naim_buddy_caps) {
+	conn_t		*conn = (conn_t *)client;
+	va_list		msg;
+	const char	*who, *caps;
+	buddylist_t	*blist;
+
+	va_start(msg, client);
+	who = va_arg(msg, const char *);
+	caps = va_arg(msg, const char *);
+	va_end(msg);
+
+	if ((blist = rgetlist(conn, who)) != NULL) {
+		int	i, j, strtolower = 1;
+
+		blist->caps = realloc(blist->caps, 2*strlen(caps)+1);
+
+		for (i = 0; (caps[i] != 0) && (caps[i] != ' '); i++)
+			if (islower(caps[i])) {
+				strtolower = 0;
+				break;
+			}
+
+		for (j = i = 0; caps[i] != 0; i++)
+			if (caps[i] == ' ') {
+				int	x;
+
+				strtolower = 1;
+				for (x = i+1; (caps[x] != 0) && (caps[x] != ' '); x++)
+					if (islower(caps[x])) {
+						strtolower = 0;
+						break;
+					}
+				blist->caps[j++] = ',';
+				blist->caps[j++] = ' ';
+			} else if (caps[i] == '_')
+				blist->caps[j++] = ' ';
+			else if (strtolower && (j > 0) && (blist->caps[j-1] != ' '))
+				blist->caps[j++] = tolower(caps[i]);
+			else
+				blist->caps[j++] = caps[i];
+		blist->caps[j] = 0;
+	}
+}
+
+nFIRE_HANDLER(naim_buddy_typing) {
+	conn_t		*conn = (conn_t *)client;
+	va_list		msg;
+	const char	*who;
+	int		typing;
+	buddylist_t	*blist;
+
+	va_start(msg, client);
+	who = va_arg(msg, const char *);
+	typing = va_arg(msg, int);
+	va_end(msg);
+
+	if ((blist = rgetlist(conn, who)) != NULL)
+		blist->typing = typing;
 }
 
 nFIRE_HANDLER(naim_buddy_away) {
@@ -488,7 +578,7 @@ static int
 				blist = raddbuddy(conn, *name, DEFAULT_GROUP, NULL);
 				assert(blist->offline == 1);
 				bnewwin(conn, *name, BUDDY);
-				firetalk_im_add_buddy(conn->conn, *name, USER_GROUP(blist));
+				firetalk_im_add_buddy(conn->conn, *name, USER_GROUP(blist), NULL);
 			} else {
 				buddywin_t	*bwin;
 
@@ -629,10 +719,8 @@ void	chat_flush(buddywin_t *bwin) {
 		}
 		bwin->e.chat->last.reps = 0;
 	}
-	free(bwin->e.chat->last.line);
-	bwin->e.chat->last.line = NULL;
-	free(bwin->e.chat->last.name);
-	bwin->e.chat->last.name = NULL;
+	FREESTR(bwin->e.chat->last.line);
+	FREESTR(bwin->e.chat->last.name);
 }
 
 static int
@@ -1062,6 +1150,13 @@ nFIRE_HANDLER(naim_userinfo_handler) {
 			(class&FF_SUBSTANDARD)?" AIM":"",
 			(class&FF_NORMAL)?" AOLamer":"",
 			(class&FF_ADMIN)?" Operator":"");
+	{
+		buddylist_t *blist = rgetlist(conn, SN);
+
+		if ((blist != NULL) && (blist->caps != NULL))
+		  echof(conn, NULL,
+			"</B><B>Client features</B>: %s", blist->caps);
+	}
 	if (warning > 0)
 	  echof(conn, NULL,
 		"</B>&nbsp; <B>Warning level</B>: %i", warning);
@@ -1276,8 +1371,7 @@ nFIRE_HANDLER(naim_chat_KEYCHANGED) {
 	} else if (bwin->e.chat->key != NULL) {
 		window_echof(bwin, "<font color=\"#00FFFF\">%s</font> has cleared the channel key (was %s).\n",
 			by, bwin->e.chat->key);
-		free(bwin->e.chat->key);
-		bwin->e.chat->key = NULL;
+		FREESTR(bwin->e.chat->key);
 	}
 	bupdate();
 }
@@ -1440,8 +1534,7 @@ nFIRE_HANDLER(naim_chat_NAMES) {
 	va_list		msg;
 	const char	*room, *nick;
 	int		oped;
-	static int	namesbuflen = 0;
-	int		i, j;
+//	int		i, j;
 
 	va_start(msg, client);
 	room = va_arg(msg, const char *);
@@ -1483,22 +1576,17 @@ nFIRE_HANDLER(naim_chat_NAMES) {
 		return;
 	}
 
-	if (namesbuf == NULL) {
-		namesbuflen = 1;
-		namesbuf = malloc(1);
-		namesbuf[0] = 0;
-	}
-	namesbuflen += strlen(nick) + oped + 1;
-	namesbuf = realloc(namesbuf, namesbuflen);
-	if (oped)
-		strcat(namesbuf, "@");
-	for (i = 0, j = strlen(namesbuf); nick[i] != 0; i++, j++)
-		if (isspace(nick[i]))
-			namesbuf[j] = '_';
-		else
-			namesbuf[j] = nick[i];
-	namesbuf[j] = ' ';
-	namesbuf[j+1] = 0;
+	namec++;
+	names = realloc(names, namec*sizeof(*names));
+	names[namec-1] = malloc(strlen(nick) + oped + 1);
+	sprintf(names[namec-1], "%s%s", oped?"@":"", nick);
+//	for (i = 0, j = strlen(namesbuf); nick[i] != 0; i++, j++)
+//		if (isspace(nick[i]))
+//			namesbuf[j] = '_';
+//		else
+//			namesbuf[j] = nick[i];
+//	namesbuf[j] = ' ';
+//	namesbuf[j+1] = 0;
 }
 
 transfer_t
@@ -1518,10 +1606,8 @@ transfer_t
 }
 
 void	fremove(transfer_t *transfer) {
-	free(transfer->from);
-	transfer->from = NULL;
-	free(transfer->remote);
-	transfer->remote = NULL;
+	FREESTR(transfer->from);
+	FREESTR(transfer->remote);
 	free(transfer);
 }
 
@@ -1748,7 +1834,7 @@ nFIRE_CTCPHAND(naim_ctcp_AUTOPEER) {
 					from);
 				blist = raddbuddy(conn, from, DEFAULT_GROUP, NULL);
 				bnewwin(conn, from, BUDDY);
-				firetalk_im_add_buddy(conn->conn, from, USER_GROUP(blist));
+				firetalk_im_add_buddy(conn->conn, from, USER_GROUP(blist), NULL);
 			} else {
 				if (getvar_int(conn, "autopeerverbose") > 0)
 					status_echof(conn, "Declining automatic negotiation with <font color=\"#00FFFF\">%s</font> (add <font color=\"#00FFFF\">%s</font> to your buddy list).\n", 
@@ -2041,6 +2127,12 @@ conn_t	*naim_newconn(int proto) {
 			naim_buddy_unaway);
 		firetalk_register_callback(conn->conn, FC_IM_IDLEINFO,
 			naim_buddy_idle);
+		firetalk_register_callback(conn->conn, FC_IM_TYPINGINFO,
+			naim_buddy_typing);
+		firetalk_register_callback(conn->conn, FC_IM_EVILINFO,
+			naim_buddy_eviled);
+		firetalk_register_callback(conn->conn, FC_IM_CAPABILITIES,
+			naim_buddy_caps);
 		firetalk_register_callback(conn->conn, FC_IM_LISTBUDDY,
 			naim_buddylist);
 

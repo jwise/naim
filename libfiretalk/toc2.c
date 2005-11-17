@@ -90,9 +90,9 @@ static struct {
 	const char *name;
 	const int val;
 } toc_firstcaps[] = {
-	{ "WinAIM_COMPAT",	0x0000 },
-	{ "ICQ2Go_COMPAT_AIM",	0x0002 },
-	{ "ICQ2Go_COMPAT_ICQ",	0x0210 },
+	{ "WinAIM",	0x0000 },
+	{ "AIM_Express",0x0002 },
+	{ "ICQ2Go",	0x0210 },
 };
 
 static struct {
@@ -1128,7 +1128,7 @@ static fte_t toc_signon(client_t c, const char *const username) {
 }
 
 static fte_t
-	toc_im_remove_buddy_butgroup(client_t c, const char *const name, const char *const group) {
+	toc_im_remove_buddy_butgroup(client_t c, const char *const name, const char *const group, const char *const friendly) {
 	struct s_firetalk_handle *fchandle;
 
 	fchandle = firetalk_find_handle(c);
@@ -1138,7 +1138,7 @@ static fte_t
 
 		for (iter = fchandle->buddy_head; iter != NULL; iter = iter->next)
 			if (toc_compare_nicks(iter->nickname, name) != FE_NOMATCH) {
-				if (strcmp(iter->group, group) != 0)
+				if ((strcmp(iter->group, group) != 0) || ((iter->friendly == NULL) && (friendly != NULL)) || ((iter->friendly != NULL) && (friendly == NULL)) || ((iter->friendly != NULL) && (friendly != NULL) && (strcmp(iter->friendly, friendly) != 0)))
 					return(toc_send_printf(c, "toc2_remove_buddy %s %s", name, iter->group));
 				return(FE_NOMATCH);
 			}
@@ -1180,34 +1180,6 @@ static fte_t
 }
 #endif
 
-static fte_t toc_im_add_buddy(client_t c, const char *const name, const char *const group) {
-	char	buf[1024];
-	int	slen;
-
-	if (c->gotconfig == 0)
-		return(FE_SUCCESS);
-
-	if (strcmp(c->buddybuflastgroup, group) == 0)
-		snprintf(buf, sizeof(buf), "b:%s\n", name);
-	else
-		snprintf(buf, sizeof(buf), "g:%s\nb:%s\n", group, name);
-	slen = strlen(buf);
-
-	free(c->buddybuflastgroup);
-	c->buddybuflastgroup = strdup(group);
-
-	if ((c->buddybuflen+slen+1) >= sizeof(c->buddybuf))
-		toc_im_add_buddy_flush(c);
-	if ((c->buddybuflen+slen+1) >= sizeof(c->buddybuf))
-		return(FE_PACKET);
-
-	toc_im_remove_buddy_butgroup(c, name, group);
-	strcpy(c->buddybuf+c->buddybuflen, buf);
-	c->buddybuflen += slen;
-
-	return(FE_SUCCESS);
-}
-
 static fte_t toc_im_remove_buddy(client_t c, const char *const name) {
 	struct s_firetalk_handle *fchandle;
 
@@ -1223,6 +1195,39 @@ static fte_t toc_im_remove_buddy(client_t c, const char *const name) {
 	return(FE_NOMATCH);
 }
 
+static fte_t toc_im_add_buddy(client_t c, const char *const name, const char *const group, const char *const friendly) {
+	char	buf[1024];
+	int	slen;
+
+	if (c->gotconfig == 0)
+		return(FE_SUCCESS);
+
+	if (strcmp(c->buddybuflastgroup, group) == 0) {
+		if (friendly != NULL)
+			snprintf(buf, sizeof(buf), "b:%s:%s\n", name, friendly);
+		else
+			snprintf(buf, sizeof(buf), "b:%s\n", name);
+	} else {
+		if (friendly != NULL)
+			snprintf(buf, sizeof(buf), "g:%s\nb:%s:%s\n", group, name, friendly);
+		else
+			snprintf(buf, sizeof(buf), "g:%s\nb:%s\n", group, name);
+		free(c->buddybuflastgroup);
+		c->buddybuflastgroup = strdup(group);
+	}
+	slen = strlen(buf);
+
+	if ((c->buddybuflen+slen+1) >= sizeof(c->buddybuf))
+		toc_im_add_buddy_flush(c);
+	if ((c->buddybuflen+slen+1) >= sizeof(c->buddybuf))
+		return(FE_PACKET);
+
+	toc_im_remove_buddy_butgroup(c, name, group, friendly);
+	strcpy(c->buddybuf+c->buddybuflen, buf);
+	c->buddybuflen += slen;
+
+	return(FE_SUCCESS);
+}
 
 static fte_t
 	toc_im_add_deny(client_t c, const char *const name) {
@@ -1239,13 +1244,11 @@ static fte_t toc_im_upload_buddies(client_t c) {
 
 	fchandle = firetalk_find_handle(c);
 
-	if (fchandle->buddy_head == NULL)
-		toc_im_add_buddy(c, "naimhelp", "FireTalk maintainer");
-	else {
+	if (fchandle->buddy_head != NULL) {
 		struct s_firetalk_buddy *buddyiter;
 
 		for (buddyiter = fchandle->buddy_head; buddyiter != NULL; buddyiter = buddyiter->next)
-			toc_im_add_buddy(c, buddyiter->nickname, buddyiter->group);
+			toc_im_add_buddy(c, buddyiter->nickname, buddyiter->group, buddyiter->friendly);
 	}
 
 	return(FE_SUCCESS);
@@ -1499,7 +1502,6 @@ static fte_t toc_set_password(client_t c, const char *const oldpass, const char 
 	return(toc_send_printf(c, "toc_change_passwd %s %s", oldpass, newpass));
 }
 
-#ifdef ENABLE_PRIVACY
 static fte_t toc_set_privacy(client_t c, const char *const mode) {
 	if (strcasecmp(mode, "ALLOW ALL") == 0)
 		c->permit_mode = 1;
@@ -1518,7 +1520,6 @@ static fte_t toc_set_privacy(client_t c, const char *const mode) {
 
 	return(toc_send_printf(c, "toc2_set_pdmode %i", c->permit_mode));
 }
-#endif
 
 static fte_t toc_im_evil(client_t c, const char *const who) {
 	return(toc_send_printf(c, "toc_evil %s norm", who));
@@ -1644,7 +1645,7 @@ static struct {
 				The Buddy List server is unavailable at this time, and your AIM Express (TM) connection will be closed.
 				Wait a few minutes, and try to sign on again.
 			*/
-	/* 931 */ {	FE_UNKNOWN,		0, NULL },
+	/* 931 */ {	FE_UNKNOWN,		0, "Unable to add buddy or group. You may have the max allowed buddies or groups or are trying to add a buddy to a group that doesn't exist and cannot be created." },
 	/* 932 */ {	FE_UNKNOWN,		0, NULL },
 	/* 933 */ {	FE_UNKNOWN,		0, NULL },
 	/* 934 */ {	FE_UNKNOWN,		0, NULL },
@@ -1956,9 +1957,7 @@ static fte_t
 			}
 		}
 		firetalk_callback_im_buddyonline(c, name, 1);
-#ifdef ENABLE_TYPING
 		firetalk_callback_typing(c, name, 0);
-#endif
 	} else if (strcmp(arg0, "CLIENT_EVENT2") == 0) {
 		/* 1 source
 		** 2 status
@@ -1975,9 +1974,7 @@ static fte_t
 		name = args[1];
 		typinginfo = atol(args[2]);
 
-#ifdef ENABLE_TYPING
 		firetalk_callback_typing(c, name, typinginfo);
-#endif
 	} else if (strcmp(arg0, "UPDATE_BUDDY2") == 0) {
 		/* UPDATE_BUDDY:<Buddy User>:<Online? T/F>:<Evil Amount>:<Signon Time>:<IdleTime>:<UC>:<status code> */
 		/* 1 source
@@ -2011,9 +2008,7 @@ static fte_t
 		if (online != 0) {
 			firetalk_callback_im_buddyaway(c, name, isaway);
 			firetalk_callback_idleinfo(c, name, idle);
-#ifdef ENABLE_WARNINFO
 			firetalk_callback_warninfo(c, name, warn);
-#endif
 		} else {
 			assert(isaway == 0);
 			assert(idle == 0);
@@ -2054,22 +2049,22 @@ static fte_t
 					snprintf(capstring+strlen(capstring), sizeof(capstring)-strlen(capstring),
 						" %s", toc_uuids[j].name);
 				else {
+#define O(x)	(((x) == 0)?0:isspace(x)?'_':(x))
 					snprintf(capstring+strlen(capstring), sizeof(capstring)-strlen(capstring),
-						" +[%c%c%c%c%c%c%c%c%c%c%c%c", B>>8, B&0xFF, C>>8, C&0xFF, D>>8, D&0xFF, E1>>8, E1&0xFF, E2>>8, E2&0xFF, E3>>8, E3&0xFF);
+						" [%c%c%c%c%c%c%c%c%c%c%c%c", O(B>>8), O(B&0xFF), O(C>>8), O(C&0xFF), O(D>>8), O(D&0xFF), O(E1>>8), O(E1&0xFF), O(E2>>8), O(E2&0xFF), O(E3>>8), O(E3&0xFF));
+#undef O
 					snprintf(capstring+strlen(capstring), sizeof(capstring)-strlen(capstring), "]");
 				}
 			} else {
 				if (strlen(caps[i]) > 4)
 					snprintf(capstring+strlen(capstring), sizeof(capstring)-strlen(capstring),
-						" ?[%04X%04X-%04X-%04X-%04X-%04X%04X%04X]", A1, A2, B, C, D, E1, E2, E3);
+						" [%04X%04X-%04X-%04X-%04X-%04X%04X%04X]", A1, A2, B, C, D, E1, E2, E3);
 				else
 					snprintf(capstring+strlen(capstring), sizeof(capstring)-strlen(capstring),
 						" UNKNOWN_CAP_%04X", A2);
 			}
 		}
-#ifdef ENABLE_CAPABILITIES
 		firetalk_callback_capabilities(c, name, capstring);
-#endif
 	} else if (strcmp(arg0, "BART2") == 0) {
 		/* 1 source
 		** 2 base64-encoded strings, unidentified
@@ -2567,9 +2562,16 @@ got_data_connecting_start:
 						curgroup = strdup(args[1]);
 						break;
 					  case 'b':	/* A Buddy */
-					  case 'a':	/* another kind of buddy */
-						if (strcmp(curgroup, "Mobile Device") != 0)
-							firetalk_im_add_buddy(fchandle, args[1], curgroup);
+					  case 'a': {	/* another kind of buddy */
+							char	*friendly = NULL;
+
+							if ((args[2] != NULL) && (args[2][0] != 0))
+								friendly = args[2];
+							else
+								friendly = NULL;
+							if (strcmp(curgroup, "Mobile Device") != 0)
+								firetalk_im_add_buddy(fchandle, args[1], curgroup, friendly);
+						}
 						break;
 					  case 'p':	/* Person on permit list */
 						toc_send_printf(c, "toc_add_permit %s", args[1]);
@@ -2616,12 +2618,19 @@ got_data_connecting_start:
 				return(r);
 			}
 
-			r = toc_send_printf(c, "toc_set_caps %S %S",
-				"094613494C7F11D18222444553540000",
-				toc_make_fake_cap(PACKAGE_STRING, strlen(PACKAGE_STRING)));
-			if (r != FE_SUCCESS) {
-				firetalk_callback_connectfailed(c, r, "Setting capabilities");
-				return(r);
+			{
+				char	*name, *version;
+
+				name = strdup(toc_make_fake_cap(PACKAGE_NAME, strlen(PACKAGE_NAME)));
+				version = strdup(toc_make_fake_cap(PACKAGE_VERSION, strlen(PACKAGE_VERSION)));
+				r = toc_send_printf(c, "toc_set_caps %S %S %S",
+					"094613494C7F11D18222444553540000", name, version);
+				free(name);
+				free(version);
+				if (r != FE_SUCCESS) {
+					firetalk_callback_connectfailed(c, r, "Setting capabilities");
+					return(r);
+				}
 			}
 
 #ifdef ENABLE_GETREALNAME
@@ -2860,9 +2869,7 @@ const firetalk_protocol_t firetalk_protocol_toc2 = {
 	set_away:		toc_set_away,
 	set_nickname:		toc_set_nickname,
 	set_password:		toc_set_password,
-#ifdef ENABLE_PRIVACY
 	set_privacy:		toc_set_privacy,
-#endif
 #ifdef ENABLE_NEWGROUPS
 	im_remove_group:	toc_im_remove_group,
 #endif

@@ -91,13 +91,16 @@ typedef struct buddylist_ts {
 		*_name,
 		*crypt,
 		*tzname,
-		*tag;
+		*tag,
+		*caps;
 	struct buddylist_ts	*next;
+	long	warnval;
+	int	peer,
+		typing;
 	unsigned char
 		offline:1,
 		isaway:1,
 		isidle:1;	// is the buddy idle for more than some threshhold?
-	int	peer;
 } buddylist_t;
 #define DEFAULT_GROUP	"User"
 #define CHAT_GROUP	"Chat"
@@ -203,6 +206,7 @@ typedef struct conn_ts {
 		*winname,
 		*server,
 		*profile;
+	long	warnval;
 	int	port, proto;
 	time_t	online;
 	double	lastupdate, lag;
@@ -263,6 +267,13 @@ static inline char *user_name(char *buf, int buflen, conn_t *conn, buddylist_t *
 	}
 
 	secs_setvar("user_name_name", USER_NAME(user));
+	if (user->warnval > 0) {
+		snprintf(_buf, sizeof(_buf), "%li", user->warnval);
+		secs_setvar("warnval", _buf);
+		secs_setvar("user_name_ifwarn",
+			secs_script_expand(NULL, secs_getvar("statusbar_warn")));
+	} else
+		secs_setvar("user_name_ifwarn", "");
 
 	if (firetalk_compare_nicks(conn->conn, USER_ACCOUNT(user), USER_NAME(user)) == FE_SUCCESS) {
 		secs_setvar("user_name_account", USER_NAME(user));

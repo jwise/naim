@@ -1,4 +1,4 @@
-.TH naim 1 "2003-06-24" "naim-0.11.6" "AIM/ICQ/IRC/Lily Communication Client"
+.TH naim 1 "2005-10-26" "naim-0.11.8" "AIM/ICQ/IRC/Lily Communication Client"
 .SH NAME
 naim \- console mode chat client
 .SH SYNOPSIS
@@ -84,7 +84,8 @@ Online help is available by typing \fB/help\fR at the console.
 Use the \fB/quit\fR command.
 .PP
 .SH AUTHOR
-Daniel Reed <n@ml.org>.
+Daniel Reed <n@ml.org>, with notable contributions from Ian Gulliver 
+<ian@penguinhosting.net> and Joshua Wise <joshua@joshuawise.com>.
 .PP
 .SH UPDATES
 The latest version of naim will always be available from
@@ -128,27 +129,27 @@ mailing list. Patches in context output format are prefered. In order to
 work on naim, you may wish to extract naim twice, and perform your 
 builds in a third directory, as in:
 .br
-\fI tar -zxvf naim-0.11.6.tar.gz\fR
+\fI tar -zxvf naim-0.11.8.tar.bz2\fR
 .br
-\fI mv naim-0.11.6 naim-0.11.6,original\fR
+\fI mv naim-0.11.8 naim-0.11.8,original\fR
 .br
-\fI tar -zxvf naim-0.11.6.tar.gz\fR
+\fI tar -zxvf naim-0.11.8.tar.bz2\fR
 .br
-\fI mkdir naim-0.11.6-objdir\fR
+\fI mkdir naim-0.11.8-objdir\fR
 .br
-\fI cd naim-0.11.6-objdir\fR
+\fI cd naim-0.11.8-objdir\fR
 .br
-\fI ../naim-0.11.6/configure --prefix=/usr\fR
+\fI ../naim-0.11.8/configure --prefix=/usr\fR
 .PP
-Then you may modify the files in ../naim-0.11.6, compile, test, modify 
+Then you may modify the files in ../naim-0.11.8, compile, test, modify 
 again, recompile, test, etc. until your are satisfied, then:
 .br
 \fI cd ..\fR
 .br
-\fI diff -rcN naim-0.11.6,original naim-0.11.6 > \\\fR
+\fI diff -rcN naim-0.11.8,original naim-0.11.8 > \\\fR
 .br
-\fI       naim-0.11.6.feature1.patch\fR
+\fI       naim-0.11.8.feature1.patch\fR
 .PP
-And submit `\fBnaim-0.11.6.feature1.patch\fR'. Do not gzip or otherwise 
+And submit `\fBnaim-0.11.8.feature1.patch\fR'. Do not gzip or otherwise 
 encode patches, so they may be reviewed from within a mail client.
 .PP

@@ -81,28 +81,28 @@ commands.txt: ${srcdir}/conio.c config.h
 conio.o: ${srcdir}/conio.c conio_keys.h conio_cmds.h commands.txt
 	@echo $(COMPILE) -c `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
 	@$(COMPILE) -c `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
-conio.lo: ${srcdir}/conio.c conio_keys.h conio_cmds.h commands.txt
+libnaim_core_la-conio.lo: ${srcdir}/conio.c conio_keys.h conio_cmds.h commands.txt
 	@echo $(LTCOMPILE) -c -o $@ `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
 	@$(LTCOMPILE) -c -o $@ `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
 
 fireio.o: ${srcdir}/fireio.c conio_cmds.h
 	@echo $(COMPILE) -c `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
 	@$(COMPILE) -c `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
-fireio.lo: ${srcdir}/fireio.c conio_cmds.h
+libnaim_core_la-fireio.lo: ${srcdir}/fireio.c conio_cmds.h
 	@echo $(LTCOMPILE) -c -o $@ `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
 	@$(LTCOMPILE) -c -o $@ `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
 
 helpcmd.o: ${srcdir}/helpcmd.c conio_cmds.h
 	@echo $(COMPILE) -c `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
 	@$(COMPILE) -c `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
-helpcmd.lo: ${srcdir}/helpcmd.c conio_cmds.h
+libnaim_core_la-helpcmd.lo: ${srcdir}/helpcmd.c conio_cmds.h
 	@echo $(LTCOMPILE) -c -o $@ `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
 	@$(LTCOMPILE) -c -o $@ `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
 
 main.o: ${srcdir}/main.c
 	@echo $(COMPILE) -DDLSEARCHPATH='"${pkgmoddir}"' -c `test -f 'main.c' || echo '$(srcdir)/'`main.c
 	@$(COMPILE) -DDLSEARCHPATH='"${pkgmoddir}"' -c `test -f 'main.c' || echo '$(srcdir)/'`main.c
-main.lo: ${srcdir}/main.c
+libnaim_core_la-main.lo: ${srcdir}/main.c
 	@echo $(LTCOMPILE) -DDLSEARCHPATH='"${pkgmoddir}"' -c -o $@ `test -f 'main.c' || echo '$(srcdir)/'`main.c
 	@$(LTCOMPILE) -DDLSEARCHPATH='"${pkgmoddir}"' -c -o $@ `test -f 'main.c' || echo '$(srcdir)/'`main.c
 
