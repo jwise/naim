@@ -480,10 +480,23 @@ static void toc_infoget_parse_userinfo(client_t c, struct s_toc_infoget *i) {
 	{
 		struct tm tm;
 
+		memset(&tm, 0, sizeof(tm));
 		if (strptime(tmp, "%a %b %d %H:%M:%S %Y", &tm) == NULL)
 			online = 0;
 		else
 			online = mktime(&tm);
+		{ /* AOL's servers are permanently in UTC-0400 */
+			struct tm *tmptr;
+			time_t loc = 100000, gm = 100000;
+			int	dsto;
+
+			tmptr = localtime(&loc);
+			loc = mktime(tmptr);
+			dsto = tm.tm_isdst?4:5;
+			tmptr = gmtime(&gm);
+			gm = mktime(tmptr);
+			online += loc-gm+dsto*60*60;
+		}
 	}
 #else
 	online = 0;

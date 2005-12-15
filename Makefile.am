@@ -57,5 +57,5 @@ cyg: distcheck tbz2
 	  echo "@ naim" >>"${top_builddir}/Cygwin"/setup.hint
 	  echo "sdesc: \"Console AIM, ICQ, IRC, and Lily client\"" >>"${top_builddir}/Cygwin"/setup.hint
 	  echo "ldesc: \"Console client for AOL Instant Messenger, ICQ, Internet Relay Chat, and The lily CMC\"" >>"${top_builddir}/Cygwin"/setup.hint
-	  echo "requires: libncurses7 cygwin" >>"${top_builddir}/Cygwin"/setup.hint
+	  echo "requires: libncurses8 cygwin" >>"${top_builddir}/Cygwin"/setup.hint
 	  echo "category: Net Web" >>"${top_builddir}/Cygwin"/setup.hint

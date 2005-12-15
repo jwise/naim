@@ -572,3 +572,7 @@ Summary of changes from 0.11.8 to 0.11.8.1
 [FT  fea] Joshua Wise <joshua@joshuawise.com> updated the IPv6 code to work with the modern code base. If you have an IPv6 connection, you should be able to /connect to an IPv6 hostname without any special configuration.
 [IRC fea] The IRC driver now accepts incoming lines that end in a naked "\n". (The spec. requires lines to end in "\r\n", but Jon Postel would roll over in his grave if he heard we required such stringent protocol conformity. That and some poorly-maintained ircds do send naked "\n" characters.)
 [UI  fea] /names now sorts users before displaying them.
+[TOC fea] Friendly names (/namebuddy) are now stored to and retrieved from your server-side buddy list.
+[TOC bug] /delbuddy did not always correctly remove the user from your server-side buddy list. Fixed.
+[UI  bug] If you had a user with the same friendly name as another user's account name, naim would become unstable when the second user signed on. Fixed.
+[TOC fea] (ported from 0.11.7.3) Online time is presented in localized time from AOL's servers. FireTalk now de-localizes (from UTC-0400) and re-localizes to the user's time zone.
