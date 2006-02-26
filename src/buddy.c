@@ -783,7 +783,7 @@ void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 	if ((rfile = playback_fopen(conn, bwin, "r")) != NULL) {
 		char	buf[2048];
 		int	maxlen = lines*faimconf.wstatus.widthx;
-		long	filesize, playbackstart, playbacklen;
+		long	filesize, playbackstart, playbacklen, pos;
 		time_t	lastprogress = now;
 
 #ifdef DEBUG_ECHO
@@ -793,23 +793,29 @@ void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 		nw_statusbarf("Redrawing window for %s.", bwin->winname);
 
 		fseek(rfile, 0, SEEK_END);
-		filesize = ftell(rfile);
+		while (((filesize = ftell(rfile)) == -1) && (errno == EINTR))
+			;
+		assert(filesize >= 0);
 		if (filesize > maxlen) {
 			fseek(rfile, -maxlen, SEEK_CUR);
 			while ((fgetc(rfile) != '\n') && !feof(rfile))
 				;
 		} else
 			fseek(rfile, 0, SEEK_SET);
-		playbackstart = ftell(rfile);
+		while (((playbackstart = ftell(rfile)) == -1) && (errno == EINTR))
+			;
+		assert(playbackstart >= 0);
+		pos = 0;
 		playbacklen = filesize-playbackstart;
 		inplayback = 1;
 		while (fgets(buf, sizeof(buf), rfile) != NULL) {
-			while ((strlen(buf) > 0) && (buf[strlen(buf)-1] == '\n'))
-				buf[strlen(buf)-1] = 0;
+			long	len = strlen(buf);
+
+			pos += len;
 			hwprintf(&(bwin->nwin), -C(IMWIN,TEXT)-1, "%s", buf);
 			if ((now = time(NULL)) > lastprogress) {
 				nw_statusbarf("Redrawing window for %s (%li lines left).",
-					bwin->winname, lines*(playbacklen-(ftell(rfile)-playbackstart))/playbacklen);
+					bwin->winname, lines*(playbacklen-pos)/playbacklen);
 				lastprogress = now;
 			}
 		}

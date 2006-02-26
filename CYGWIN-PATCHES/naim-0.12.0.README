@@ -13,7 +13,7 @@ Build procedure:
 Packaging procedure:
   To create a Slackware pkgtool-compatible tarball, simply run:
   ./configure \
-	'CFLAGS=-Wall -g3 -O1' \
+	'CFLAGS=-Wall -O0' \
 	'--enable-debug' \
 	'--enable-ltdl-convenience' \
 	&& make tgz

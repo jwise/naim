@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #define _GNU_SOURCE
@@ -11,6 +11,7 @@
 
 #include "naim-int.h"
 #include "snapshot.h"
+#include "conio_cmds.h"
 
 #ifdef ENABLE_DNSUPDATE
 # include <netdb.h>
@@ -165,6 +166,7 @@ void	event_handle(time_t now) {
 		if ((updatecheck > 0) && (((now-startuptime)/60)%updatecheck == 0)) {
 			struct hostent *ent;
 
+			nw_statusbarf("Anonymously checking for the latest version of naim...");
 			if ((ent = gethostbyname("latest.naim.n.ml.org")) != NULL) {
 				int	i;
 

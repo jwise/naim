@@ -1,7 +1,7 @@
 /*
 tester.c - FireTalk testing code
 Copyright (C) 2000 Ian Gulliver
-Copyright 2003-2004 Daniel Reed <n@ml.org>
+Copyright 2003-2006 Daniel Reed <n@ml.org>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of version 2 of the GNU General Public License as
@@ -26,9 +26,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "firetalk-int.h"
 #include "firetalk.h"
-#include "safestring.h"
 
-#define FIRETALK_TEST_STRING	"FireTalk test " LIBFIRETALK_VERSION
+#define FIRETALK_TEST_STRING	"FireTalk test for " PACKAGE_NAME " " PACKAGE_VERSION
 
 struct {
 	void	*handle;
@@ -141,10 +140,11 @@ void *curconn = NULL;
 
 
 void	needpass(void *c, void *cs, char *pass, int size) {
+	pass[size-1] = 0;
 	if (c == conn1.handle)
-		safe_strncpy(pass, conn1.password, size);
+		strncpy(pass, conn1.password, size-1);
 	else if (c == conn2.handle)
-		safe_strncpy(pass, conn2.password, size);
+		strncpy(pass, conn2.password, size-1);
 }
 
 void	doinit(void *c, void *cs, char *nickname) {
@@ -294,9 +294,9 @@ void	chat_left(void *c, void *cs, char *room) {
 
 int	main(int argc, char *argv[]) {
 	int	i;
-	const char *protostr;
+//	const char *protostr;
 
-	fprintf(stderr, "API test for FireTalk " LIBFIRETALK_VERSION "\r\n");
+	fprintf(stderr, "API test for FireTalk/" PACKAGE_NAME " " PACKAGE_VERSION "\r\n");
 	firetalk_find_protocol("");
 //	for (i = 0; (protostr = firetalk_strprotocol(i)) != NULL; i++) {
 	for (i = 0; i < 1; i++) {
@@ -321,9 +321,9 @@ int	main(int argc, char *argv[]) {
 		fprintf(stderr, "Protocol: %s\r\n", firetalk_strprotocol(i));
 		fprintf(stderr, "\r\n");
 
-		DO_TEST(create_handle, (i, NULL), ret == NULL, firetalkerror);
+		DO_TEST(create_handle, (i, NULL, 0), ret == NULL, firetalkerror);
 			conn1.handle = ret;
-		DO_TEST(create_handle, (i, NULL), ret == NULL, firetalkerror);
+		DO_TEST(create_handle, (i, NULL, 2), ret == NULL, firetalkerror);
 			conn2.handle = ret;
 		DO_TEST(register_callback, (conn1.handle, FC_ERROR, (ptrtofnct)error), ret != FE_SUCCESS, ret);
 		DO_TEST(register_callback, (conn1.handle, FC_NEEDPASS, (ptrtofnct)needpass), ret != FE_SUCCESS, ret);
@@ -367,8 +367,8 @@ int	main(int argc, char *argv[]) {
 		DO_TEST(register_callback, (conn1.handle, FC_CHAT_USER_JOINED, (ptrtofnct)chat_user_joined), ret != FE_SUCCESS, ret);
 		DO_TEST(register_callback, (conn2.handle, FC_CHAT_JOINED, (ptrtofnct)chat_joined), ret != FE_SUCCESS, ret);
 		DO_TEST(chat_join, (conn2.handle, fttest), ret != FE_SUCCESS, ret);
-		DO_WAITFOR(conn2, WF_CHAT_JOINED, fttest);
 		DO_WAITFOR(conn1, WF_CHAT_USER_JOINED, conn2.username);
+		DO_WAITFOR(conn2, WF_CHAT_JOINED, fttest);
 
 		DO_TEST(register_callback, (conn1.handle, FC_IM_BUDDYONLINE, (ptrtofnct)buddy_online), ret != FE_SUCCESS, ret);
 		DO_TEST(im_remove_buddy, (conn1.handle, conn2.username), (ret != FE_SUCCESS) && (ret != (void *)FE_NOTFOUND), ret);

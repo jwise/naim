@@ -24,7 +24,8 @@ echo "#endif"
 echo '#include <ncurses.h>' \
 	| ${CPP} -dD - \
 	| grep '^#define KEY_' \
-	| tail -n +3 \
+	| grep -v '^#define KEY_CODE_YES' \
+	| grep -v '^#define KEY_MIN' \
 	| ${AWK} '{printf("%s\n", $2);}' \
 	| grep -v '(.*)' \
 	| sed 's/^KEY_\(.*\)$/\1/g' \

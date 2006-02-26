@@ -1,5 +1,34 @@
 static struct {
 	const char *name;
+	const int val;
+} toc_firstcaps[] = {
+	{ "WinAIM",	0x0000 },
+	{ "AIM_Express",0x0002 },
+	{ "ICQ2Go",	0x0210 },
+};
+
+static struct {
+	const char *name;
+	const int val;
+} toc_barts[] = {
+	{ "BUDDY_ICON_SMALL",	0 },
+	{ "BUDDY_ICON",		1 },
+	{ "STATUS_TEXT",	2 },
+	{ "ARRIVE_SOUND",	3 },
+	{ "DEPART_SOUND",	96 },
+	{ "IM_BACKGROUND",	128 },
+	{ "IM_CHROME",		129 },
+	{ "IM_SKIN",		130 },
+	{ "IM_SOUND",		131 },
+	{ "BL_BACKGROUND",	256 },
+	{ "BL_IMAGE",		257 },
+	{ "BL_SKIN",		258 },
+	{ "SMILEY_SET",		1024 },
+	{ "MAIL_STATIONERY",	1025 },
+};
+
+static struct {
+	const char *name;
 	const int A1, A2, B, C, D, E1, E2, E3;
 } toc_uuids[] = {
 /*RV*/

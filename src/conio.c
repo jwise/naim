@@ -1172,8 +1172,7 @@ CONIOAREQ(buddy,name)
 	buddywin_t	*bwin;
 
 	if ((bwin = bgetanywin(conn, args[0])) != NULL)
-		echof(conn, "OPENWIN", "There is already a window open for <font color=\"#00FFFF\">%s</font>. Type <font color=\"#00FF00\">/jump %s</font> to jump to it.\n",
-			bwin->winname, args[0]);
+		conio_jump(conn, argc, args);
 	else {
 		buddylist_t	*blist;
 		int	added;
@@ -3479,37 +3478,47 @@ static void
 							bufloc = strlen(buf);
 						else if (namescomplete.foundmatch) {
 							static char *lastcomplete = NULL;
-							static int numcompletes = 0;
+							static int numcompletes = 1;
 
-							memset(buf, 0, sizeof(buf));
-							inwhite = inpaste = bufloc = 0;
-							if ((lastcomplete != NULL) && (strcmp(namescomplete.buf, lastcomplete) == 0) && (getvar(curconn, "vulgarnickcompletion") == NULL)) {
-								if (numcompletes == 0)
-									echof(curconn, "TAB", "Please do not nick complete the same name twice. It is likely that %s already saw your initial address and can track your messages without additional help, or %s did not see your initial message and is not going to hear your followup messages either.\n", lastcomplete, lastcomplete);
-								else if (numcompletes == 1)
-									echof(curconn, "TAB", "If you find yourself sending a large number of messages to the same person in a group, it might be best to take the person aside to finish your conversation. Online, this can be accomplished by using <font color=\"#00FF00\">/msg %s yourmessage</font>.\n", lastcomplete);
+							if (numcompletes && (lastcomplete != NULL) && (strcmp(namescomplete.buf, lastcomplete) == 0)) {
+								if (numcompletes == 1)
+									echof(curconn, "TAB", "Please do not complete the same name twice. It is likely that %s already saw your initial address and can track your messages without additional help, or %s did not see your initial message and is not going to hear your followup messages either.\n", lastcomplete, lastcomplete);
 								else if (numcompletes == 2)
-									echof(curconn, "TAB", "If you really want to nick complete the same name twice without this extra step, use <font color=\"#00FF00\">/set vulgarnickcompletion 1</font>. However, please try to think of how you would act if you were holding this conversation in person--including moving aside if the group area is too noisy.\n");
-								else
+									echof(curconn, "TAB", "If you find yourself sending a large number of messages to the same person in a group, it might be best to take the person aside to finish your conversation. Online, this can be accomplished by using <font color=\"#00FF00\">/msg %s yourmessage</font>.\n", lastcomplete);
+								else if (numcompletes == 3)
 									echof(curconn, "TAB", "Remember: This is a group you are addressing. If your conversation is directed at only one person, it may be best to hold it in private, using <font color=\"#00FF00\">/msg</font>. If the conversation is for the benefit of the entire audience, you should not prefix every message with an individual's name.\n");
-								numcompletes++;
-								if (numcompletes >= 20)
+								else {
+									echof(curconn, "TAB", "If you really want to complete the same name multiple times, I'm not going to stop you. However, please try to think of how you would act if you were holding this conversation in person--including moving aside if the group area is too noisy.\n");
 									numcompletes = 0;
+								}
+
+								if (numcompletes) {
+									memset(buf, 0, sizeof(buf));
+									inwhite = inpaste = bufloc = 0;
+									numcompletes++;
+								}
 								free(lastcomplete);
 								lastcomplete = NULL;
 							} else {
+								memset(buf, 0, sizeof(buf));
+								inwhite = inpaste = bufloc = 0;
 								for (i = 0; namescomplete.buf[i] != 0; i++)
 									ADDTOBUF(namescomplete.buf[i]);
 								if (namescomplete.foundmatch) {
-									ADDTOBUF(',');
+									char	*delim = getvar(curconn, "addressdelim");
+
+									if ((delim != NULL) && (*delim != 0))
+										ADDTOBUF(*delim);
+									else
+										ADDTOBUF(',');
 									ADDTOBUF(' ');
 								}
 								if (namescomplete.foundmult)
 									bufloc = namescomplete.len;
 								else
 									bufloc = strlen(buf);
-								free(lastcomplete);
-								lastcomplete = strdup(namescomplete.buf);
+								if (numcompletes)
+									STRREPLACE(lastcomplete, namescomplete.buf);
 							}
 						}
 						free(namescomplete.buf);

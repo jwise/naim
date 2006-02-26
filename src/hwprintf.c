@@ -350,7 +350,7 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 		nw_wrap_addstr(h, "[IMAGE:");
 		nw_wrap_addstr(h, argbuf);
 		nw_wrap_addch(h, ']');
-	} else if CHECKTAG("BR") {
+	} else if (CHECKTAG("BR") || CHECKTAG("BR/")) {
 		nw_wrap_addstr(h, "\n ");
 		h->white = 1;
 	} else if CHECKTAG("HR") {

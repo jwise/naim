@@ -23,6 +23,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 char *aim_interpolate_variables(const char *const input, const char *const nickname);
 const char *aim_normalize_room_name(const char *const name);
-char *aim_handle_ect(void *conn, const char *const from, char *message, const int reply);
+char *aim_handle_ect(firetalk_t conn, client_t c, const char *const from, char *message, const int reply);
 
 #endif

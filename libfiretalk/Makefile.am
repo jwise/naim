@@ -5,11 +5,13 @@ libfiretalk_a_SOURCES = \
 	aim.c \
 	aim.h \
 	firetalk.c \
+	firetalk-stubs.c \
 	firetalk-int.h \
 	irc.c \
 	lily.c \
-	safestring.c \
-	safestring.h \
+	pdutil.c \
+	rpc.c \
+	rpc.h \
 	toc2.c \
 	toc2_uuids.h
 

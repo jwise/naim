@@ -25,8 +25,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #define _FC_USE_IPV6
 
-#define LIBFIRETALK_HOMEPAGE "http://www.penguinhosting.net/~ian/firetalk/"
-
 #ifndef _HAVE_FIRETALK_T
 typedef void *firetalk_t;
 #define _HAVE_FIRETALK_T
@@ -64,7 +62,7 @@ enum firetalk_callback {
 	FC_PASSCHANGED,
 		/* void *connection, void *clientstruct */
 	FC_NEEDPASS,
-		/* void *connection, void *clientstruct, char *pass, int size */
+		/* void *connection, void *clientstruct */
 	FC_PRESELECT,
 		/* void *connection, void *clientstruct */
 	FC_POSTSELECT,
@@ -73,6 +71,10 @@ enum firetalk_callback {
 		/* void *connection, void *clientstruct, char *nickname, long idletime */
 	FC_IM_EVILINFO,
 		/* void *connection, void *clientstruct, char *nickname, long warnval */
+	FC_IM_BUDDYADDED,
+		/* void *connection, void *clientstruct, char *nickname, char *group, char *friendly */
+	FC_IM_BUDDYREMOVED,
+		/* void *connection, void *clientstruct, char *nickname */
 	FC_IM_TYPINGINFO,
 		/* void *connection, void *clientstruct, char *nickname, int typing */
 	FC_IM_CAPABILITIES,
@@ -188,7 +190,8 @@ typedef enum {
 	FE_DUPEROOM,
 	FE_IOERROR,
 	FE_BADHANDLE,
-	FE_TIMEOUT
+	FE_TIMEOUT,
+	FE_RPC,
 } fte_t;
 
 
@@ -197,14 +200,13 @@ typedef enum {
 int	firetalk_find_protocol(const char *strprotocol);
 const char *firetalk_strprotocol(const enum firetalk_protocol p);
 const char *firetalk_strerror(const fte_t	e);
-firetalk_t firetalk_create_handle(const int protocol, void *clientstruct);
+firetalk_t firetalk_create_handle(const int protocol, void *clientstruct, const int dofork);
 void firetalk_destroy_handle(firetalk_t conn);
-enum firetalk_protocol firetalk_get_protocol(firetalk_t conn);
 
 fte_t	firetalk_disconnect(firetalk_t conn);
 fte_t	firetalk_signon(firetalk_t conn, const char *const server, const short port, const char *const username);
+fte_t	firetalk_sendpass(firetalk_t conn, const char *const password);
 fte_t	firetalk_register_callback(firetalk_t conn, const int type, void (*function)(firetalk_t, void *, ...));
-firetalk_t firetalk_find_clientstruct(void *clientstruct);
 
 fte_t	firetalk_im_add_buddy(firetalk_t conn, const char *const name, const char *const group, const char *const friendly);
 fte_t	firetalk_im_remove_buddy(firetalk_t conn, const char *const name);
@@ -236,6 +238,7 @@ fte_t	firetalk_subcode_send_reply(firetalk_t conn, const char *const to, const c
 fte_t	firetalk_subcode_send_request(firetalk_t conn, const char *const to, const char *const command, const char *const args);
 
 fte_t	firetalk_subcode_register_request_callback(firetalk_t conn, const char *const command, void (*callback)(firetalk_t, void *, const char *const, const char *const, const char *const));
+fte_t	firetalk_subcode_register_request_reply(firetalk_t conn, const char *const command, const char *const reply);
 fte_t	firetalk_subcode_register_reply_callback(firetalk_t conn, const char *const command, void (*callback)(firetalk_t, void *, const char *const, const char *const, const char *const));
 
 fte_t	firetalk_file_offer(firetalk_t conn, const char *const nickname, const char *const filename, void *clientfilestruct);

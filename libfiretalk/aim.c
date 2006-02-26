@@ -19,7 +19,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "firetalk-int.h"
 #include "firetalk.h"
 #include "aim.h"
-#include "safestring.h"
 
 #include <stdio.h>
 #include <time.h>
@@ -39,7 +38,7 @@ char	*aim_interpolate_variables(const char *const input, const char *const nickn
 		b = time(NULL);
 		t = localtime(&b);
 		if (t == NULL)
-			return NULL;
+			return(NULL);
 		hour = t->tm_hour;
 		if (hour >= 12)
 			am = 0;
@@ -96,7 +95,7 @@ char	*aim_interpolate_variables(const char *const input, const char *const nickn
 			output[o++] = input[i];
 		}
 	output[o] = '\0';
-	return output;
+	return(output);
 }
 
 const char *aim_normalize_room_name(const char *const name) {
@@ -105,7 +104,7 @@ const char *aim_normalize_room_name(const char *const name) {
 	if (name == NULL)
 		return(NULL);
 	if (strchr(name+1, ':') != NULL)
-		return name;
+		return(name);
 	if (strlen(name) >= (sizeof(newname)-2))
 		return(NULL);
 
@@ -148,7 +147,7 @@ static char
 
 #define ECT_TOKEN	"<font ECT=\""
 #define ECT_ENDING	"\"></font>"
-char	*aim_handle_ect(void *conn, const char *const from,
+char	*aim_handle_ect(firetalk_t conn, client_t c, const char *const from,
 		char *message, const int reply) {
 	char	*ectbegin, *ectend, *textbegin, *textend;
 
@@ -165,20 +164,20 @@ char	*aim_handle_ect(void *conn, const char *const from,
 				*arg = '\0';
 				arg++;
 				if (reply == 1)
-					firetalk_callback_subcode_reply(conn, from, textbegin, htmlclean(arg));
+					conn->PI->subcode_reply(conn, c, from, textbegin, htmlclean(arg));
 				else
-					firetalk_callback_subcode_request(conn, from, textbegin, htmlclean(arg));
+					conn->PI->subcode_request(conn, c, from, textbegin, htmlclean(arg));
 			} else {
 				if (reply == 1)
-					firetalk_callback_subcode_reply(conn, from, textbegin, NULL);
+					conn->PI->subcode_reply(conn, c, from, textbegin, NULL);
 				else
-					firetalk_callback_subcode_request(conn, from, textbegin, NULL);
+					conn->PI->subcode_request(conn, c, from, textbegin, NULL);
 			}
 			memmove(ectbegin, ectend, strlen(ectend)+1);
 		} else
 			break;
 	}
-	return message;
+	return(message);
 }
 
 const char *firetalk_nhtmlentities(const char *str, int len) {
