@@ -131,9 +131,9 @@ PATCHES
        mailing  list.  Patches in context output format are prefered. In order
        to work on naim, you may wish to extract naim twice, and  perform  your
        builds in a third directory, as in:
-        tar -zxvf naim-0.11.8.tar.bz2
+        tar -jxvf naim-0.11.8.tar.bz2
         mv naim-0.11.8 naim-0.11.8,original
-        tar -zxvf naim-0.11.8.tar.bz2
+        tar -jxvf naim-0.11.8.tar.bz2
         mkdir naim-0.11.8-objdir
         cd naim-0.11.8-objdir
         ../naim-0.11.8/configure --prefix=/usr

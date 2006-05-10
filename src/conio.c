@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2005 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -489,7 +489,12 @@ CONIOAOPT(string,realname)
 		}
 	}
 
-	firetalk_im_add_buddy(conn->conn, args[0], USER_GROUP(blist), blist->_name);
+	{
+		fte_t	ret;
+
+		if ((ret = firetalk_im_add_buddy(conn->conn, args[0], USER_GROUP(blist), blist->_name)) != FE_SUCCESS)
+			echof(conn, "ADDBUDDY", "Unable to add buddy: %s.\n", firetalk_strerror(ret));
+	}
 }
 
 static void do_delconn(conn_t *conn) {
@@ -989,12 +994,6 @@ CONIOAOPT(string,filename)
 	echof(conn, NULL, "Settings saved to %s.\n", filename);
 }
 
-CONIOFUNC(sync) {
-CONIODESC(Save buddy list to server)
-	firetalk_save_config(conn->conn);
-	echof(conn, NULL, "Settings saved to server.\n");
-}
-
 CONIOFUNC(connect) {
 CONIODESC(Connect to a service)
 CONIOAOPT(string,name)
@@ -1129,13 +1128,23 @@ CONIOALIA(whois)
 CONIOALIA(wi)
 CONIODESC(Retrieve a user profile)
 CONIOAOPT(entity,name)
+	fte_t	ret;
+
 	if (argc == 0) {
-		if (!inconn || (conn->curbwin->et != BUDDY))
-			firetalk_im_get_info(conn->conn, conn->sn);
-		else
-			firetalk_im_get_info(conn->conn, conn->curbwin->winname);
-	} else
-		firetalk_im_get_info(conn->conn, args[0]);
+		if (!inconn || (conn->curbwin->et != BUDDY)) {
+			if ((ret = firetalk_im_get_info(conn->conn, conn->sn)) != FE_SUCCESS)
+				echof(conn, "INFO", "Unable to retrieve user information for %s: %s.\n",
+					conn->sn, firetalk_strerror(ret));
+		} else {
+			if ((ret = firetalk_im_get_info(conn->conn, conn->curbwin->winname)) != FE_SUCCESS)
+				echof(conn, "INFO", "Unable to retrieve user information for %s: %s.\n",
+					conn->curbwin->winname, firetalk_strerror(ret));
+		}
+	} else {
+		if ((ret = firetalk_im_get_info(conn->conn, args[0])) != FE_SUCCESS)
+			echof(conn, "INFO", "Unable to retrieve user information for %s: %s.\n",
+				args[0], firetalk_strerror(ret));
+	}
 }
 
 CONIOFUNC(eval) {
@@ -1172,8 +1181,7 @@ CONIOAREQ(buddy,name)
 	buddywin_t	*bwin;
 
 	if ((bwin = bgetanywin(conn, args[0])) != NULL)
-		echof(conn, "OPENWIN", "There is already a window open for <font color=\"#00FFFF\">%s</font>. Type <font color=\"#00FF00\">/jump %s</font> to jump to it.\n",
-			bwin->winname, args[0]);
+		conio_jump(conn, argc, args);
 	else {
 		buddylist_t	*blist;
 		int	added;
@@ -1500,8 +1508,12 @@ CONIOAOPT(string,key)
 			args[0] = buf;
 		}
 
-		if (conn->online > 0)
-			firetalk_chat_join(conn->conn, args[0]);
+		if (conn->online > 0) {
+			fte_t	ret;
+
+			if ((ret = firetalk_chat_join(conn->conn, args[0])) != FE_SUCCESS)
+				echof(conn, "JOIN", "Unable to join %s: %s.\n", args[0], firetalk_strerror(ret));
+		}
 	}
 }
 
@@ -1570,12 +1582,15 @@ CONIOAOPT(buddy,name)
 	}
 
 	if ((blist = rgetlist(conn, name)) != NULL) {
-		if (firetalk_im_remove_buddy(conn->conn, name) == FE_SUCCESS)
+		fte_t	ret;
+
+		if ((ret = firetalk_im_remove_buddy(conn->conn, name)) == FE_SUCCESS)
 			status_echof(conn, "Removed <font color=\"#00FFFF\">%s</font> from your buddy list.\n",
 				user_name(NULL, 0, conn, blist));
 		else
-			status_echof(conn, "Removed <font color=\"#00FFFF\">%s</font> from naim's buddy list, but the server wouldn't remove %s%s%s from your session buddy list.\n", 
-				user_name(NULL, 0, conn, blist), strchr(name, ' ')?"\"":"", name, strchr(name, ' ')?"\"":"");
+			status_echof(conn, "Removed <font color=\"#00FFFF\">%s</font> from naim's buddy list, but the server wouldn't remove %s%s%s from your session buddy list: %s.\n", 
+				user_name(NULL, 0, conn, blist), strchr(name, ' ')?"\"":"", name, strchr(name, ' ')?"\"":"",
+				firetalk_strerror(ret));
 		rdelbuddy(conn, name);
 		blist = NULL;
 	} else if (firetalk_im_remove_buddy(conn->conn, name) == FE_SUCCESS)
@@ -1595,14 +1610,20 @@ CONIOFUNC(op) {
 CONIODESC(Give operator privilege)
 CONIOAREQ(buddy,name)
 CONIOWHER(INCHAT)
-	firetalk_chat_op(conn->conn, conn->curbwin->winname, args[0]);
+	fte_t	ret;
+
+	if ((ret = firetalk_chat_op(conn->conn, conn->curbwin->winname, args[0])) != FE_SUCCESS)
+		echof(conn, "OP", "Unable to op %s: %s.\n", args[0], firetalk_strerror(ret));
 }
 
 CONIOFUNC(deop) {
 CONIODESC(Remove operator privilege)
 CONIOAREQ(buddy,name)
 CONIOWHER(INCHAT)
-	firetalk_chat_deop(conn->conn, conn->curbwin->winname, args[0]);
+	fte_t	ret;
+
+	if ((ret = firetalk_chat_deop(conn->conn, conn->curbwin->winname, args[0])) != FE_SUCCESS)
+		echof(conn, "DEOP", "Unable to deop %s: %s.\n", args[0], firetalk_strerror(ret));
 }
 
 CONIOFUNC(topic) {
@@ -1616,9 +1637,12 @@ CONIOWHER(INCHAT)
 			echof(conn, NULL, "Topic for %s: </B><body>%s</body><B>.\n",
 				conn->curbwin->winname,
 				conn->curbwin->blurb);
-	} else
-		firetalk_chat_set_topic(conn->conn,
-			conn->curbwin->winname, args[0]);
+	} else {
+		fte_t	ret;
+
+		if ((ret = firetalk_chat_set_topic(conn->conn, conn->curbwin->winname, args[0])) != FE_SUCCESS)
+			echof(conn, "TOPIC", "Unable to change topic: %s.\n", firetalk_strerror(ret));
+	}
 }
 
 CONIOFUNC(kick) {
@@ -1626,7 +1650,10 @@ CONIODESC(Temporarily remove someone from a chat)
 CONIOAREQ(buddy,name)
 CONIOAOPT(string,reason)
 CONIOWHER(INCHAT)
-	firetalk_chat_kick(conn->conn, conn->curbwin->winname, args[0], (argc == 2)?args[1]:conn->sn);
+	fte_t	ret;
+
+	if ((ret = firetalk_chat_kick(conn->conn, conn->curbwin->winname, args[0], (argc == 2)?args[1]:conn->sn)) != FE_SUCCESS)
+		echof(conn, "KICK", "Unable to kick %s: %s.\n", args[0], firetalk_strerror(ret));
 }
 
 CONIOFUNC(invite) {
@@ -1634,8 +1661,11 @@ CONIODESC(Invite someone to a chat)
 CONIOAREQ(buddy,name)
 CONIOAOPT(string,chat)
 CONIOWHER(INCHAT)
-	firetalk_chat_invite(conn->conn, conn->curbwin->winname, args[0],
-		(argc == 2)?args[1]:"Join me in this Buddy Chat.");
+	fte_t	ret;
+
+	if ((ret = firetalk_chat_invite(conn->conn, conn->curbwin->winname, args[0],
+		(argc == 2)?args[1]:"Join me in this Buddy Chat.")) != FE_SUCCESS)
+		echof(conn, "INVITE", "Unable to invite %s: %s.\n", args[0], firetalk_strerror(ret));
 }
 
 CONIOFUNC(help) {
@@ -1664,9 +1694,15 @@ CONIOFUNC(block) {
 CONIODESC(Server-enforced /ignore)
 CONIOAREQ(buddy,name)
 CONIOAOPT(string,reason)
-	echof(conn, NULL, "Now blocking <font color=\"#00FFFF\">%s</font>.\n", args[0]);
-	if (conn->online > 0)
-		firetalk_im_add_deny(conn->conn, args[0]);
+	if (conn->online > 0) {
+		fte_t	ret;
+
+		if ((ret = firetalk_im_add_deny(conn->conn, args[0])) != FE_SUCCESS)
+			echof(conn, "BLOCK", "Unable to block %s: %s.\n", args[0], firetalk_strerror(ret));
+		else
+			echof(conn, NULL, "Now blocking <font color=\"#00FFFF\">%s</font>.\n", args[0]);
+	} else
+		echof(conn, NULL, "Now blocking <font color=\"#00FFFF\">%s</font>.\n", args[0]);
 	raddidiot(conn, args[0], "block");
 }
 
@@ -1908,16 +1944,23 @@ static void
 CONIOFUNC(warn) {
 CONIODESC(Send a warning about someone)
 CONIOAREQ(buddy,name)
-	echof(conn, NULL, "Eek, stay away, <font color=\"#00FFFF\">%s</font> is EVIL!\n", args[0]);
-	firetalk_im_evil(conn->conn, args[0]);
+	fte_t	ret;
+
+	if ((ret = firetalk_im_evil(conn->conn, args[0])) == FE_SUCCESS)
+		echof(conn, NULL, "Eek, stay away, <font color=\"#00FFFF\">%s</font> is EVIL!\n", args[0]);
+	else
+		echof(conn, "WARN", "Unable to warn %s: %s.\n", args[0], firetalk_strerror(ret));
 }
 
 CONIOFUNC(nick) {
 CONIODESC(Change or reformat your name)
 CONIOAREQ(string,name)
-	if (conn->online > 0)
-		firetalk_set_nickname(conn->conn, args[0]);
-	else
+	if (conn->online > 0) {
+		fte_t	ret;
+
+		if ((ret = firetalk_set_nickname(conn->conn, args[0])) != FE_SUCCESS)
+			echof(conn, "NICK", "Unable to change names: %s.\n", firetalk_strerror(ret));
+	} else
 		echof(conn, "NICK", "Try <font color=\"#00FF00\">/connect %s</font>.\n", args[0]);
 }
 
@@ -1930,10 +1973,8 @@ CONIOAREQ(string,script)
 CONIOFUNC(readprofile) {
 CONIODESC(Read your profile from disk)
 CONIOAREQ(filename,filename)
-	const char
-		*filename = args[0];
-	struct stat
-		statbuf;
+	const char *filename = args[0];
+	struct stat statbuf;
 	size_t	len;
 	int	pfd;
 
@@ -2113,10 +2154,12 @@ CONIOAOPT(string,colormodifier)
 CONIOFUNC(setpriv) {
 CONIODESC(Change your privacy mode)
 CONIOAREQ(string,mode)
-	if (firetalk_set_privacy(conn->conn, args[0]) == FE_SUCCESS)
+	fte_t	ret;
+
+	if ((ret = firetalk_set_privacy(conn->conn, args[0])) == FE_SUCCESS)
 		echof(conn, NULL, "Privacy mode changed.\n");
 	else
-		echof(conn, "SETPRIV", "Privacy mode not changed, a separate error may have been generated.\n");
+		echof(conn, "SETPRIV", "Privacy mode not changed: %s.\n", firetalk_strerror(ret));
 }
 
 CONIOFUNC(bind) {
@@ -3479,37 +3522,47 @@ static void
 							bufloc = strlen(buf);
 						else if (namescomplete.foundmatch) {
 							static char *lastcomplete = NULL;
-							static int numcompletes = 0;
+							static int numcompletes = 1;
 
-							memset(buf, 0, sizeof(buf));
-							inwhite = inpaste = bufloc = 0;
-							if ((lastcomplete != NULL) && (strcmp(namescomplete.buf, lastcomplete) == 0) && (getvar(curconn, "vulgarnickcompletion") == NULL)) {
-								if (numcompletes == 0)
-									echof(curconn, "TAB", "Please do not nick complete the same name twice. It is likely that %s already saw your initial address and can track your messages without additional help, or %s did not see your initial message and is not going to hear your followup messages either.\n", lastcomplete, lastcomplete);
-								else if (numcompletes == 1)
-									echof(curconn, "TAB", "If you find yourself sending a large number of messages to the same person in a group, it might be best to take the person aside to finish your conversation. Online, this can be accomplished by using <font color=\"#00FF00\">/msg %s yourmessage</font>.\n", lastcomplete);
+							if (numcompletes && (lastcomplete != NULL) && (strcmp(namescomplete.buf, lastcomplete) == 0)) {
+								if (numcompletes == 1)
+									echof(curconn, "TAB", "Please do not complete the same name twice. It is likely that %s already saw your initial address and can track your messages without additional help, or %s did not see your initial message and is not going to hear your followup messages either.\n", lastcomplete, lastcomplete);
 								else if (numcompletes == 2)
-									echof(curconn, "TAB", "If you really want to nick complete the same name twice without this extra step, use <font color=\"#00FF00\">/set vulgarnickcompletion 1</font>. However, please try to think of how you would act if you were holding this conversation in person--including moving aside if the group area is too noisy.\n");
-								else
+									echof(curconn, "TAB", "If you find yourself sending a large number of messages to the same person in a group, it might be best to take the person aside to finish your conversation. Online, this can be accomplished by using <font color=\"#00FF00\">/msg %s yourmessage</font>.\n", lastcomplete);
+								else if (numcompletes == 3)
 									echof(curconn, "TAB", "Remember: This is a group you are addressing. If your conversation is directed at only one person, it may be best to hold it in private, using <font color=\"#00FF00\">/msg</font>. If the conversation is for the benefit of the entire audience, you should not prefix every message with an individual's name.\n");
-								numcompletes++;
-								if (numcompletes >= 20)
+								else {
+									echof(curconn, "TAB", "If you really want to complete the same name multiple times, I'm not going to stop you. However, please try to think of how you would act if you were holding this conversation in person--including moving aside if the group area is too noisy.\n");
 									numcompletes = 0;
+								}
+
+								if (numcompletes) {
+									memset(buf, 0, sizeof(buf));
+									inwhite = inpaste = bufloc = 0;
+									numcompletes++;
+								}
 								free(lastcomplete);
 								lastcomplete = NULL;
 							} else {
+								memset(buf, 0, sizeof(buf));
+								inwhite = inpaste = bufloc = 0;
 								for (i = 0; namescomplete.buf[i] != 0; i++)
 									ADDTOBUF(namescomplete.buf[i]);
 								if (namescomplete.foundmatch) {
-									ADDTOBUF(',');
+									char	*delim = getvar(curconn, "addressdelim");
+
+									if ((delim != NULL) && (*delim != 0))
+										ADDTOBUF(*delim);
+									else
+										ADDTOBUF(',');
 									ADDTOBUF(' ');
 								}
 								if (namescomplete.foundmult)
 									bufloc = namescomplete.len;
 								else
 									bufloc = strlen(buf);
-								free(lastcomplete);
-								lastcomplete = strdup(namescomplete.buf);
+								if (numcompletes)
+									STRREPLACE(lastcomplete, namescomplete.buf);
 							}
 						}
 						free(namescomplete.buf);

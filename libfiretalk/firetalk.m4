@@ -1,12 +1,6 @@
 AC_DEFUN([AC_LIB_FIRETALK],
 [
 	AC_PREREQ(2.56)
-	AC_ARG_ENABLE(firetalk-lily-binary-link,
-		[  --enable-firetalk-lily-binary-link enable experimental binary Lily message passing [[default=no]]],
-		[
-			AC_DEFINE(ENABLE_FT_LILY_BINARY_LINK, 1, [Define to enable experimental binary Lily message passing])
-		]
-	)
 	AC_ARG_ENABLE(raw-irc-modes,
 		[  --enable-raw-irc-modes  enable the display of raw mode changes on IRC [[default=no]]],
 		[
@@ -14,7 +8,6 @@ AC_DEFUN([AC_LIB_FIRETALK],
 		]
 	)
 	AC_DEFINE(ENABLE_FT_LILY_CTCPMAGIC, 1, [Define to enable experimental CTCP magic support])
-	AC_DEFINE(LIBFIRETALK_VERSION, PACKAGE_VERSION, [FireTalk version])
 	AC_REQUIRE([AC_PROG_CC])
 	AC_REQUIRE([AC_C_CONST])
 	AC_REQUIRE([AC_PROG_RANLIB])

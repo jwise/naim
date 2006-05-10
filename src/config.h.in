@@ -19,9 +19,6 @@
    characters */
 #undef ENABLE_FORCEASCII
 
-/* Define to enable experimental binary Lily message passing */
-#undef ENABLE_FT_LILY_BINARY_LINK
-
 /* Define to enable experimental CTCP magic support */
 #undef ENABLE_FT_LILY_CTCPMAGIC
 
@@ -254,9 +251,6 @@
 
 /* Define to the default channel to join when started as `nirc' */
 #undef IRC_SUPPORT_CHANNEL
-
-/* FireTalk version */
-#undef LIBFIRETALK_VERSION
 
 /* Define if the OS needs help to load dependent libraries for dlopen(). */
 #undef LTDL_DLOPEN_DEPLIBS

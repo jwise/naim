@@ -1,7 +1,7 @@
 /*
-irc.c - FireTalk IRC protocol definitions
+irc.c - FireTalk IRC protocol driver
 Copyright (C) 2000 Ian Gulliver
-Copyright 2002-2004 Daniel Reed <n@ml.org>
+Copyright 2002-2006 Daniel Reed <n@ml.org>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of version 2 of the GNU General Public License as
@@ -18,6 +18,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 #include <assert.h>
 #include <ctype.h>
+#include <errno.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -31,27 +32,24 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include <strings.h>
 #include <sys/time.h>
 #include <time.h>
-#include <errno.h>
-
-#include "safestring.h"
 
 #define ROOMSTARTS "#+&"
 
 
 static char irc_tolower(const char c) {
 	if ((c >= 'A') && (c <= 'Z'))
-		return (c - 'A') + 'a';
+		return((c - 'A') + 'a');
 	if (c == '[')
-		return '{';
+		return('{');
 	if (c == ']')
-		return '{';
+		return('{');
 	if (c == '\\')
-		return '|';
-	return c;
+		return('|');
+	return(c);
 }
 
 static int irc_compare_nicks_int(const char *const nick1, const char *const nick2) {
-	int i = 0;
+	int	i = 0;
 
 	while (nick1[i] != '\0') {
 		if (irc_tolower(nick1[i]) != irc_tolower(nick2[i]))
@@ -73,7 +71,11 @@ struct s_irc_whois {
 		idle;
 };
 
-typedef struct {
+typedef struct irc_conn_t *client_t;
+#define _HAVE_CLIENT_T
+#include "firetalk-int.h"
+
+typedef struct irc_conn_t {
 	char	*nickname,
 		*password,
 		 buffer[512+1];
@@ -85,13 +87,8 @@ typedef struct {
 		 identified:1;	/* are we we identified */
 } irc_conn_t;
 
-typedef irc_conn_t *client_t;
-#define _HAVE_CLIENT_T
-#include "firetalk-int.h"
-
 #if 0
-static const char *const
-	irc_normalize_user_nick(const char *const name) {
+static const char *const irc_normalize_user_nick(const char *const name) {
 	static char
 		buf[512];
 	int	i;
@@ -105,8 +102,7 @@ static const char *const
 	return(buf);
 }
 
-static const char *const
-	irc_normalize_user_mask(const char *const name) {
+static const char *const irc_normalize_user_mask(const char *const name) {
 	static char
 		buf[512];
 
@@ -118,8 +114,7 @@ static const char *const
 }
 #endif
 
-static void
-	irc_disc_user_rem(irc_conn_t *c, const char *disc, const char *name) {
+static void irc_disc_user_rem(irc_conn_t *c, const char *disc, const char *name) {
 	struct s_firetalk_handle *fchandle;
 
 	fchandle = firetalk_find_handle(c);
@@ -128,8 +123,7 @@ static void
 		firetalk_callback_im_buddyonline(c, name, 0);
 }
 
-static void
-	irc_disc_rem(irc_conn_t *c, const char *disc) {
+static void irc_disc_rem(irc_conn_t *c, const char *disc) {
 	struct s_firetalk_handle *fchandle;
 	struct s_firetalk_room *iter;
 	struct s_firetalk_member *mem;
@@ -147,8 +141,7 @@ static const char *irc_normalize_room_name(const char *const name) {
 
 	if (strchr(ROOMSTARTS, *name))
 		return(name);
-	safe_strncpy(newname, "#", sizeof(newname));
-	safe_strncat(newname, name, sizeof(newname));
+	snprintf(newname, sizeof(newname), "#%s", name);
 	return(newname);
 }
 
@@ -160,6 +153,8 @@ static const char *irc_normalize_room_name(const char *const name) {
 
 #ifdef DEBUG_ECHO
 extern void *curconn;
+extern void status_echof(void *conn, const unsigned char *format, ...);
+
 static void irc_echof(irc_conn_t *c, const char *const where, const char *const format, ...) {
 	va_list	ap;
 	char	buf[513];
@@ -283,7 +278,7 @@ static char *irc_html_to_irc(const char *const string) {
 	}
 	assert(o <= ((l * 4) + 1));
 	output[o] = '\0';
-	return output;
+	return(output);
 }
 
 static const char *mIRCar[] = {
@@ -336,9 +331,9 @@ static const char *irc_mIRC_to_html(const char *const string, size_t *pos) {
 
 static char *irc_irc_to_html(const char *const string) {
 	static char *output = NULL;
-	int o = 0;
-	size_t l,i=0, s;
-	int infont = 0, inbold = 0, initalics = 0, inunderline = 0;
+	int	o = 0;
+	size_t	l, i = 0, s;
+	int	infont = 0, inbold = 0, initalics = 0, inunderline = 0;
 
 	assert(string != NULL);
 
@@ -657,7 +652,7 @@ static char **irc_recv_parse(irc_conn_t *c, unsigned char *buffer, unsigned shor
 
 	tempchr = strchr(data, '\n');
 	if (tempchr == NULL)
-		return NULL;
+		return(NULL);
 	if ((tempchr > data) && (tempchr[-1] == '\r'))
 		tempchr[-1] = 0;
 	else
@@ -671,49 +666,46 @@ static char **irc_recv_parse(irc_conn_t *c, unsigned char *buffer, unsigned shor
 
 	curarg = 0;
 	tempchr = data;
-	if (tempchr[0] == ':')
+	if (*tempchr == ':')
 		tempchr++;
+	else
+		args[curarg++] = ":SERVER";
 
-	while ((curarg < 256) && ((tempchr2 = strchr(tempchr,' ')) != NULL)) {
+	while ((curarg < sizeof(args)/sizeof(*args)) && ((tempchr2 = strchr(tempchr, ' ')) != NULL)) {
 		args[curarg++] = tempchr;
-		tempchr2[0] = '\0';
+		*tempchr2 = 0;
 		tempchr = tempchr2 + 1;
 		if (*tempchr == ':') {
 			tempchr++;
 			break;
 		}
-#if 0
-		if (tempchr[0] == ':') {
-			tempchr = irc_irc_to_html(&tempchr[1]);
-			break;
-		}
-#endif
 	}
 	args[curarg++] = tempchr;
 	args[curarg] = NULL;
-	return args;
+	return(args);
 }
 
 static char *irc_get_nickname(const char *const hostmask) {
 	static char data[512];
 	char	*tempchr;
 
-	safe_strncpy(data, hostmask, sizeof(data));
-	tempchr = strchr(data,'!');
-	if (tempchr)
-		tempchr[0] = '\0';
-	return data;
+	strncpy(data, hostmask, sizeof(data)-1);
+	data[sizeof(data)-1] = 0;
+
+	if ((tempchr = strchr(data, '!')) != NULL)
+		*tempchr = 0;
+	return(data);
 }
 
 static fte_t
 	irc_set_nickname(irc_conn_t *c, const char *const nickname) {
-	return irc_send_printf(c,"NICK %s",nickname);
+	return(irc_send_printf(c,"NICK %s",nickname));
 }
 
 static fte_t
 	irc_set_password(irc_conn_t *c, const char *const oldpass, const char *const newpass) {
 	c->passchange++;
-	return irc_send_printf(c,"PRIVMSG NickServ :SET PASSWORD %s",newpass);
+	return(irc_send_printf(c,"PRIVMSG NickServ :SET PASSWORD %s",newpass));
 }
 
 static void
@@ -726,7 +718,7 @@ static void
 static fte_t
 	irc_disconnect(irc_conn_t *c) {
 	irc_send_printf(c,"QUIT :User disconnected");
-	return irc_internal_disconnect(c,FE_USERDISCONNECT);
+	return(irc_internal_disconnect(c,FE_USERDISCONNECT));
 }
 
 static irc_conn_t
@@ -761,36 +753,31 @@ static fte_t
 	buf[i] = 0;
 
 	if (irc_send_printf(c, "USER %s %s %s :%s", pw->pw_name, nickname, nickname, buf) != FE_SUCCESS)
-		return FE_PACKET;
+		return(FE_PACKET);
 #else
 	if (irc_send_printf(c, "USER %s %s %s :%s", nickname, nickname, nickname, nickname) != FE_SUCCESS)
-		return FE_PACKET;
+		return(FE_PACKET);
 #endif
 
 	if (irc_send_printf(c, "NICK %s", nickname) != FE_SUCCESS)
-		return FE_PACKET;
+		return(FE_PACKET);
 
 	free(c->nickname);
 	c->nickname = strdup(nickname);
 	if (c->nickname == NULL)
 		abort();
 
-	return FE_SUCCESS;
-}
-
-static fte_t
-	irc_save_config(irc_conn_t *c) {
-	return FE_SUCCESS;
+	return(FE_SUCCESS);
 }
 
 static fte_t
 	irc_preselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *except, int *n) {
-	return FE_SUCCESS;
+	return(FE_SUCCESS);
 }
 
 static fte_t
 	irc_postselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *except) {
-	return FE_SUCCESS;
+	return(FE_SUCCESS);
 }
 
 static void irc_addwhois(irc_conn_t *c, const char *const name, const char *const format, ...) {
@@ -814,51 +801,43 @@ static void irc_addwhois(irc_conn_t *c, const char *const name, const char *cons
 		}
 }
 
-static fte_t
-	irc_got_data(irc_conn_t *c, unsigned char *buffer, unsigned short *bufferpos) {
-	char	**args;
+static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 	struct s_irc_whois
 		*whoisiter,
 		*whoisiter2;
-	struct s_firetalk_handle
-		*fchandle;
 	char	*tempchr;
 
-	fchandle = firetalk_find_handle(c);
-
-	while (((args = irc_recv_parse(c, buffer, bufferpos)) != NULL) && (args[0] != NULL)) {
+	{
 		static unsigned int inwhois = 0;
 		int	handled = 0,
 			numeric;
 
-		if (strcmp(args[0], "PING") == 0) {
-			if (args[1]) {
-				if (irc_send_printf(c,"PONG %s",args[1]) != 0) {
-					irc_internal_disconnect(c,FE_PACKET);
-					return FE_PACKET;
+		handled = 1;
+		if (strcmp(args[1], "PING") == 0) {
+			if (args[2] != NULL) {
+				if (irc_send_printf(c, "PONG :%s", args[2]) != 0) {
+					irc_internal_disconnect(c, FE_PACKET);
+					return(FE_PACKET);
 				}
 			} else {
-				if (irc_send_printf(c,"PONG") != 0) {
-					irc_internal_disconnect(c,FE_PACKET);
-					return FE_PACKET;
+				if (irc_send_printf(c, "PONG") != 0) {
+					irc_internal_disconnect(c, FE_PACKET);
+					return(FE_PACKET);
 				}
 			}
-			continue;
-		}
-
-		if (args[1] == NULL)
-			continue;
-
-		if (strcmp(args[1], "QUIT") == 0) {
-			const char	*name = irc_get_nickname(args[0]);
+		} else if (strcmp(args[1], "QUIT") == 0) {
+			const char *name = irc_get_nickname(args[0]);
 
 			firetalk_callback_im_buddyonline(c, name, 0);
 			if (irc_compare_nicks(c->nickname, name) == 0)
 				irc_internal_disconnect(c, FE_DISCONNECT);
 			else
 				firetalk_callback_chat_user_quit(c, name, irc_irc_to_html(args[2]));
-			continue;
-		}
+		} else
+			handled = 0;
+
+		if (handled)
+			return(FE_SUCCESS);
 
 		numeric = atoi(args[1]);
 
@@ -879,8 +858,11 @@ static fte_t
 						return(FE_PACKET);
 					}
 				}
-			} else
-				firetalk_callback_chat_user_joined(c, args[2], name);
+			} else {
+				char	*extra = strchr(args[0], '!');
+
+				firetalk_callback_chat_user_joined(c, args[2], name, (extra != NULL)?(extra+1):NULL);
+			}
 		} else if (strcmp(args[1], "PART") == 0) {
 			const char	*name = irc_get_nickname(args[0]);
 
@@ -906,14 +888,14 @@ static fte_t
 			handled = 0;
 
 		if (handled)
-			continue;
+			return(FE_SUCCESS);
 
 		if (args[3] == NULL)
 			goto unhandled;
 
 		handled = 1;
 		if (strcmp(args[1],"PRIVMSG") == 0) {
-			/* scan for CTCP's */
+			/* scan for CTCPs */
 			while ((tempchr = strchr(args[3], 1))) {
 				char	*sp;
 
@@ -983,7 +965,7 @@ static fte_t
 					}
 					if ((c->password != NULL) && irc_send_printf(c,"PRIVMSG NickServ :IDENTIFY %s",c->password) != 0) {
 						irc_internal_disconnect(c,FE_PACKET);
-						return FE_PACKET;
+						return(FE_PACKET);
 					}
 				} else if ((strstr(args[3],"Password changed") != NULL) && (c->passchange != 0)) {
 					/* successful change */
@@ -1003,7 +985,7 @@ static fte_t
 					c->identified = 1;
 					if (irc_send_printf(c,"PRIVMSG ChanServ :OP ALL") != FE_SUCCESS) {
 						irc_internal_disconnect(c,FE_PACKET);
-						return FE_PACKET;
+						return(FE_PACKET);
 					}
 				} else if (strchr(ROOMSTARTS, args[2][0]))
 					firetalk_callback_chat_getmessage(c, args[2], name, 1, irc_irc_to_html(args[3]));
@@ -1042,7 +1024,7 @@ static fte_t
 			handled = 0;
 
 		if (handled)
-			continue;
+			return(FE_SUCCESS);
 
 		if (numeric == 311)     // RPL_WHOISUSER
 			inwhois = 1;
@@ -1055,13 +1037,13 @@ static fte_t
 			  case 306: /* :PREFIX 306 sn :You have been marked as being away */
 			  case 305: /* :PREFIX 305 sn :You are no longer marked as being away */
 			  case 396: /* :PREFIX 396 sn whoishost :is now your hidden host */
-				continue;
+				return(FE_SUCCESS);
 			}
 
 		handled = 1;
 		switch (numeric) {
 			case 366: /* :PREFIX 366 sn channel :End of /NAMES list. */
-				firetalk_callback_chat_user_joined(c, args[3], NULL);
+				firetalk_callback_chat_user_joined(c, args[3], NULL, NULL);
 				break;
 			case 301: /* RPL_AWAY */
 				break;
@@ -1153,7 +1135,7 @@ static fte_t
 		}
 
 		if (handled)
-			continue;
+			return(FE_SUCCESS);
 
 		if (args[4] == NULL)
 			goto unhandled;
@@ -1197,7 +1179,7 @@ static fte_t
 									/* this is us, and we're identified, so we can request a reop */
 									if (irc_send_printf(c,"PRIVMSG ChanServ :OP %s %s",args[2],c->nickname) != FE_SUCCESS) {
 										irc_internal_disconnect(c,FE_PACKET);
-										return FE_PACKET;
+										return(FE_PACKET);
 									}
 								}
 							}
@@ -1219,7 +1201,7 @@ static fte_t
 						break;
 				}
 			}
-			continue;
+			return(FE_SUCCESS);
 		}
 
 		handled = 1;
@@ -1245,7 +1227,7 @@ static fte_t
 		}
 
 		if (handled)
-			continue;
+			return(FE_SUCCESS);
 
 		if (args[5] == NULL)
 			goto unhandled;
@@ -1269,7 +1251,7 @@ static fte_t
 					str++;
 				}
 
-				firetalk_callback_chat_user_joined(c, args[4], str);
+				firetalk_callback_chat_user_joined(c, args[4], str, NULL);
 				firetalk_callback_im_buddyonline(c, str, 1);
 				if (oped) {
 					firetalk_callback_chat_user_opped(c, args[4], str, NULL);
@@ -1282,7 +1264,7 @@ static fte_t
 				else
 					str = NULL;
 			}
-			continue;
+			return(FE_SUCCESS);
 		}
 
 		if ((args[6] == NULL) || (args[7] == NULL))
@@ -1299,7 +1281,7 @@ static fte_t
 				irc_addwhois(c, args[3], "%s@%s (%s)", args[4], args[5], firetalk_htmlentities(gecos));
 			else
 				irc_addwhois(c, args[3], "%s@%s (<HTML>%s</HTML>)", args[4], args[5], gecos);
-			continue;
+			return(FE_SUCCESS);
 		} else if (numeric == 352) { /* WHO output */
 			char	buf[1024];
 			int	i;
@@ -1308,7 +1290,7 @@ static fte_t
 			for (i = 8; args[i] != NULL; i++)
 				snprintf(buf, sizeof(buf), "%s, %s", buf, args[i]);
 			firetalk_callback_chat_getmessage(c, ":RAW", args[3], 0, buf);
-			continue;
+			return(FE_SUCCESS);
 		}
 
 	  unhandled: 
@@ -1336,32 +1318,28 @@ static fte_t
 		}
 	}
 
-	return FE_SUCCESS;
+	return(FE_SUCCESS);
+}
+
+static fte_t
+	irc_got_data(irc_conn_t *c, unsigned char *buffer, unsigned short *bufferpos) {
+	char	**args;
+
+	while (((args = irc_recv_parse(c, buffer, bufferpos)) != NULL) && (args[1] != NULL)) {
+		fte_t	fte;
+
+		if ((fte = irc_got_data_parse(c, args)) != FE_SUCCESS)
+			return(fte);
+	}
+
+	return(FE_SUCCESS);
 }
 
 static fte_t
 	irc_got_data_connecting(irc_conn_t *c, unsigned char *buffer, unsigned short *bufferpos) {
 	char **args;
 
-	args = irc_recv_parse(c,buffer,bufferpos);
-	while (args) {
-		if (args[0] == NULL) {
-			firetalk_callback_connectfailed(c,FE_PACKET,args[0]);
-			return FE_PACKET;
-		}
-		/* zero argument items */
-		if (strcmp(args[0], "ERROR") == 0) {
-			irc_send_printf(c, "QUIT :error");
-			if (args[1] == NULL)
-				firetalk_callback_connectfailed(c, FE_PACKET, "Server returned ERROR");
-			else
-				firetalk_callback_connectfailed(c, FE_PACKET, args[1]);
-			return(FE_PACKET);
-		}
-
-		if (!args[1])
-			continue;
-		/* one argument items */
+	while (((args = irc_recv_parse(c, buffer, bufferpos)) != NULL) && (args[1] != NULL)) {
 		if (strcmp(args[1], "ERROR") == 0) {
 			irc_send_printf(c,"QUIT :error");
 			if (args[2] == NULL)
@@ -1369,13 +1347,6 @@ static fte_t
 			else
 				firetalk_callback_connectfailed(c, FE_PACKET, args[2]);
 			return(FE_PACKET);
-		}
-		if (strcmp(args[0],"PING") == 0) {
-			if (irc_send_printf(c,"PONG %s",args[1]) != 0) {
-				irc_send_printf(c,"QUIT :error");
-				firetalk_callback_connectfailed(c,FE_PACKET,"Packet transfer error");
-				return FE_PACKET;
-			}
 		} else {
 			switch (atoi(args[1])) {
 			  case   1: /* :PREFIX 001 sn :Welcome message */
@@ -1399,113 +1370,101 @@ static fte_t
 			  case 461:
 				irc_send_printf(c,"QUIT :Invalid nickname");
 				firetalk_callback_connectfailed(c,FE_BADUSER,"Invalid nickname");
-				return FE_BADUSER;
+				return(FE_BADUSER);
 			  case 433:
 				irc_send_printf(c,"QUIT :Invalid nickname");
 				firetalk_callback_connectfailed(c,FE_BADUSER,"Nickname in use");
-				return FE_BADUSER;
+				return(FE_BADUSER);
 			  case 465:
 				irc_send_printf(c,"QUIT :banned");
 				firetalk_callback_connectfailed(c,FE_BLOCKED,"You are banned");
-				return FE_BLOCKED;
+				return(FE_BLOCKED);
+			  default: {
+					fte_t	fte;
+
+					if ((fte = irc_got_data_parse(c, args)) != FE_SUCCESS)
+						return(fte);
+					break;
+				}
 			}
 		}
-		args = irc_recv_parse(c,buffer,bufferpos);
 	}
 
-	return FE_SUCCESS;
+	return(FE_SUCCESS);
 }
 
-static fte_t
-	irc_chat_join(irc_conn_t *c, const char *const room) {
-	return irc_send_printf(c,"JOIN %s",room);
+static fte_t irc_chat_join(irc_conn_t *c, const char *const room) {
+	return(irc_send_printf(c,"JOIN %s",room));
 }
 
-static fte_t
-	irc_chat_part(irc_conn_t *c, const char *const room) {
-	return irc_send_printf(c,"PART %s",room);
+static fte_t irc_chat_part(irc_conn_t *c, const char *const room) {
+	return(irc_send_printf(c,"PART %s",room));
 }
 
-static fte_t
-	irc_chat_send_message(irc_conn_t *c, const char *const room, const char *const message, const int auto_flag) {
+static fte_t irc_chat_send_message(irc_conn_t *c, const char *const room, const char *const message, const int auto_flag) {
+	if (strcasecmp(room, ":RAW") == 0)
+		return(irc_send_printf(c, "%s", message));
+
 #ifdef DEBUG_ECHO
 	irc_echof(c, "chat_send_message", "c=%#p, room=%#p \"%s\", message=%#p \"%s\", auto_flag=%i\n", c, room, room, message, message, auto_flag);
 #endif
 
-	if (strcasecmp(room, ":RAW") == 0) {
-		if (auto_flag != 1)
-			return(irc_send_printf(c, "%s", message));
-		else
-			return(FE_SUCCESS);
-	} else {
-		if (auto_flag == 1)
-			return(irc_send_printf(c, "NOTICE %s :%s", room, message));
-		else
-			return(irc_send_printf(c, "PRIVMSG %s :%s", room, message));
-	}
-}
-
-static fte_t
-	irc_chat_send_action(irc_conn_t *c, const char *const room, const char *const message, const int auto_flag) {
-	if (auto_flag == 1)
-		return irc_send_printf(c,"NOTICE %s :\001ACTION %s\001",room,message);
+	if (auto_flag)
+		return(irc_send_printf(c, "NOTICE %s :%s", room, message));
 	else
-		return irc_send_printf(c,"PRIVMSG %s :\001ACTION %s\001",room,message);
+		return(irc_send_printf(c, "PRIVMSG %s :%s", room, message));
 }
 
-static fte_t
-	irc_chat_invite(irc_conn_t *c, const char *const room, const char *const who, const char *const message) {
-	return irc_send_printf(c,"INVITE %s %s",who,room);
+static fte_t irc_chat_send_action(irc_conn_t *c, const char *const room, const char *const message, const int auto_flag) {
+	return(irc_send_printf(c,"PRIVMSG %s :\001ACTION %s\001",room,message));
 }
 
-static fte_t
-	irc_im_send_message(irc_conn_t *c, const char *const dest, const char *const message, const int auto_flag) {
-	if (strcasecmp(dest, ":RAW") == 0) {
-		if (auto_flag != 1)
-			return(irc_send_printf(c, "%s", message));
-		else
-			return(FE_SUCCESS);
+static fte_t irc_chat_invite(irc_conn_t *c, const char *const room, const char *const who, const char *const message) {
+	return(irc_send_printf(c,"INVITE %s %s",who,room));
+}
+
+static fte_t irc_im_send_message(irc_conn_t *c, const char *const dest, const char *const message, const int auto_flag) {
+	struct s_firetalk_handle *fchandle;
+	char	buf[512+1];
+
+	if (strcasecmp(dest, ":RAW") == 0)
+		return(irc_send_printf(c, "%s", message));
+
+	fchandle = firetalk_find_handle(c);
+	if (auto_flag) {
+		snprintf(buf, sizeof(buf), "NOTICE %s :%s", dest, message);
+		firetalk_queue_append(buf, sizeof(buf), &(fchandle->subcode_replies), dest);
 	} else {
-		if (auto_flag == 1)
-			return(irc_send_printf(c, "NOTICE %s :%s", dest, message));
-		else
-			return(irc_send_printf(c, "PRIVMSG %s :%s", dest, message));
+		snprintf(buf, sizeof(buf), "PRIVMSG %s :%s", dest, message);
+		firetalk_queue_append(buf, sizeof(buf), &(fchandle->subcode_requests), dest);
 	}
+	return(irc_send_printf(c, "%s", buf));
 }
 
-static fte_t
-	irc_im_send_action(irc_conn_t *c, const char *const dest, const char *const message, const int auto_flag) {
-	if (auto_flag == 1)
-		return irc_send_printf(c,"NOTICE %s :\001ACTION %s\001",dest,message);
-	else
-		return irc_send_printf(c,"PRIVMSG %s :\001ACTION %s\001",dest,message);
+static fte_t irc_im_send_action(irc_conn_t *c, const char *const dest, const char *const message, const int auto_flag) {
+	return(irc_send_printf(c, "PRIVMSG %s :\001ACTION %s\001", dest, message));
 }
 
-static fte_t
-	irc_chat_set_topic(irc_conn_t *c, const char *const room, const char *const topic) {
-	return irc_send_printf(c,"TOPIC %s :%s",room,topic);
+static fte_t irc_chat_set_topic(irc_conn_t *c, const char *const room, const char *const topic) {
+	return(irc_send_printf(c,"TOPIC %s :%s",room,topic));
 }
 
-static fte_t
-	irc_chat_op(irc_conn_t *c, const char *const room, const char *const who) {
-	return irc_send_printf(c,"MODE %s +o %s",room,who);
+static fte_t irc_chat_op(irc_conn_t *c, const char *const room, const char *const who) {
+	return(irc_send_printf(c,"MODE %s +o %s",room,who));
 }
 
-static fte_t
-	irc_chat_deop(irc_conn_t *c, const char *const room, const char *const who) {
-	return irc_send_printf(c,"MODE %s -o %s",room,who);
+static fte_t irc_chat_deop(irc_conn_t *c, const char *const room, const char *const who) {
+	return(irc_send_printf(c,"MODE %s -o %s",room,who));
 }
 
-static fte_t
-	irc_chat_kick(irc_conn_t *c, const char *const room, const char *const who, const char *const reason) {
+static fte_t irc_chat_kick(irc_conn_t *c, const char *const room, const char *const who, const char *const reason) {
 	if (reason)
-		return irc_send_printf(c,"KICK %s %s :%s",room,who,reason);
+		return(irc_send_printf(c,"KICK %s %s :%s",room,who,reason));
 	else
-		return irc_send_printf(c,"KICK %s %s",room,who);
+		return(irc_send_printf(c,"KICK %s %s",room,who));
 }
 
-static fte_t
-	irc_im_add_buddy(irc_conn_t *c, const char *const name, const char *const group, const char *const friendly) {
+static fte_t irc_im_add_buddy(irc_conn_t *c, const char *const name, const char *const group, const char *const friendly) {
 	struct s_firetalk_handle *fchandle;
 
 	fchandle = firetalk_find_handle(c);
@@ -1515,46 +1474,43 @@ static fte_t
 	return(FE_SUCCESS);
 }
 
-static fte_t
-	irc_im_remove_buddy(irc_conn_t *c, const char *const name) {
+static fte_t irc_im_remove_buddy(irc_conn_t *c, const char *const name, const char *const group) {
 	firetalk_callback_im_buddyonline(c, name, 0);
 
 	return(FE_SUCCESS);
 }
 
-static fte_t
-	irc_im_add_deny(irc_conn_t *c, const char *const nickname) {
+static fte_t irc_im_add_deny(irc_conn_t *c, const char *const nickname) {
 	if (c->usesilence == 1)
-		return irc_send_printf(c,"SILENCE +%s!*@*",nickname);
+		return(irc_send_printf(c,"SILENCE +%s!*@*",nickname));
 	else
-		return FE_SUCCESS;
+		return(FE_SUCCESS);
 }
 
-static fte_t
-	irc_im_remove_deny(irc_conn_t *c, const char *const nickname) {
+static fte_t irc_im_remove_deny(irc_conn_t *c, const char *const nickname) {
 	if (c->usesilence == 1)
-		return irc_send_printf(c,"SILENCE -%s!*@*",nickname);
+		return(irc_send_printf(c,"SILENCE -%s!*@*",nickname));
 	else
-		return FE_SUCCESS;
+		return(FE_SUCCESS);
 }
 
-static fte_t
-	irc_im_upload_buddies(irc_conn_t *c) {
-	return FE_SUCCESS;
+static fte_t irc_im_upload_buddies(irc_conn_t *c) {
+	return(FE_SUCCESS);
 }
 
-static fte_t
-	irc_im_upload_denies(irc_conn_t *c) {
-	return FE_SUCCESS;
+static fte_t irc_im_upload_denies(irc_conn_t *c) {
+	return(FE_SUCCESS);
 }
 
-static fte_t
-	irc_im_evil(irc_conn_t *c, const char *const who) {
-	return FE_SUCCESS;
+static fte_t irc_im_evil(irc_conn_t *c, const char *const who) {
+	return(FE_SUCCESS);
 }
 
-static fte_t
-	irc_get_info(irc_conn_t *c, const char *const nickname) {
+static fte_t irc_set_privacy(client_t c, const char *const mode) {
+	return(FE_SUCCESS);
+}
+
+static fte_t irc_get_info(irc_conn_t *c, const char *const nickname) {
 	struct s_irc_whois *whoistemp;
 
 	whoistemp = c->whois_head;
@@ -1574,55 +1530,72 @@ static fte_t
 
 static fte_t
 	irc_set_info(irc_conn_t *c, const char *const info) {
-	return FE_SUCCESS;
+	return(FE_SUCCESS);
 }
 
 static fte_t
 	irc_set_away(irc_conn_t *c, const char *const message, const int auto_flag) {
 	if (message)
-		return irc_send_printf(c,"AWAY :%s",message);
+		return(irc_send_printf(c,"AWAY :%s",message));
 	else
-		return irc_send_printf(c,"AWAY");
+		return(irc_send_printf(c,"AWAY"));
 }
 
-static fte_t
-	irc_periodic(struct s_firetalk_handle *const conn) {
+static fte_t irc_periodic(struct s_firetalk_handle *const conn) {
 	return(FE_SUCCESS);
 }
 
-static fte_t
-	irc_subcode_send_request(irc_conn_t *c, const char *const to, const char *const command, const char *const args) {
+#if 0
+static fte_t irc_subcode_send_request(irc_conn_t *c, const char *const to, const char *const command, const char *const args) {
 	if (args == NULL) {
 		if (irc_send_printf(c,"PRIVMSG %s :\001%s\001",to,command) != 0) {
 			irc_internal_disconnect(c,FE_PACKET);
-			return FE_PACKET;
+			return(FE_PACKET);
 		}
 	} else {
 		if (irc_send_printf(c,"PRIVMSG %s :\001%s %s\001",to,command,args) != 0) {
 			irc_internal_disconnect(c,FE_PACKET);
-			return FE_PACKET;
+			return(FE_PACKET);
 		}
 	}
-	return FE_SUCCESS;
+	return(FE_SUCCESS);
 }
 
-static fte_t
-	irc_subcode_send_reply(irc_conn_t *c, const char *const to, const char *const command, const char *const args) {
+static fte_t irc_subcode_send_reply(irc_conn_t *c, const char *const to, const char *const command, const char *const args) {
 	if (to == NULL)
 		return(FE_SUCCESS);
 
 	if (args == NULL) {
 		if (irc_send_printf(c,"NOTICE %s :\001%s\001",to,command) != 0) {
 			irc_internal_disconnect(c,FE_PACKET);
-			return FE_PACKET;
+			return(FE_PACKET);
 		}
 	} else {
 		if (irc_send_printf(c,"NOTICE %s :\001%s %s\001",to,command,args) != 0) {
 			irc_internal_disconnect(c,FE_PACKET);
-			return FE_PACKET;
+			return(FE_PACKET);
 		}
 	}
-	return FE_SUCCESS;
+	return(FE_SUCCESS);
+}
+#endif
+
+static char *irc_ctcp_encode(irc_conn_t *c, const char *const command, const char *const message) {
+	char	*str;
+
+	if (message != NULL) {
+		str = malloc(1 + strlen(command) + 1 + strlen(message) + 1 + 1);
+		if (str == NULL)
+			abort();
+		sprintf(str, "\001%s %s\001", command, message);
+	} else {
+		str = malloc(1 + strlen(command) + 1 + 1);
+		if (str == NULL)
+			abort();
+		sprintf(str, "\001%s\001", command);
+	}
+
+	return(str);
 }
 
 const firetalk_protocol_t firetalk_protocol_irc = {
@@ -1639,7 +1612,6 @@ const firetalk_protocol_t firetalk_protocol_irc = {
 	isprintable:		irc_isprint,
 	disconnect:		irc_disconnect,
 	signon:			irc_signon,
-	save_config:		irc_save_config,
 	get_info:		irc_get_info,
 	set_info:		irc_set_info,
 	set_away:		irc_set_away,
@@ -1663,8 +1635,10 @@ const firetalk_protocol_t firetalk_protocol_irc = {
 	chat_kick:		irc_chat_kick,
 	chat_send_message:	irc_chat_send_message,
 	chat_send_action:	irc_chat_send_action,
-	subcode_send_request:	irc_subcode_send_request,
-	subcode_send_reply:	irc_subcode_send_reply,
+//	subcode_send_request:	irc_subcode_send_request,
+//	subcode_send_reply:	irc_subcode_send_reply,
+	subcode_encode:		irc_ctcp_encode,
+	set_privacy:		irc_set_privacy,
 	room_normalize:		irc_normalize_room_name,
 	create_handle:		irc_create_handle,
 	destroy_handle:		irc_destroy_handle,

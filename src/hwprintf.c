@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -350,7 +350,7 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 		nw_wrap_addstr(h, "[IMAGE:");
 		nw_wrap_addstr(h, argbuf);
 		nw_wrap_addch(h, ']');
-	} else if CHECKTAG("BR") {
+	} else if (CHECKTAG("BR") || CHECKTAG("BR/")) {
 		nw_wrap_addstr(h, "\n ");
 		h->white = 1;
 	} else if CHECKTAG("HR") {

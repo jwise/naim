@@ -25,8 +25,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #define _FC_USE_IPV6
 
-#define LIBFIRETALK_HOMEPAGE "http://www.penguinhosting.net/~ian/firetalk/"
-
 #ifndef _HAVE_FIRETALK_T
 typedef void *firetalk_t;
 #define _HAVE_FIRETALK_T
@@ -73,6 +71,10 @@ enum firetalk_callback {
 		/* void *connection, void *clientstruct, char *nickname, long idletime */
 	FC_IM_EVILINFO,
 		/* void *connection, void *clientstruct, char *nickname, long warnval */
+	FC_IM_BUDDYADDED,
+		/* void *connection, void *clientstruct, char *nickname, char *group, char *friendly */
+	FC_IM_BUDDYREMOVED,
+		/* void *connection, void *clientstruct, char *nickname */
 	FC_IM_TYPINGINFO,
 		/* void *connection, void *clientstruct, char *nickname, int typing */
 	FC_IM_CAPABILITIES,
@@ -184,7 +186,6 @@ typedef enum {
 	FE_BADCONNECTION,
 	FE_NOPERMS,
 	FE_NOCHANGEPASS,
-	FE_DUPEUSER,
 	FE_DUPEROOM,
 	FE_IOERROR,
 	FE_BADHANDLE,
@@ -236,6 +237,7 @@ fte_t	firetalk_subcode_send_reply(firetalk_t conn, const char *const to, const c
 fte_t	firetalk_subcode_send_request(firetalk_t conn, const char *const to, const char *const command, const char *const args);
 
 fte_t	firetalk_subcode_register_request_callback(firetalk_t conn, const char *const command, void (*callback)(firetalk_t, void *, const char *const, const char *const, const char *const));
+fte_t	firetalk_subcode_register_request_reply(firetalk_t conn, const char *const command, const char *const reply);
 fte_t	firetalk_subcode_register_reply_callback(firetalk_t conn, const char *const command, void (*callback)(firetalk_t, void *, const char *const, const char *const, const char *const));
 
 fte_t	firetalk_file_offer(firetalk_t conn, const char *const nickname, const char *const filename, void *clientfilestruct);
@@ -245,7 +247,6 @@ fte_t	firetalk_file_cancel(firetalk_t conn, void *filehandle);
 
 fte_t	firetalk_compare_nicks(firetalk_t conn, const char *const nick1, const char *const nick2);
 fte_t	firetalk_isprint(firetalk_t conn, const int c);
-fte_t	firetalk_save_config(firetalk_t conn);
 fte_t	firetalk_set_info(firetalk_t conn, const char *const info);
 fte_t	firetalk_set_away(firetalk_t c, const char *const message, const int auto_flag);
 const char *firetalk_chat_normalize(firetalk_t conn, const char *const room);

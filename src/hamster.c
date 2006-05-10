@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -13,8 +13,7 @@ extern conn_t	*curconn;
 extern time_t	now;
 extern faimconf_t	faimconf;
 
-extern time_t
-	awaytime G_GNUC_INTERNAL;
+extern time_t awaytime G_GNUC_INTERNAL;
 time_t	awaytime = -1;
 
 void	logim(conn_t *conn, const char *source, const char *target,
@@ -81,8 +80,7 @@ void	logim(conn_t *conn, const char *source, const char *target,
 }
 
 HOOK_DECLARE(sendto);
-static void
-	naim_sendto(conn_t *conn,
+static void naim_sendto(conn_t *conn,
 		const char *const _name,
 		const char *const _dest,
 		const unsigned char *const _message, int len,
@@ -103,8 +101,7 @@ static void
 	free(message);
 }
 
-static int
-	sendto_encrypt(conn_t *conn, char **name, char **dest,
+static int sendto_encrypt(conn_t *conn, char **name, char **dest,
 		unsigned char **message, int *len, int *flags) {
 	if (!(*flags & RF_CHAT) && !(*flags & RF_ACTION)) {
 		buddylist_t	*blist = rgetlist(conn, *dest);
@@ -130,8 +127,7 @@ static int
 	return(HOOK_CONTINUE);
 }
 
-static int
-	sendto_send(conn_t *conn, char **name, char **dest,
+static int sendto_send(conn_t *conn, char **name, char **dest,
 		unsigned char **message, int *len, int *flags) {
 	int	ret;
 
@@ -184,8 +180,7 @@ void	hamster_hook_init(void) {
 	HOOK_ADD(sendto, mod, sendto_send, 100);
 }
 
-static void
-	naim_send_message(conn_t *const conn, const char *const dest, const unsigned char *const message, const int ischat, const int isauto, const int isaction) {
+static void naim_send_message(conn_t *const conn, const char *const dest, const unsigned char *const message, const int ischat, const int isauto, const int isaction) {
 	naim_sendto(conn, NULL, dest, message, strlen(message), RF_NONE | (ischat?RF_CHAT:0) | (isauto?RF_AUTOMATIC:0) | (isaction?RF_ACTION:0));
 }
 
@@ -197,10 +192,11 @@ void	naim_send_act(conn_t *const conn, const char *const dest, const unsigned ch
 }
 
 void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto) {
-	buddywin_t	*bwin = bgetwin(conn, SN, BUDDY);
-	unsigned char	buf[2048];
-	const char	*pre = getvar(conn, "im_prefix"),
-			*post = getvar(conn, "im_suffix");
+	buddywin_t *bwin = bgetwin(conn, SN, BUDDY);
+	int	ischat = (bgetwin(conn, SN, CHAT) == NULL)?0:1;
+	unsigned char buf[2048];
+	const char *pre = getvar(conn, "im_prefix"),
+		*post = getvar(conn, "im_suffix");
 
 	assert((bwin == NULL) || (bwin->et == BUDDY));
 	if ((bwin == NULL)					// if the target is not queueable (let the protocol layer handle errors)
@@ -212,7 +208,7 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 			snprintf(buf, sizeof(buf), "%s%s%s", pre?pre:"", msg, post?post:"");
 			msg = buf;
 		}
-		naim_send_message(conn, SN, msg, ((bwin != NULL) && (bwin->et == CHAT)), 0, 0);
+		naim_send_message(conn, SN, msg, ischat, 0, 0);
 								// send the message through the protocol layer
 	} else {
 		struct tm	*tmptr = NULL;

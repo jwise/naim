@@ -292,6 +292,13 @@ int	main_stub(int argc, char **args) {
 #endif
 	childexit(SIGCHLD);
 
+	if (lt_dlinit() != 0) {
+		echof(curconn, NULL, "Unable to initialize module handler: %s.\n",
+			lt_dlerror());
+		return(1);
+	}
+	lt_dlsetsearchpath(DLSEARCHPATH);
+
 	{
 		const char	*args[] = { "dummy", "AIM" };
 		extern void	conio_newconn(void *, int, const char **);
@@ -384,13 +391,6 @@ int	main_stub(int argc, char **args) {
 	doupdate();
 
 	stayconnected = 1;
-
-	if (lt_dlinit() != 0) {
-		echof(curconn, NULL, "Unable to initialize module handler: %s.\n",
-			lt_dlerror());
-		return(1);
-	}
-	lt_dlsetsearchpath(DLSEARCHPATH);
 
 	conio_hook_init();
 	fireio_hook_init();

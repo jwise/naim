@@ -350,6 +350,7 @@ rc_var_i_t
 	{ "autopeerverbose",	0,	"notify you as client capabilities are negotiated" },
 	{ "autocrypt",		1,	"use autopeer to negotiate peer to peer IM encryption" },
 	{ "autosave",		0,	"automatically update .naimrc on /quit" },
+	{ "ctcpverbose",	0,	"notify you of unknown CTCP requests" },
 	{ "color",		1,	"honor <font color=...> tags in IM's" },
 	{ "autoreconnect",	0,	"automatically reconnect if disconnected; you may need to /set an appropriate password variable (such as $AIM:password)" },
 	{ "autonames",		1,	"automatically /names on /join" },
@@ -429,7 +430,7 @@ void	rc_initdefs(faimconf_t *conf) {
 	if (secs_getvar("lag") == NULL)
 		secs_setvar("lag", "0s");
 	if (secs_getvar("SN") == NULL)
-		secs_setvar("SN", "- Type /connect \"screen name\"");
+		secs_setvar("SN", "- Type /connect \"screen name\" (include the quotes)");
 	if (secs_getvar("lag") == NULL)
 		secs_setvar("online", "(offline)");
 

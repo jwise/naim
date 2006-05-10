@@ -57,6 +57,12 @@ typedef void *client_t;
 
 typedef void (*ptrtofnct)(firetalk_t, void *, ...);
 
+typedef struct {
+	char	**keys;
+	void	**data;
+	int	count;
+} firetalk_queue_t;
+
 struct s_firetalk_buddy {
 	struct s_firetalk_buddy *next;
 	char	*nickname,
@@ -123,7 +129,7 @@ struct s_firetalk_file {
 
 struct s_firetalk_subcode_callback {
 	struct s_firetalk_subcode_callback *next;
-	char *command;
+	char *command, *staticresp;
 	ptrtofnct callback;
 };
 
@@ -154,6 +160,8 @@ struct s_firetalk_handle {
 	struct s_firetalk_subcode_callback *subcode_reply_head;
 	struct s_firetalk_subcode_callback *subcode_request_default;
 	struct s_firetalk_subcode_callback *subcode_reply_default;
+	firetalk_queue_t subcode_requests;
+	firetalk_queue_t subcode_replies;
 	unsigned char deleted:1;
 };
 
@@ -171,7 +179,6 @@ typedef struct s_firetalk_protocol_functions {
 	fte_t	(*isprintable)(const int);
 	fte_t	(*disconnect)(client_t);
 	fte_t	(*signon)(client_t, const char *const);
-	fte_t	(*save_config)(client_t);
 	fte_t	(*get_info)(client_t, const char *const);
 	fte_t	(*set_info)(client_t, const char *const);
 	fte_t	(*set_away)(client_t, const char *const, const int);
@@ -179,7 +186,7 @@ typedef struct s_firetalk_protocol_functions {
 	fte_t	(*set_password)(client_t, const char *const, const char *const);
 	fte_t	(*set_privacy)(client_t, const char *const);
 	fte_t	(*im_add_buddy)(client_t, const char *const, const char *const, const char *const);
-	fte_t	(*im_remove_buddy)(client_t, const char *const);
+	fte_t	(*im_remove_buddy)(client_t, const char *const, const char *const);
 	fte_t	(*im_add_deny)(client_t, const char *const);
 	fte_t	(*im_remove_deny)(client_t, const char *const);
 	fte_t	(*im_upload_buddies)(client_t);
@@ -196,8 +203,7 @@ typedef struct s_firetalk_protocol_functions {
 	fte_t	(*chat_kick)(client_t, const char *const, const char *const, const char *const);
 	fte_t	(*chat_send_message)(client_t, const char *const, const char *const, const int);
 	fte_t	(*chat_send_action)(client_t, const char *const, const char *const, const int);
-	fte_t	(*subcode_send_request)(client_t, const char *const, const char *const, const char *const);
-	fte_t	(*subcode_send_reply)(client_t, const char *const, const char *const, const char *const);
+	char	*(*subcode_encode)(client_t, const char *const, const char *const);
 	const char *(*room_normalize)(const char *const);
 	client_t (*create_handle)();
 	void	(*destroy_handle)(client_t);
@@ -217,6 +223,8 @@ void firetalk_callback_im_getmessage(client_t c, const char *const sender, const
 void firetalk_callback_im_getaction(client_t c, const char *const sender, const int automessage, const char *const message);
 void firetalk_callback_im_buddyonline(client_t c, const char *const nickname, const int online);
 void firetalk_callback_im_buddyaway(client_t c, const char *const nickname, const int away);
+void firetalk_callback_buddyadded(client_t c, const char *const name, const char *const group, const char *const friendly);
+void firetalk_callback_buddyremoved(client_t c, const char *const name, const char *const group);
 void firetalk_callback_typing(client_t c, const char *const name, const int typing);
 void firetalk_callback_capabilities(client_t c, char const *const nickname, const char *const caps);
 void firetalk_callback_warninfo(client_t c, char const *const nickname, const long warnval);
@@ -238,7 +246,7 @@ void firetalk_callback_chat_kicked(client_t c, const char *const room, const cha
 void firetalk_callback_chat_getmessage(client_t c, const char *const room, const char *const from, const int automessage, const char *const message);
 void firetalk_callback_chat_getaction(client_t c, const char *const room, const char *const from, const int automessage, const char *const message);
 void firetalk_callback_chat_invited(client_t c, const char *const room, const char *const from, const char *const message);
-void firetalk_callback_chat_user_joined(client_t c, const char *const room, const char *const who);
+void firetalk_callback_chat_user_joined(client_t c, const char *const room, const char *const who, const char *const extra);
 void firetalk_callback_chat_user_left(client_t c, const char *const room, const char *const who, const char *const reason);
 void firetalk_callback_chat_user_quit(client_t c, const char *const who, const char *const reason);
 void firetalk_callback_chat_gottopic(client_t c, const char *const room, const char *const topic, const char *const author);
@@ -251,10 +259,16 @@ void firetalk_callback_chat_keychanged(client_t c, const char *const room, const
 void firetalk_callback_chat_opped(client_t c, const char *const room, const char *const by);
 void firetalk_callback_chat_deopped(client_t c, const char *const room, const char *const by);
 void firetalk_callback_chat_user_kicked(client_t c, const char *const room, const char *const who, const char *const by, const char *const reason);
+const char *firetalk_subcode_get_request_reply(client_t c, const char *const command);
 void firetalk_callback_subcode_request(client_t c, const char *const from, const char *const command, char *args);
 void firetalk_callback_subcode_reply(client_t c, const char *const from, const char *const command, const char *const args);
 void firetalk_callback_file_offer(client_t c, const char *const from, const char *const filename, const long size, const char *const ipstring, const char *const ip6string, const uint16_t port, const int type);
 void firetalk_callback_needpass(client_t c, char *pass, const int size);
+
+void firetalk_enqueue(firetalk_queue_t *queue, const char *const key, void *data);
+const void *firetalk_peek(firetalk_queue_t *queue, const char *const key);
+void *firetalk_dequeue(firetalk_queue_t *queue, const char *const key);
+void firetalk_queue_append(char *buf, int buflen, firetalk_queue_t *queue, const char *const key);
 
 firetalk_t firetalk_find_handle(client_t c);
 

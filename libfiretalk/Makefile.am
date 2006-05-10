@@ -8,8 +8,6 @@ libfiretalk_a_SOURCES = \
 	firetalk-int.h \
 	irc.c \
 	lily.c \
-	safestring.c \
-	safestring.h \
 	toc2.c \
 	toc2_uuids.h
 
