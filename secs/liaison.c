@@ -18,7 +18,8 @@ int	secs_init(void) {
 	secs_var_init();
 	secs_block_init();
 	secs_script_init();
-	secs_root = secs_block_create(NULL, "root");
+	if (secs_root == NULL)
+		secs_root = secs_block_create(NULL, "root");
 	assert(secs_root != NULL);
 	return(1);
 }

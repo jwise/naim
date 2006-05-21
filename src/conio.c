@@ -35,18 +35,15 @@ extern double	nowf, changetime;
 extern const char	*home, *sty;
 extern char	*statusbar_text;
 
-extern int
-	scrollbackoff G_GNUC_INTERNAL,
+extern int scrollbackoff G_GNUC_INTERNAL,
 	needpass G_GNUC_INTERNAL,
 	doredraw G_GNUC_INTERNAL,
 	inpaste G_GNUC_INTERNAL,
 	withtextcomp G_GNUC_INTERNAL,
 	namec;
-extern char
-	**names G_GNUC_INTERNAL,
+extern char **names G_GNUC_INTERNAL,
 	*lastclose G_GNUC_INTERNAL;
-extern namescomplete_t
-	namescomplete G_GNUC_INTERNAL;
+extern namescomplete_t namescomplete G_GNUC_INTERNAL;
 int	scrollbackoff = 0,
 	needpass = 0,
 	doredraw = 0,
@@ -56,8 +53,7 @@ int	scrollbackoff = 0,
 	namec = 0;
 char	**names = NULL,
 	*lastclose = NULL;
-namescomplete_t
-	namescomplete;
+namescomplete_t namescomplete;
 
 static const char
 	*collist[] = {
@@ -159,11 +155,9 @@ static struct {
 	{ "sigusr1",	"/echo User signal 1 received (SIGUSR1)" },
 	{ "sigusr2",	"/echo User signal 2 received (SIGUSR2)" },
 };
-static const int
-	conio_bind_defaultc = sizeof(conio_bind_defaultar)/sizeof(*conio_bind_defaultar);
+static const int conio_bind_defaultc = sizeof(conio_bind_defaultar)/sizeof(*conio_bind_defaultar);
 
-static void
-	conio_bind_defaults(void) {
+static void conio_bind_defaults(void) {
 	int	i;
 
 	for (i = 0; i < conio_bind_defaultc; i++) {
@@ -175,8 +169,7 @@ static void
 	}
 }
 
-static const char
-	*conio_bind_getdef(const char *key) {
+static const char *conio_bind_getdef(const char *key) {
 	int	i;
 
 	for (i = 0; i < conio_bind_defaultc; i++)
@@ -190,8 +183,7 @@ static struct {
 	char	*script;
 	void	(*func)(char *, int *);
 } *conio_bind_ar = NULL;
-static int
-	conio_bind_arlen = 0;
+static int conio_bind_arlen = 0;
 
 void	*conio_bind_func(int key) {
 	int	i;
@@ -202,7 +194,7 @@ void	*conio_bind_func(int key) {
 	return(NULL);
 }
 
-const char	*conio_bind_get(int key) {
+const char *conio_bind_get(int key) {
 	int	i;
 
 	for (i = 0; i < conio_bind_arlen; i++)
@@ -211,8 +203,8 @@ const char	*conio_bind_get(int key) {
 	return(NULL);
 }
 
-const char	*conio_bind_get_pretty(int key) {
-	const char	*binding = conio_bind_get(key);
+const char *conio_bind_get_pretty(int key) {
+	const char *binding = conio_bind_get(key);
 
 	if (binding == NULL)
 		return(NULL);
@@ -221,16 +213,15 @@ const char	*conio_bind_get_pretty(int key) {
 	return(conio_key_names[atoi(binding+1)].name);
 }
 
-const char	*conio_bind_get_informative(int key) {
-	static char	buf[1024];
-	const char	*binding = conio_bind_get(key);
+const char *conio_bind_get_informative(int key) {
+	static char buf[1024];
+	const char *binding = conio_bind_get(key);
 	int	i;
 
 	if (binding == NULL)
 		return(NULL);
 	if (binding[0] == '/') {
-		const char
-			*end = strchr(binding, ' ');
+		const char *end = strchr(binding, ' ');
 		int	i;
 
 		if (end == NULL)
@@ -406,16 +397,10 @@ CONIOALIA(add)
 CONIOALIA(friend)
 CONIOALIA(groupbuddy)
 CONIODESC(Add someone to your buddy list or change their group membership)
-CONIOAREQ(buddy,account)
+CONIOAREQ(account,account)
 CONIOAOPT(string,group)
 CONIOAOPT(string,realname)
-	buddylist_t	*blist = rgetlist(conn, args[0]);
-	const char	*group = "Buddy", *name = NULL;
-	int	already = blist?1:0,
-		changed = 0, perm = 1;
-
-	if ((blist != NULL) && !USER_PERMANENT(blist))
-		perm = 0;
+	const char *group = "Buddy", *name = NULL;
 
 	switch (argc) {
 	  default:
@@ -426,73 +411,10 @@ CONIOAOPT(string,realname)
 		break;
 	}
 
-	/* matching groups must be *exact* matches or AOL rejects the add */
-	if (conn->buddyar != NULL) {
-		buddylist_t	*iter;
-
-		for (iter = conn->buddyar; iter != NULL; iter = iter->next)
-			if (firetalk_compare_nicks(conn->conn, iter->_group, group) == FE_SUCCESS) {
-				if (strcmp(group, iter->_group) != 0)
-					group = iter->_group;
-				break;
-			}
-	}
-
-	blist = raddbuddy(conn, args[0], group, name);
-	assert(blist != NULL);
-
-	if (argc == 1) {
-		if (blist->_name != NULL) {
-			echof(conn, NULL, "Removed <font color=\"#00FFFF\">%s</font>'s name (was \"<font color=\"#00FFFF\">%s</font>\").\n",
-				blist->_account, blist->_name);
-			free(blist->_name);
-			blist->_name = NULL;
-			changed = 1;
-		}
-	} else if (argc == 2) {
-		if ((blist->_group == NULL) || (group == NULL) || (strcmp(blist->_group, group) != 0)) {
-			if (group == NULL) {
-				free(blist->_group);
-				blist->_group = NULL;
-			} else
-				STRREPLACE(blist->_group, group);
-			echof(conn, NULL, "Changed <font color=\"#00FFFF\">%s</font>'s group to \"<font color=\"#FF0000\">%s</font>\".\n",
-				USER_ACCOUNT(blist), USER_GROUP(blist));
-			changed = 1;
-		}
-	} else {
-		if ((blist->_name == NULL) || (strcmp(blist->_name, args[2]) != 0)) {
-			echof(conn, NULL, "Changed <font color=\"#00FFFF\">%s</font>'s name from \"<font color=\"#00FFFF\">%s</font>\" to \"<font color=\"#00FFFF\">%s</font>\".\n",
-				USER_ACCOUNT(blist), USER_NAME(blist), args[2]);
-			STRREPLACE(blist->_name, args[2]);
-			changed = 1;
-		}
-	}
-
-	if (USER_PERMANENT(blist)) {
-		if ((changed == 0) || (perm == 0)) {
-			if (already)
-				echof(conn, NULL, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> is now a permanent buddy.\n",
-					user_name(NULL, 0, conn, blist), USER_GROUP(blist));
-			else
-				echof(conn, NULL, "Added <font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> to your permanent buddy list.\n",
-					user_name(NULL, 0, conn, blist), USER_GROUP(blist));
-		}
-	} else {
-		if ((changed == 0) || (perm == 1)) {
-			if (already)
-				echof(conn, NULL, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> is now a non-permanent buddy.\n",
-					user_name(NULL, 0, conn, blist), USER_GROUP(blist));
-			else
-				echof(conn, NULL, "Added <font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> to your non-permanent buddy list.\n",
-					user_name(NULL, 0, conn, blist), USER_GROUP(blist));
-		}
-	}
-
 	{
 		fte_t	ret;
 
-		if ((ret = firetalk_im_add_buddy(conn->conn, args[0], USER_GROUP(blist), blist->_name)) != FE_SUCCESS)
+		if ((ret = firetalk_im_add_buddy(conn->conn, args[0], group, name)) != FE_SUCCESS)
 			echof(conn, "ADDBUDDY", "Unable to add buddy: %s.\n", firetalk_strerror(ret));
 	}
 }
@@ -544,7 +466,7 @@ CONIOALIA(quit)
 CONIODESC(Disconnect and exit naim)
 	conn_t	*c;
 
-	if (secs_getvar_int("autosave") != 0)
+	if (secs_getvar_int("autosave"))
 		conio_save(conn, 0, NULL);
 
 	c = conn;
@@ -1174,39 +1096,62 @@ CONIOWHER(NOTSTATUS)
 	naim_send_act(conn, conn->curbwin->winname, args[0]);
 }
 
+static void do_open(conn_t *conn, buddylist_t *blist, const int added) {
+	buddywin_t *bwin;
+
+	bnewwin(conn, USER_ACCOUNT(blist), BUDDY);
+	bwin = bgetwin(conn, USER_ACCOUNT(blist), BUDDY);
+	assert(bwin != NULL);
+	if (added)
+		window_echof(bwin, "Query window created and user added as a temporary buddy.\n");
+	else
+		window_echof(bwin, "Query window created.\n");
+	conn->curbwin = bwin;
+	nw_touchwin(&(bwin->nwin));
+	scrollbackoff = 0;
+	naim_changetime();
+	bupdate();
+}
+
 CONIOFUNC(open) {
 CONIOALIA(window)
-CONIODESC(Open a query window)
-CONIOAREQ(buddy,name)
-	buddywin_t	*bwin;
+CONIODESC(Open a query window for an existing or new buddy by account)
+CONIOAREQ(account,name)
+	buddylist_t *blist;
+	int	added;
 
-	if ((bwin = bgetanywin(conn, args[0])) != NULL)
+	if (bgetanywin(conn, args[0]) != NULL) {
 		conio_jump(conn, argc, args);
-	else {
-		buddylist_t	*blist;
-		int	added;
-
-		blist = rgetlist(conn, args[0]);
-		if (blist == NULL) {
-			blist = raddbuddy(conn, args[0], DEFAULT_GROUP, NULL);
-			firetalk_im_add_buddy(conn->conn, args[0], USER_GROUP(blist), NULL);
-			added = 1;
-		} else
-			added = 0;
-
-		bnewwin(conn, USER_ACCOUNT(blist), BUDDY);
-		bwin = bgetwin(conn, USER_ACCOUNT(blist), BUDDY);
-		assert(bwin != NULL);
-		if (added)
-			window_echof(bwin, "Query window created and user added as a temporary buddy.\n");
-		else
-			window_echof(bwin, "Query window created.\n");
-		conn->curbwin = bwin;
-		nw_touchwin(&(bwin->nwin));
-		scrollbackoff = 0;
-		naim_changetime();
-		bupdate();
+		return;
 	}
+
+	if ((blist = rgetlist(conn, args[0])) == NULL) {
+		blist = raddbuddy(conn, args[0], DEFAULT_GROUP, NULL);
+		firetalk_im_add_buddy(conn->conn, args[0], USER_GROUP(blist), NULL);
+		added = 1;
+	} else
+		added = 0;
+
+	do_open(conn, blist, added);
+}
+
+CONIOFUNC(openbuddy) {
+CONIODESC(Open a query window for an existing buddy by account or friendly name)
+CONIOAREQ(buddy,name)
+	buddylist_t *blist;
+
+	if (bgetanywin(conn, args[0]) != NULL) {
+		conio_jump(conn, argc, args);
+		return;
+	}
+
+	if ((blist = rgetlist(conn, args[0])) == NULL)
+		if ((blist = rgetlist_friendly(conn, args[0])) == NULL) {
+			echof(conn, "OPENBUDDY", "Unable to find %s in your buddy list by account or name.\n", args[0]);
+			return;
+		}
+
+	do_open(conn, blist, 0);
 }
 
 CONIOFUNC(close) {
@@ -1329,19 +1274,118 @@ CONIOAOPT(string,message)
 	}
 }
 
-static int qsort_strcasecmp(const void *p1, const void *p2) {
-	register char
-		**b1 = (char **)p1,
-		**b2 = (char **)p2;
+static int do_buddylist(conn_t *conn, const int showon, const int showoff) {
+	if (!inconn || !showon || !showoff || (conn->curbwin->et != CHAT) || (*(conn->curbwin->winname) == ':')) {
+		buddylist_t	*blist;
+		int	maxname = strlen("Account"), maxgroup = strlen("Group"), maxnotes = strlen("Name"), max;
+		char	*spaces;
 
-	return(strcasecmp(*b1, *b2));
+		if (conn->buddyar == NULL) {
+			echof(conn, NULL, "Your buddy list is empty, try <font color=\"#00FF00\">/addbuddy buddyname</font>.\n");
+			return(1);
+		}
+
+		echof(conn, NULL, "Buddy list:");
+
+		blist = conn->buddyar;
+		do {
+			const char	*name = USER_ACCOUNT(blist),
+					*nameq = ((*name == 0) || strchr(name, ' '))?"\"":"",
+					*group = USER_GROUP(blist),
+					*groupq = ((*group == 0) || strchr(group, ' '))?"\"":"",
+					*notes = USER_NAME(blist),
+					*notesq = ((*notes == 0) || strchr(notes, ' '))?"\"":"";
+			int		namelen = strlen(name)+2*strlen(nameq),
+					grouplen = strlen(group)+2*strlen(groupq),
+					noteslen = strlen(notes)+2*strlen(notesq);
+
+			if (namelen > maxname)
+				maxname = namelen;
+			if (grouplen > maxgroup)
+				maxgroup = grouplen;
+			if (noteslen > maxnotes)
+				maxnotes = noteslen;
+		} while ((blist = blist->next) != NULL);
+
+		if (maxname > maxgroup)
+			max = maxname;
+		else
+			max = maxgroup;
+		if (maxnotes > max)
+			max = maxnotes;
+
+		if ((spaces = malloc(max*6 + 1)) == NULL)
+			return(1);
+		*spaces = 0;
+		while (max > 0) {
+			strcat(spaces, "&nbsp;");
+			max--;
+		}
+
+		echof(conn, NULL, "</B>&nbsp; %s"
+			" <font color=\"#800000\">%s<B>%s</B>%s</font>%.*s"
+			" <font color=\"#008000\">%s<B>%s</B>%s</font>%.*s"
+			" <font color=\"#000080\">%s<B>%s</B>%s</font>%.*s<B>%s\n",
+			"&nbsp; &nbsp;",
+			"", "Group", "",
+			6*(maxgroup - strlen("Group")), spaces,
+			"", "Account", "",
+			6*(maxname - strlen("Account")), spaces,
+			"", "Name", "",
+			6*(maxnotes - strlen("Name")), spaces,
+			" flags");
+
+		blist = conn->buddyar;
+		do {
+			const char	*name = USER_ACCOUNT(blist),
+					*nameq = ((*name == 0) || strchr(name, ' '))?"\"":"",
+					*group = USER_GROUP(blist),
+					*groupq = ((*group == 0) || strchr(group, ' '))?"\"":"",
+					*notes = USER_NAME(blist),
+					*notesq = ((*notes == 0) || strchr(notes, ' '))?"\"":"";
+			int		namelen = strlen(name)+2*strlen(nameq),
+					grouplen = strlen(group)+2*strlen(groupq),
+					noteslen = strlen(notes)+2*strlen(notesq);
+
+			if ((blist->offline == 0) && !showon)
+				continue;
+			else if ((blist->offline != 0) && !showoff)
+				continue;
+			echof(conn, NULL, "</B>&nbsp; %s"
+				" <font color=\"#800000\">%s<B>%s</B>%s</font>%.*s"
+				" <font color=\"#008000\">%s<B>%s</B>%s</font>%.*s"
+				" <font color=\"#000080\">%s<B>%s</B>%s</font>%.*s<B>%s%s%s%s%s%s%s\n",
+				blist->offline?"OFF":"<B>ON</B>&nbsp;",
+				groupq, group, groupq,
+				6*(maxgroup - grouplen), spaces,
+				nameq, name, nameq,
+				6*(maxname - namelen), spaces,
+				notesq, notes, notesq,
+				6*(maxnotes - noteslen), spaces,
+				USER_PERMANENT(blist)?"":" NON-PERMANENT",
+				blist->crypt?" CRYPT":"",
+				blist->tzname?" TZNAME":"",
+				blist->tag?" TAGGED":"",
+				blist->isaway?" AWAY":"",
+				blist->isidle?" IDLE":"",
+				blist->warnval?" WARNED":"",
+				blist->typing?" TYPING":"",
+				(blist->peer > 0)?" PEER":"");
+		} while ((blist = blist->next) != NULL);
+		free(spaces);
+		spaces = NULL;
+		echof(conn, NULL, "Use the <font color=\"#00FF00\">/namebuddy</font> command to change a buddy's name, or <font color=\"#00FF00\">/groupbuddy</font> to change a buddy's group.");
+		return(1);
+	}
+	return(0);
 }
 
 CONIOFUNC(names) {
 CONIOALIA(buddylist)
 CONIODESC(Display buddy list or members of a chat)
 CONIOAOPT(chat,chat)
-	const char	*chat;
+	const char *chat;
+	buddywin_t *bwin;
 
 	if ((argc == 0) || (strcasecmp(args[0], "ON") == 0) || (strcasecmp(args[0], "OFF") == 0)) {
 		int	showon = 1, showoff = 1;
@@ -1351,140 +1395,35 @@ CONIOAOPT(chat,chat)
 		else if ((argc > 0) && (strcasecmp(args[0], "OFF") == 0))
 			showon = 0;
 
-		if (!inconn || !showon || !showoff || (conn->curbwin->et != CHAT) || (*(conn->curbwin->winname) == ':')) {
-			buddylist_t	*blist;
-			int	maxname = strlen("Account"), maxgroup = strlen("Group"), maxnotes = strlen("Name"), max;
-			char	*spaces;
-
-			if (conn->buddyar == NULL) {
-				echof(conn, NULL, "Your buddy list is empty, try <font color=\"#00FF00\">/addbuddy buddyname</font>.\n");
-				return;
-			}
-
-			echof(conn, NULL, "Buddy list:");
-
-			blist = conn->buddyar;
-			do {
-				const char	*name = USER_ACCOUNT(blist),
-						*nameq = ((*name == 0) || strchr(name, ' '))?"\"":"",
-						*group = USER_GROUP(blist),
-						*groupq = ((*group == 0) || strchr(group, ' '))?"\"":"",
-						*notes = USER_NAME(blist),
-						*notesq = ((*notes == 0) || strchr(notes, ' '))?"\"":"";
-				int		namelen = strlen(name)+2*strlen(nameq),
-						grouplen = strlen(group)+2*strlen(groupq),
-						noteslen = strlen(notes)+2*strlen(notesq);
-
-				if (namelen > maxname)
-					maxname = namelen;
-				if (grouplen > maxgroup)
-					maxgroup = grouplen;
-				if (noteslen > maxnotes)
-					maxnotes = noteslen;
-			} while ((blist = blist->next) != NULL);
-
-			if (maxname > maxgroup)
-				max = maxname;
-			else
-				max = maxgroup;
-			if (maxnotes > max)
-				max = maxnotes;
-
-			if ((spaces = malloc(max*6 + 1)) == NULL)
-				return;
-			*spaces = 0;
-			while (max > 0) {
-				strcat(spaces, "&nbsp;");
-				max--;
-			}
-
-			echof(conn, NULL, "</B>&nbsp; %s"
-				" <font color=\"#800000\">%s<B>%s</B>%s</font>%.*s"
-				" <font color=\"#008000\">%s<B>%s</B>%s</font>%.*s"
-				" <font color=\"#000080\">%s<B>%s</B>%s</font>%.*s<B>%s\n",
-				"&nbsp; &nbsp;",
-				"", "Group", "",
-				6*(maxgroup - strlen("Group")), spaces,
-				"", "Account", "",
-				6*(maxname - strlen("Account")), spaces,
-				"", "Name", "",
-				6*(maxnotes - strlen("Name")), spaces,
-				" flags");
-
-			blist = conn->buddyar;
-			do {
-				const char	*name = USER_ACCOUNT(blist),
-						*nameq = ((*name == 0) || strchr(name, ' '))?"\"":"",
-						*group = USER_GROUP(blist),
-						*groupq = ((*group == 0) || strchr(group, ' '))?"\"":"",
-						*notes = USER_NAME(blist),
-						*notesq = ((*notes == 0) || strchr(notes, ' '))?"\"":"";
-				int		namelen = strlen(name)+2*strlen(nameq),
-						grouplen = strlen(group)+2*strlen(groupq),
-						noteslen = strlen(notes)+2*strlen(notesq);
-
-				if ((blist->offline == 0) && !showon)
-					continue;
-				else if ((blist->offline != 0) && !showoff)
-					continue;
-				echof(conn, NULL, "</B>&nbsp; %s"
-					" <font color=\"#800000\">%s<B>%s</B>%s</font>%.*s"
-					" <font color=\"#008000\">%s<B>%s</B>%s</font>%.*s"
-					" <font color=\"#000080\">%s<B>%s</B>%s</font>%.*s<B>%s%s%s%s%s%s%s\n",
-					blist->offline?"OFF":"<B>ON</B>&nbsp;",
-					groupq, group, groupq,
-					6*(maxgroup - grouplen), spaces,
-					nameq, name, nameq,
-					6*(maxname - namelen), spaces,
-					notesq, notes, notesq,
-					6*(maxnotes - noteslen), spaces,
-
-					USER_PERMANENT(blist)?"":" NON-PERMANENT",
-					blist->crypt?" CRYPT":"",
-					blist->tzname?" TZNAME":"",
-					blist->tag?" TAGGED":"",
-					blist->isaway?" AWAY":"",
-					blist->isidle?" IDLE":"",
-					blist->warnval?" WARNED":"",
-					blist->typing?" TYPING":"",
-					(blist->peer > 0)?" PEER":"");
-			} while ((blist = blist->next) != NULL);
-			free(spaces);
-			spaces = NULL;
-			echof(conn, NULL, "Use the <font color=\"#00FF00\">/namebuddy</font> command to change a buddy's name, or <font color=\"#00FF00\">/groupbuddy</font> to change a buddy's group.");
+		if (do_buddylist(conn, showon, showoff))
 			return;
-		}
 		chat = conn->curbwin->winname;
 	} else
 		chat = args[0];
 
-	firetalk_chat_listmembers(conn->conn, chat);
-	{
-		buddywin_t	*bwin = cgetwin(conn, chat);
+	bwin = cgetwin(conn, chat);
+	assert(bwin != NULL);
+	naim_chat_listmembers(conn, chat);
+	if (names == NULL)
+		window_echof(bwin, "Nobody on %s\n", chat);
+	else {
+		int	i, namesbuflen = 0;
+		char	*namesbuf = NULL;
 
-		assert(bwin != NULL);
-		if (names == NULL)
-			window_echof(bwin, "Nobody on %s\n", chat);
-		else {
-			int	i, namesbuflen = 0;
-			char	*namesbuf = NULL;
+		for (i = 0; i < namec; i++) {
+			int	len = strlen(names[i])+1;
 
-			qsort(names, namec, sizeof(*names), qsort_strcasecmp);
-			for (i = 0; i < namec; i++) {
-				int	len = strlen(names[i])+1;
-
-				namesbuf = realloc(namesbuf, (namesbuflen+len+1)*sizeof(*namesbuf));
-				sprintf(namesbuf+namesbuflen, "%s ", names[i]);
-				namesbuflen += len;
-				free(names[i]);
-				names[i] = NULL;
-			}
-			free(names);
-			names = NULL;
-			namec = 0;
-			window_echof(bwin, "Users on %s: %s\n", chat, namesbuf);
-			free(namesbuf);
+			namesbuf = realloc(namesbuf, (namesbuflen+len+1)*sizeof(*namesbuf));
+			sprintf(namesbuf+namesbuflen, "%s ", names[i]);
+			namesbuflen += len;
+			free(names[i]);
+			names[i] = NULL;
 		}
+		free(names);
+		names = NULL;
+		namec = 0;
+		window_echof(bwin, "Users on %s: %s\n", chat, namesbuf);
+		free(namesbuf);
 	}
 }
 
@@ -1519,7 +1458,7 @@ CONIOAOPT(string,key)
 
 CONIOFUNC(namebuddy) {
 CONIODESC(Change the real name for a buddy)
-CONIOAREQ(buddy,name)
+CONIOAREQ(account,name)
 CONIOAOPT(string,realname)
 	if (argc == 1)
 		conio_addbuddy(conn, 1, args);
@@ -1536,9 +1475,9 @@ CONIOAOPT(string,realname)
 CONIOFUNC(tagbuddy) {
 CONIOALIA(tag)
 CONIODESC(Mark a buddy with a reminder message)
-CONIOAREQ(buddy,name)
+CONIOAREQ(account,name)
 CONIOAOPT(string,note)
-	buddylist_t	*blist = rgetlist(conn, args[0]);
+	buddylist_t *blist = rgetlist(conn, args[0]);
 
 	if (blist == NULL) {
 		echof(conn, "TAGBUDDY", "<font color=\"#00FFFF\">%s</font> is not in your buddy list.\n",
@@ -1561,9 +1500,9 @@ CONIOAOPT(string,note)
 
 CONIOFUNC(delbuddy) {
 CONIODESC(Remove someone from your buddy list)
-CONIOAOPT(buddy,name)
-	buddylist_t	*blist;
-	const char	*name;
+CONIOAOPT(account,name)
+	buddylist_t *blist;
+	const char *name;
 
 	if (argc == 0)
 		name = lastclose;
@@ -1582,16 +1521,8 @@ CONIOAOPT(buddy,name)
 	}
 
 	if ((blist = rgetlist(conn, name)) != NULL) {
-		fte_t	ret;
-
-		if ((ret = firetalk_im_remove_buddy(conn->conn, name)) == FE_SUCCESS)
-			status_echof(conn, "Removed <font color=\"#00FFFF\">%s</font> from your buddy list.\n",
-				user_name(NULL, 0, conn, blist));
-		else
-			status_echof(conn, "Removed <font color=\"#00FFFF\">%s</font> from naim's buddy list, but the server wouldn't remove %s%s%s from your session buddy list: %s.\n", 
-				user_name(NULL, 0, conn, blist), strchr(name, ' ')?"\"":"", name, strchr(name, ' ')?"\"":"",
-				firetalk_strerror(ret));
-		rdelbuddy(conn, name);
+		if (firetalk_im_remove_buddy(conn->conn, name) != FE_SUCCESS)
+			rdelbuddy(conn, name);
 		blist = NULL;
 	} else if (firetalk_im_remove_buddy(conn->conn, name) == FE_SUCCESS)
 		status_echof(conn, "Removed <font color=\"#00FFFF\">%s</font> from your session buddy list, but <font color=\"#00FFFF\">%s</font> isn't in naim's buddy list.\n",
@@ -1604,11 +1535,13 @@ CONIOAOPT(buddy,name)
 		free(lastclose);
 		lastclose = NULL;
 	}
+
+	assert(rgetlist(conn, name) == NULL);
 }
 
 CONIOFUNC(op) {
 CONIODESC(Give operator privilege)
-CONIOAREQ(buddy,name)
+CONIOAREQ(cmember,name)
 CONIOWHER(INCHAT)
 	fte_t	ret;
 
@@ -1618,7 +1551,7 @@ CONIOWHER(INCHAT)
 
 CONIOFUNC(deop) {
 CONIODESC(Remove operator privilege)
-CONIOAREQ(buddy,name)
+CONIOAREQ(cmember,name)
 CONIOWHER(INCHAT)
 	fte_t	ret;
 
@@ -1647,7 +1580,7 @@ CONIOWHER(INCHAT)
 
 CONIOFUNC(kick) {
 CONIODESC(Temporarily remove someone from a chat)
-CONIOAREQ(buddy,name)
+CONIOAREQ(cmember,name)
 CONIOAOPT(string,reason)
 CONIOWHER(INCHAT)
 	fte_t	ret;
@@ -1658,7 +1591,7 @@ CONIOWHER(INCHAT)
 
 CONIOFUNC(invite) {
 CONIODESC(Invite someone to a chat)
-CONIOAREQ(buddy,name)
+CONIOAREQ(account,name)
 CONIOAOPT(string,chat)
 CONIOWHER(INCHAT)
 	fte_t	ret;
@@ -1681,7 +1614,7 @@ CONIOAOPT(string,topic)
 CONIOFUNC(unblock) {
 CONIOALIA(unignore)
 CONIODESC(Remove someone from the ignore list)
-CONIOAREQ(buddy,name)
+CONIOAREQ(idiot,name)
 	echof(conn, NULL, "No longer blocking <font color=\"#00FFFF\">%s</font>.\n", args[0]);
 	if (conn->online > 0)
 		if (firetalk_im_remove_deny(conn->conn, args[0]) != FE_SUCCESS)
@@ -1692,23 +1625,17 @@ CONIOAREQ(buddy,name)
 
 CONIOFUNC(block) {
 CONIODESC(Server-enforced /ignore)
-CONIOAREQ(buddy,name)
+CONIOAREQ(account,name)
 CONIOAOPT(string,reason)
-	if (conn->online > 0) {
-		fte_t	ret;
+	fte_t	ret;
 
-		if ((ret = firetalk_im_add_deny(conn->conn, args[0])) != FE_SUCCESS)
-			echof(conn, "BLOCK", "Unable to block %s: %s.\n", args[0], firetalk_strerror(ret));
-		else
-			echof(conn, NULL, "Now blocking <font color=\"#00FFFF\">%s</font>.\n", args[0]);
-	} else
-		echof(conn, NULL, "Now blocking <font color=\"#00FFFF\">%s</font>.\n", args[0]);
-	raddidiot(conn, args[0], "block");
+	if ((ret = firetalk_im_add_deny(conn->conn, args[0])) != FE_SUCCESS)
+		echof(conn, "BLOCK", "Unable to block %s: %s.\n", args[0], firetalk_strerror(ret));
 }
 
 CONIOFUNC(ignore) {
 CONIODESC(Ignore all private/public messages)
-CONIOAOPT(buddy,name)
+CONIOAOPT(account,name)
 CONIOAOPT(string,reason)
 	if (argc == 0) {
 		ignorelist_t
@@ -1943,7 +1870,7 @@ static void
 
 CONIOFUNC(warn) {
 CONIODESC(Send a warning about someone)
-CONIOAREQ(buddy,name)
+CONIOAREQ(account,name)
 	fte_t	ret;
 
 	if ((ret = firetalk_im_evil(conn->conn, args[0])) == FE_SUCCESS)
@@ -2013,7 +1940,7 @@ CONIOAREQ(filename,filename)
 	close(pfd);
 	conn->profile[len] = 0;
 	if (conn->online > 0)
-		naim_set_info(conn->conn, conn->profile);
+		naim_set_info(conn, conn->profile);
 }
 
 CONIOFUNC(accept) {
@@ -2025,28 +1952,28 @@ CONIOWHER(NOTSTATUS)
 		return;
 	}
 	firetalk_file_accept(conn->conn, conn->curbwin->e.transfer->handle,
-		conn->curbwin, args[0]);
+		conn->curbwin->e.transfer, args[0]);
 	STRREPLACE(conn->curbwin->e.transfer->local, args[0]);
 }
 
 CONIOFUNC(offer) {
 CONIODESC(EXPERIMENTAL Offer a file transfer request to someone)
-CONIOAREQ(buddy,name)
+CONIOAREQ(account,name)
 CONIOAREQ(filename,filename)
 	const char
 		*from = args[0],
 		*filename = args[1];
 
 	if (bgetwin(conn, filename, TRANSFER) == NULL) {
-		buddywin_t	*bwin;
+		buddywin_t *bwin;
 
 		bnewwin(conn, filename, TRANSFER);
 		bwin = bgetwin(conn, filename, TRANSFER);
 		assert(bwin != NULL);
-		bwin->e.transfer = fnewtransfer(NULL, filename, from, -1);
+		bwin->e.transfer = fnewtransfer(NULL, bwin, filename, from, -1);
 		echof(conn, "OFFER", "Offering file transfer request to <font color=\"#00FFFF\">%s</font> (%s).\n",
 			from, filename);
-		firetalk_file_offer(conn->conn, from, filename, bwin);
+		firetalk_file_offer(conn->conn, from, filename, bwin->e.transfer);
 	} else
 		echof(conn, "OFFER", "Ignoring duplicate file transfer request to <font color=\"#00FFFF\">%s</font> (%s).\n",
 			from, filename);
@@ -2977,10 +2904,8 @@ void	conio_handleline(const char *line) {
 	}
 }
 
-static const char
-	*n_strnrchr(const char *const str, const char c, const int len) {
-	const char
-		*s = str+len;
+static const char *n_strnrchr(const char *const str, const char c, const int len) {
+	const char *s = str+len;
 
 	while (s >= str) {
 		if (*s == c)
@@ -3001,12 +2926,16 @@ static const char
 		beep(); \
 } while (0)
 
-const char
-	*window_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
-	static char
-		str[1024];
-	buddywin_t
-		*bwin;
+#define ADDSTOBUF(s)	do { \
+	int	ADDSTOBUF_i; \
+	\
+	for (ADDSTOBUF_i = 0; (s)[ADDSTOBUF_i] != 0; ADDSTOBUF_i++) \
+		ADDTOBUF((s)[ADDSTOBUF_i]); \
+} while (0)
+
+const char *window_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
+	static char str[1024];
+	buddywin_t *bwin;
 	size_t	startlen = strlen(start);
 
 	if ((bwin = conn->curbwin) == NULL)
@@ -3056,12 +2985,9 @@ const char
 	return(NULL);
 }
 
-const char
-	*chat_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
-	static char
-		str[1024];
-	buddywin_t
-		*bwin;
+const char *chat_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
+	static char str[1024];
+	buddywin_t *bwin;
 	size_t	startlen = strlen(start);
 
 	if ((bwin = conn->curbwin) == NULL)
@@ -3090,15 +3016,49 @@ const char
 	return(NULL);
 }
 
-const char
-	*filename_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
-	static char
-		str[1024];
-	struct dirent
-		*dire;
+const char *cmember_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
+	static char str[1024];
+	size_t	startlen = strlen(start);
+	int	i;
+
+	if (!inconn || (conn->curbwin->et != CHAT))
+		return(NULL);
+	naim_chat_listmembers(conn, conn->curbwin->winname);
+	if (names == NULL)
+		return(NULL);
+	for (i = 0; i < namec; i++)
+		if (aimncmp(names[i], start, startlen) == 0) {
+			char	*name = names[i];
+			int	j;
+
+			if (match != NULL)
+				*match = bufloc - (start-buf);
+			if (desc != NULL)
+				*desc = NULL;
+
+			for (j = 0; (j < sizeof(str)-1) && (*name != 0); j++) {
+				while (*name == ' ')
+					name++;
+				str[j] = *(name++);
+			}
+			str[j] = 0;
+			free(names);
+			names = NULL;
+			namec = 0;
+			return(str);
+		}
+
+	free(names);
+	names = NULL;
+	namec = 0;
+	return(NULL);
+}
+
+const char *filename_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
+	static char str[1024];
+	struct dirent *dire;
 	DIR	*dir;
-	const char
-		*end;
+	const char *end;
 	size_t	startlen = strlen(start),
 		endlen;
 
@@ -3148,8 +3108,7 @@ const char
 	return(NULL);
 }
 
-const char
-	*conio_tabcomplete(const char *buf, const int bufloc, int *const match, const char **desc) {
+const char *conio_tabcomplete(const char *buf, const int bufloc, int *const match, const char **desc) {
 	char	*sp = memchr(buf, ' ', bufloc);
 
 	assert(*buf == '/');
@@ -3259,6 +3218,12 @@ const char
 			return(window_tabcomplete(conn, start, buf, bufloc, match, desc));
 		  case 'B':
 			return(buddy_tabcomplete(conn, start, buf, bufloc, match, desc));
+		  case 'A':
+			return(account_tabcomplete(conn, start, buf, bufloc, match, desc));
+		  case 'M':
+			return(cmember_tabcomplete(conn, start, buf, bufloc, match, desc));
+		  case 'I':
+			return(idiot_tabcomplete(conn, start, buf, bufloc, match, desc));
 		  case 'C':
 			return(chat_tabcomplete(conn, start, buf, bufloc, match, desc));
 		  case 'F':
@@ -3266,7 +3231,7 @@ const char
 		  case 'V':
 			return(set_tabcomplete(conn, start, buf, bufloc, match, desc));
 		  case 'E': {
-				const char *ret = buddy_tabcomplete(conn, start, buf, bufloc, match, desc);
+				const char *ret = account_tabcomplete(conn, start, buf, bufloc, match, desc);
 
 				if (ret != NULL)
 					return(ret);
@@ -3281,8 +3246,7 @@ const char
 	}
 }
 
-static void
-	gotkey_real(int c) {
+static void gotkey_real(int c) {
 	static char	**histar = NULL;
 	static int	histc = 0,
 			histpos = 0;
@@ -3329,17 +3293,17 @@ static void
 	bindfunc = conio_bind_func(c);
 	if ((binding != NULL) || (bindfunc != NULL)) {
 		if ((binding != NULL) && (binding[0] == ':')) {
-		    int	bindid = atoi(binding+1);
+			int	bindid = atoi(binding+1);
 
-		    if (bindid != CONIO_KEY_SPACE_OR_NBSP)
-			inwhite = 0;
-		    if ((bindid != CONIO_KEY_INPUT_SCROLL_BACK) && (bindid != CONIO_KEY_INPUT_SCROLL_FORWARD))
-			bufmatchpos = -1;
-		    switch(bindid) {
-			case CONIO_KEY_REDRAW: /* Redraw the screen */
+			if (bindid != CONIO_KEY_SPACE_OR_NBSP)
+				inwhite = 0;
+			if ((bindid != CONIO_KEY_INPUT_SCROLL_BACK) && (bindid != CONIO_KEY_INPUT_SCROLL_FORWARD))
+				bufmatchpos = -1;
+			switch(bindid) {
+			  case CONIO_KEY_REDRAW: /* Redraw the screen */
 				doredraw = 1;
 				break;
-			case CONIO_KEY_INPUT_SCROLL_BACK: /* Search back through your input history */
+			  case CONIO_KEY_INPUT_SCROLL_BACK: /* Search back through your input history */
 				if (histpos > 0) {
 					int	tmp;
 
@@ -3356,7 +3320,7 @@ static void
 						}
 				}
 				break;
-			case CONIO_KEY_INPUT_SCROLL_FORWARD: /* Search forward through your input history */
+			  case CONIO_KEY_INPUT_SCROLL_FORWARD: /* Search forward through your input history */
 				if (histpos < histc) {
 					int	tmp;
 
@@ -3378,64 +3342,27 @@ static void
 						}
 				}
 				break;
-			case CONIO_KEY_INPUT_CURSOR_LEFT: /* Move left in the input line */
+			  case CONIO_KEY_INPUT_CURSOR_LEFT: /* Move left in the input line */
 				if (bufloc > 0)
 					bufloc--;
 				break;
-			case CONIO_KEY_INPUT_CURSOR_RIGHT: /* Move right in the input line */
+			  case CONIO_KEY_INPUT_CURSOR_RIGHT: /* Move right in the input line */
 				if (buf[bufloc] != 0)
 					bufloc++;
 				break;
-			case CONIO_KEY_SPACE_OR_NBSP: /* In paste mode, an HTML hard space, otherwise a literal space */
+			  case CONIO_KEY_SPACE_OR_NBSP: /* In paste mode, an HTML hard space, otherwise a literal space */
 				if ((inpaste == 0) || (inwhite == 0)) {
 					ADDTOBUF(' ');
 					inwhite = 1;
 				} else {
-					ADDTOBUF('&');
-					ADDTOBUF('n');
-					ADDTOBUF('b');
-					ADDTOBUF('s');
-					ADDTOBUF('p');
-					ADDTOBUF(';');
+					ADDSTOBUF("&nbsp;");
 					inwhite = 0;
 				}
 				break;
-			case CONIO_KEY_TAB: /* An HTML tab (8 hard spaces) */
-				ADDTOBUF('&');
-				ADDTOBUF('n');
-				ADDTOBUF('b');
-				ADDTOBUF('s');
-				ADDTOBUF('p');
-				ADDTOBUF(';');
-				ADDTOBUF(' ');
-				ADDTOBUF('&');
-				ADDTOBUF('n');
-				ADDTOBUF('b');
-				ADDTOBUF('s');
-				ADDTOBUF('p');
-				ADDTOBUF(';');
-				ADDTOBUF(' ');
-				ADDTOBUF('&');
-				ADDTOBUF('n');
-				ADDTOBUF('b');
-				ADDTOBUF('s');
-				ADDTOBUF('p');
-				ADDTOBUF(';');
-				ADDTOBUF(' ');
-				ADDTOBUF('&');
-				ADDTOBUF('n');
-				ADDTOBUF('b');
-				ADDTOBUF('s');
-				ADDTOBUF('p');
-				ADDTOBUF(';');
-				ADDTOBUF('&');
-				ADDTOBUF('n');
-				ADDTOBUF('b');
-				ADDTOBUF('s');
-				ADDTOBUF('p');
-				ADDTOBUF(';');
+			  case CONIO_KEY_TAB: /* An HTML tab (8 hard spaces) */
+				ADDSTOBUF("&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;");
 				break;
-			case CONIO_KEY_TAB_BUDDY_NEXT: { /* In paste mode, an HTML tab (8 hard spaces), otherwise perform command completion or advance to the next window */
+			  case CONIO_KEY_TAB_BUDDY_NEXT: { /* In paste mode, an HTML tab (8 hard spaces), otherwise perform command completion or advance to the next window */
 					int	temppaste = inpaste;
 					char	*ptr;
 
@@ -3452,39 +3379,7 @@ static void
 							temppaste = 1;
 					}
 					if (temppaste) {
-						ADDTOBUF('&');
-						ADDTOBUF('n');
-						ADDTOBUF('b');
-						ADDTOBUF('s');
-						ADDTOBUF('p');
-						ADDTOBUF(';');
-						ADDTOBUF(' ');
-						ADDTOBUF('&');
-						ADDTOBUF('n');
-						ADDTOBUF('b');
-						ADDTOBUF('s');
-						ADDTOBUF('p');
-						ADDTOBUF(';');
-						ADDTOBUF(' ');
-						ADDTOBUF('&');
-						ADDTOBUF('n');
-						ADDTOBUF('b');
-						ADDTOBUF('s');
-						ADDTOBUF('p');
-						ADDTOBUF(';');
-						ADDTOBUF(' ');
-						ADDTOBUF('&');
-						ADDTOBUF('n');
-						ADDTOBUF('b');
-						ADDTOBUF('s');
-						ADDTOBUF('p');
-						ADDTOBUF(';');
-						ADDTOBUF('&');
-						ADDTOBUF('n');
-						ADDTOBUF('b');
-						ADDTOBUF('s');
-						ADDTOBUF('p');
-						ADDTOBUF(';');
+						ADDSTOBUF("&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;");
 						break;
 					} else if ((bufloc > 0) && (buf[0] == '/')
 						&& (buf[bufloc-1] != ' ')) {
@@ -3571,7 +3466,7 @@ static void
 						break;
 					}
 				}
-			case CONIO_KEY_BUDDY_NEXT: /* Advance to the next window */
+			  case CONIO_KEY_BUDDY_NEXT: /* Advance to the next window */
 				if (inconn_real) {
 					assert(curconn->curbwin != NULL);
 					curconn->curbwin = curconn->curbwin->next;
@@ -3581,7 +3476,7 @@ static void
 				naim_changetime();
 				bupdate();
 				break;
-			case CONIO_KEY_BUDDY_PREV: /* Go to the previous window */
+			  case CONIO_KEY_BUDDY_PREV: /* Go to the previous window */
 				if (inconn_real) {
 					buddywin_t	*bbefore = curconn->curbwin->next;
 	
@@ -3594,7 +3489,7 @@ static void
 				naim_changetime();
 				bupdate();
 				break;
-			case CONIO_KEY_CONN_NEXT: /* Go to the next connection window (AIM, EFnet, etc.) */
+			  case CONIO_KEY_CONN_NEXT: /* Go to the next connection window (AIM, EFnet, etc.) */
 				curconn = curconn->next;
 				if (curconn->curbwin != NULL)
 					nw_touchwin(&(curconn->curbwin->nwin));
@@ -3602,7 +3497,7 @@ static void
 				naim_changetime();
 				bupdate();
 				break;
-			case CONIO_KEY_CONN_PREV: { /* Go to the previous connection window */
+			  case CONIO_KEY_CONN_PREV: { /* Go to the previous connection window */
 					conn_t	*cbefore = curconn->next;
 	
 					while (cbefore->next != curconn)
@@ -3615,18 +3510,18 @@ static void
 				naim_changetime();
 				bupdate();
 				break;
-			case CONIO_KEY_INPUT_BACKSPACE: /* Delete the previous character in the input line */
+			  case CONIO_KEY_INPUT_BACKSPACE: /* Delete the previous character in the input line */
 				if (bufloc < 1)
 					break;
 				memmove(buf+bufloc-1, buf+bufloc,
 					sizeof(buf)-bufloc);
 				bufloc--;
 				break;
-			case CONIO_KEY_INPUT_DELETE: /* Delete the current character in the input line */
+			  case CONIO_KEY_INPUT_DELETE: /* Delete the current character in the input line */
 				memmove(buf+bufloc, buf+bufloc+1,
 					sizeof(buf)-bufloc-1);
 				break;
-			case CONIO_KEY_INPUT_ENTER: /* In paste mode, an HTML newline, otherwise sends the current IM or executes the current command */
+			  case CONIO_KEY_INPUT_ENTER: /* In paste mode, an HTML newline, otherwise sends the current IM or executes the current command */
 				{
 					int	temppaste = inpaste;
 
@@ -3643,10 +3538,7 @@ static void
 							temppaste = 1;
 					}
 					if (temppaste) {
-						ADDTOBUF('<');
-						ADDTOBUF('b');
-						ADDTOBUF('r');
-						ADDTOBUF('>');
+						ADDSTOBUF("<br>");
 						inwhite = 1;
 						break;
 					}
@@ -3660,12 +3552,12 @@ static void
 				histar = realloc(histar, histc*sizeof(*histar));
 				histar[histpos] = NULL;
 				conio_handleline(buf);
-			case CONIO_KEY_INPUT_KILL: /* Delete the entire input line */
+			  case CONIO_KEY_INPUT_KILL: /* Delete the entire input line */
 				memset(buf, 0, sizeof(buf));
 				inwhite = inpaste =
 					bufloc = 0;
 				break;
-			case CONIO_KEY_INPUT_KILL_WORD: /* Delete the input line from the current character to the beginning of the previous word */
+			  case CONIO_KEY_INPUT_KILL_WORD: /* Delete the input line from the current character to the beginning of the previous word */
 				if (bufloc > 0) {
 					int	end = bufloc;
 
@@ -3681,74 +3573,49 @@ static void
 					memset(buf+strlen(buf)-(end-bufloc), 0, end-bufloc);
 				}
 				break;
-			case CONIO_KEY_INPUT_KILL_EOL: /* Delete the input line from the current character to the end of the line */
+			  case CONIO_KEY_INPUT_KILL_EOL: /* Delete the input line from the current character to the end of the line */
 				memset(buf+bufloc, 0, strlen(buf+bufloc));
 				break;
-			case CONIO_KEY_INPUT_PASTE: /* Alter the input handler to handle pasted text better */
+			  case CONIO_KEY_INPUT_PASTE: /* Alter the input handler to handle pasted text better */
 				inpaste = (inpaste == 0);
 				break;
-			case CONIO_KEY_INPUT_SYM_LT: /* In paste mode, an HTML less-than, otherwise a literal less-than */
+			  case CONIO_KEY_INPUT_SYM_LT: /* In paste mode, an HTML less-than, otherwise a literal less-than */
 				if (inpaste)
 					ADDTOBUF('<');
-				else {
-					ADDTOBUF('&');
-					ADDTOBUF('l');
-					ADDTOBUF('t');
-					ADDTOBUF(';');
-				}
+				else
+					ADDSTOBUF("&lt;");
 				break;
-			case CONIO_KEY_INPUT_SYM_GT: /* In paste mode, an HTML greater-than, otherwise a literal greater-than */
+			  case CONIO_KEY_INPUT_SYM_GT: /* In paste mode, an HTML greater-than, otherwise a literal greater-than */
 				if (inpaste)
 					ADDTOBUF('>');
-				else {
-					ADDTOBUF('&');
-					ADDTOBUF('g');
-					ADDTOBUF('t');
-					ADDTOBUF(';');
-				}
+				else
+					ADDSTOBUF("&gt;");
 				break;
-			case CONIO_KEY_INPUT_SYM_AMP: /* In paste mode, an HTML ampersand, otherwise a literal ampersand */
+			  case CONIO_KEY_INPUT_SYM_AMP: /* In paste mode, an HTML ampersand, otherwise a literal ampersand */
 				if (inpaste)
 					ADDTOBUF('&');
-				else {
-					ADDTOBUF('&');
-					ADDTOBUF('a');
-					ADDTOBUF('m');
-					ADDTOBUF('p');
-					ADDTOBUF(';');
-				}
+				else
+					ADDSTOBUF("&amp;");
 				break;
-			case CONIO_KEY_INPUT_ENT_BOLD: /* Toggle HTML bold mode */
+			  case CONIO_KEY_INPUT_ENT_BOLD: /* Toggle HTML bold mode */
 				if (strncasecmp(buf+bufloc, "</B>", 4) == 0)
 					bufloc += 4;
 				else if (bufloc+sizeof("<I></I>")-1 < sizeof(buf)-1) {
-					ADDTOBUF('<');
-					ADDTOBUF('B');
-					ADDTOBUF('>');
-					ADDTOBUF('<');
-					ADDTOBUF('/');
-					ADDTOBUF('B');
-					ADDTOBUF('>');
+					ADDSTOBUF("<B></B>");
 					bufloc -= 4;
 				} else
 					beep();
 				break;
-			case CONIO_KEY_INPUT_ENT_ITALIC: /* Toggle HTML italic (inverse) mode */
+			  case CONIO_KEY_INPUT_ENT_ITALIC: /* Toggle HTML italic (inverse) mode */
 				if (strncasecmp(buf+bufloc, "</I>", 4) == 0)
 					bufloc += 4;
 				else if (bufloc+sizeof("<I></I>")-1 < sizeof(buf)-1) {
-					ADDTOBUF('<');
-					ADDTOBUF('I');
-					ADDTOBUF('>');
-					ADDTOBUF('<');
-					ADDTOBUF('/');
-					ADDTOBUF('I');
-					ADDTOBUF('>');
+					ADDSTOBUF("<I></I>");
 					bufloc -= 4;
 				} else
 					beep();
 				break;
-			case CONIO_KEY_WINLIST_HIDE: /* Cycle between always visible, always hidden, or auto-hidden */
+			  case CONIO_KEY_WINLIST_HIDE: /* Cycle between always visible, always hidden, or auto-hidden */
 				if (changetime == 0)
 					changetime = nowf;
 				else if (changetime == -1)
@@ -3756,7 +3623,7 @@ static void
 				else
 					changetime = -1;
 				break;
-			case CONIO_KEY_STATUS_DISPLAY: /* Display or hide the status console */
+			  case CONIO_KEY_STATUS_DISPLAY: /* Display or hide the status console */
 				if (consolescroll == -1) {
 					if (secs_getvar_int("quakestyle") == 1) {
 						quakeoff = 2;
@@ -3778,11 +3645,11 @@ static void
 				}
 				bupdate();
 				break;
-			case CONIO_KEY_STATUS_POKE: /* Bring the status console down for $autohide seconds */
+			  case CONIO_KEY_STATUS_POKE: /* Bring the status console down for $autohide seconds */
 				naim_lastupdate(curconn);
 				bupdate();
 				break;
-			case CONIO_KEY_BUDDY_SCROLL_BACK: /* Scroll the current window backwards (up) */
+			  case CONIO_KEY_BUDDY_SCROLL_BACK: /* Scroll the current window backwards (up) */
 				if (consolescroll == -1) {
 					scrollbackoff += faimconf.wstatus.widthy-2;
 					if (scrollbackoff >= faimconf.wstatus.pady-faimconf.wstatus.widthy)
@@ -3793,7 +3660,7 @@ static void
 						consolescroll = faimconf.wstatus.pady-2*faimconf.wstatus.widthy/3-1;
 				}
 				break;
-			case CONIO_KEY_BUDDY_SCROLL_FORWARD: /* Scroll the current window forwards in time */
+			  case CONIO_KEY_BUDDY_SCROLL_FORWARD: /* Scroll the current window forwards in time */
 				if (consolescroll == -1) {
 					scrollbackoff -= faimconf.wstatus.widthy-2;
 					if (scrollbackoff < 0)
@@ -3804,19 +3671,19 @@ static void
 						consolescroll = 0;
 				}
 				break;
-			case CONIO_KEY_INPUT_CURSOR_HOME: /* Jump to the beginning of the input line */
+			  case CONIO_KEY_INPUT_CURSOR_HOME: /* Jump to the beginning of the input line */
 				bufloc = 0;
 				break;
-			case CONIO_KEY_INPUT_CURSOR_END: /* Jump to the end of the input line */
+			  case CONIO_KEY_INPUT_CURSOR_END: /* Jump to the end of the input line */
 				bufloc = strlen(buf);
 				break;
-			case CONIO_KEY_INPUT_CURSOR_HOME_END: /* Jump between the beginning and end of the input line */
+			  case CONIO_KEY_INPUT_CURSOR_HOME_END: /* Jump between the beginning and end of the input line */
 				if (bufloc == 0)
 					bufloc = strlen(buf);
 				else
 					bufloc = 0;
 				break;
-		    }
+			}
 		} else if (binding != NULL)
 			secs_script_parse(binding);
 		if (bindfunc != NULL)
@@ -3895,7 +3762,7 @@ static void
 
 void	gotkey(int c) {
 	fd_set	rfd;
-	struct timeval	timeout = { 0, 0 };
+	struct timeval timeout = { 0, 0 };
 
 	if (statusbar_text != NULL) {
 		free(statusbar_text);

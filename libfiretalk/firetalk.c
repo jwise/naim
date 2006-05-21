@@ -1,56 +1,42 @@
-/*
-firetalk.c - FireTalk wrapper definitions
-Copyright (C) 2000 Ian Gulliver
-Copyright 2002-2006 Daniel Reed <n@ml.org>
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of version 2 of the GNU General Public License as
-published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+/* firetalk.c - FireTalk wrapper definitions
+** Copyright (C) 2000 Ian Gulliver
+** Copyright 2002-2006 Daniel Reed <n@ml.org>
+** 
+** This program is free software; you can redistribute it and/or modify
+** it under the terms of version 2 of the GNU General Public License as
+** published by the Free Software Foundation.
+** 
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** GNU General Public License for more details.
+** 
+** You should have received a copy of the GNU General Public License
+** along with this program; if not, write to the Free Software
+** Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
+#include <arpa/inet.h>
 #include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <strings.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <time.h>
 #include <sys/stat.h>
-#include <netdb.h>
-#include <errno.h>
-#include <signal.h>
-#include <fcntl.h>
-
-#define FIRETALK
+#include <time.h>
 
 #include "firetalk-int.h"
 #include "firetalk.h"
 
-typedef void (*ptrtotoc)(void *, ...);
-typedef void (*sighandler_t)(int);
-
 /* Global variables */
 fte_t	firetalkerror;
-static struct s_firetalk_handle *handle_head = NULL;
-
-static const firetalk_protocol_t **firetalk_protocols = NULL;
+static firetalk_connection_t *handle_head = NULL;
+static const firetalk_driver_t **firetalk_protocols = NULL;
 static int FP_MAX = 0;
 
-fte_t	firetalk_register_protocol(const firetalk_protocol_t *const proto) {
-	const firetalk_protocol_t **ptr;
+fte_t	firetalk_register_protocol(const firetalk_driver_t *const proto) {
+	const firetalk_driver_t **ptr;
 
 	if (proto == NULL)
 		abort();
@@ -64,7 +50,7 @@ fte_t	firetalk_register_protocol(const firetalk_protocol_t *const proto) {
 }
 
 static void firetalk_register_default_protocols(void) {
-	extern const firetalk_protocol_t
+	extern const firetalk_driver_t
 		firetalk_protocol_irc,
 		firetalk_protocol_slcp,
 		firetalk_protocol_toc2;
@@ -97,38 +83,23 @@ int	firetalk_find_protocol(const char *strprotocol) {
 	return(-1);
 }
 
-/* Internal function definitions */
 
-/* firetalk_find_by_toc searches the firetalk handle list for the toc handle passed, and returns the firetalk handle */
-firetalk_t firetalk_find_handle(client_t c) {
-	struct s_firetalk_handle *iter;
-
-	for (iter = handle_head; iter != NULL; iter = iter->next)
-		if (iter->handle == c)
-			return(iter);
-	abort();
-}
-
-firetalk_t firetalk_find_clientstruct(void *clientstruct) {
-	struct s_firetalk_handle *iter;
-
-	for (iter = handle_head; iter != NULL; iter = iter->next)
-		if (iter->clientstruct == clientstruct)
-			return(iter);
-	return(NULL);
-}
+static int _connection_canary = 0;
+#define CONNECTION_CANARY	(&_connection_canary)
 
 #define DEBUG
 
 #ifdef DEBUG
 # define VERIFYCONN \
 	do { \
+		assert(handle_head != NULL); \
 		if (firetalk_check_handle(conn) != FE_SUCCESS) \
 			abort(); \
+		assert(conn->canary == CONNECTION_CANARY); \
 	} while(0)
 
-static fte_t firetalk_check_handle(firetalk_t c) {
-	struct s_firetalk_handle *iter;
+static fte_t firetalk_check_handle(firetalk_connection_t *c) {
+	firetalk_connection_t *iter;
 
 	for (iter = handle_head; iter != NULL; iter = iter->next)
 		if (iter == c)
@@ -141,15 +112,38 @@ static fte_t firetalk_check_handle(firetalk_t c) {
 	} while(0)
 #endif
 
+/* firetalk_find_by_toc searches the firetalk handle list for the toc handle passed, and returns the firetalk handle */
+firetalk_connection_t *firetalk_find_handle(struct firetalk_driver_connection_t *c) {
+	firetalk_connection_t *conn;
+
+	for (conn = handle_head; conn != NULL; conn = conn->next)
+		if (conn->handle == c) {
+			VERIFYCONN;
+			return(conn);
+		}
+	abort();
+}
+
+firetalk_connection_t *firetalk_find_clientstruct(struct firetalk_useragent_connection_t *clientstruct) {
+	firetalk_connection_t *conn;
+
+	for (conn = handle_head; conn != NULL; conn = conn->next)
+		if (conn->clientstruct == clientstruct) {
+			VERIFYCONN;
+			return(conn);
+		}
+	return(NULL);
+}
+
 static char **firetalk_parse_subcode_args(char *string) {
 	static char *args[256];
-	int i,n;
-	size_t l;
+	int	i, n;
+	size_t	l;
 
 	l = strlen(string);
 	args[0] = string;
 	n = 1;
-	for (i = 0; (size_t) i < l && n < 255; i++) {
+	for (i = 0; ((size_t)i < l) && (n < 255); i++) {
 		if (string[i] == ' ') {
 			string[i++] = '\0';
 			args[n++] = &string[i];
@@ -159,36 +153,8 @@ static char **firetalk_parse_subcode_args(char *string) {
 	return(args);
 }
 
-static unsigned char firetalk_debase64_char(const char c) {
-	if ((c >= 'A') && (c <= 'Z'))
-		return((unsigned char)(c - 'A'));
-	if ((c >= 'a') && (c <= 'z'))
-		return((unsigned char)(26 + (c - 'a')));
-	if ((c >= '0') && (c <= '9'))
-		return((unsigned char)(52 + (c - '0')));
-	if (c == '+')
-		return((unsigned char)62);
-	if (c == '/')
-		return((unsigned char)63);
-	return((unsigned char)0);
-}
-
-const char *firetalk_debase64(const char *const str) {
-        static unsigned char out[256];
-	int	s, o, len = strlen(str);
-
-	for (o = s = 0; (s <= (len - 3)) && (o < (sizeof(out)-1)); s += 4, o += 3) {
-		out[o]   = (firetalk_debase64_char(str[s])   << 2) | (firetalk_debase64_char(str[s+1]) >> 4);
-		out[o+1] = (firetalk_debase64_char(str[s+1]) << 4) | (firetalk_debase64_char(str[s+2]) >> 2);
-		out[o+2] = (firetalk_debase64_char(str[s+2]) << 6) |  firetalk_debase64_char(str[s+3]);
-	}
-	out[o] = 0;
-	return((char *)out);
-}
-
-
-fte_t	firetalk_im_internal_add_deny(firetalk_t conn, const char *const nickname) {
-	struct s_firetalk_deny *iter;
+firetalk_deny_t *firetalk_im_internal_add_deny(firetalk_connection_t *conn, const char *const nickname) {
+	firetalk_deny_t *iter;
 
 	VERIFYCONN;
 
@@ -197,166 +163,70 @@ fte_t	firetalk_im_internal_add_deny(firetalk_t conn, const char *const nickname)
 			break; /* not an error, user is in buddy list */
 
 	if (iter == NULL) {
-		iter = conn->deny_head;
-		conn->deny_head = calloc(1, sizeof(struct s_firetalk_deny));
-		if (conn->deny_head == NULL)
+		iter = calloc(1, sizeof(*iter));
+		if (iter == NULL)
 			abort();
-		conn->deny_head->next = iter;
-		conn->deny_head->nickname = strdup(nickname);
-		if (conn->deny_head->nickname == NULL)
+		iter->next = conn->deny_head;
+		conn->deny_head = iter;
+		iter->nickname = strdup(nickname);
+		if (iter->nickname == NULL)
 			abort();
 	}
 
 	firetalk_callback_im_buddyonline(conn->handle, nickname, 0);
 
-	return(FE_SUCCESS);
+	if (conn->callbacks[FC_IM_DENYADDED] != NULL)
+		conn->callbacks[FC_IM_DENYADDED](conn, conn->clientstruct, iter->nickname);
+
+	return(iter);
 }
-
-#undef FIRETALK_FORK_RESOLV
-#ifdef FIRETALK_FORK_RESOLV
-fte_t	firetalk_internal_resolve4(const char *const host, struct in_addr *inet4_ip) {
-	int	pi[2];
-
-	if (pipe(pi) != 0)
-		return(FE_NOTFOUND);
-
-	switch(fork()) {
-	  case -1:
-		close(pi[0]);
-		close(pi[1]);
-		return(FE_NOTFOUND);
-	  case 0: {
-			struct hostent
-				*he;
-
-			close(pi[0]);
-			if (((he = gethostbyaddr(host, strlen(host), AF_INET)) != NULL) && (he->h_addr_list != NULL))
-				write(pi[1], he->h_addr_list[0], sizeof(inet4_ip->s_addr));
-			close(pi[1]);
-			_exit(2);
-		}
-	  default: {
-			struct timeval
-				tv;
-			fd_set	readset;
-
-			FD_ZERO(&readset);
-			FD_SET(pi[0], &readset);
-			close(pi[1]);
-			tv.tv_sec = 5;
-			tv.tv_usec = 0;
-			if ((select(pi[0]+1, &readset, NULL, NULL, &tv) > 0)
-				&& FD_ISSET(pi[0], &readset)
-				&& (read(pi[0], &(inet4_ip->s_addr), sizeof(inet4_ip->s_addr)) == sizeof(inet4_ip->s_addr))) {
-				close(pi[0]);
-				return(FE_SUCCESS);
-			}
-			close(pi[0]);
-			return(FE_NOTFOUND);
-		}
-	}
-}
-#else
-fte_t	firetalk_internal_resolve4(const char *const host, struct in_addr *inet4_ip) {
-	struct hostent *he;
-
-	he = gethostbyname(host);
-	if (he && he->h_addr_list) {
-		memmove(&(inet4_ip->s_addr), he->h_addr_list[0], sizeof(inet4_ip->s_addr));
-		return(FE_SUCCESS);
-	}
-
-	memset(&(inet4_ip->s_addr), 0, sizeof(inet4_ip->s_addr));
-
-	return(FE_NOTFOUND);
-}
-#endif
-
-struct sockaddr_in *firetalk_internal_remotehost4(client_t c) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-
-	return(&(conn->remote_addr));
-}
-
-#ifdef _FC_USE_IPV6
-fte_t	firetalk_internal_resolve6(const char *const host, struct in6_addr *inet6_ip) {
-	struct addrinfo *addr = NULL;  // xxx generalize this so that we can use this with v6 and v4
-	struct addrinfo hints = {0, PF_INET6, 0, 0, 0, NULL, NULL, NULL};
-
-	if (getaddrinfo(host, NULL, &hints, &addr) == 0) {
-		struct addrinfo *cur;
-
-		for (cur = addr; cur != NULL; cur = cur->ai_next)
-			if (cur->ai_family == PF_INET6) {
-				memcpy(&(inet6_ip->s6_addr), ((struct sockaddr_in6 *)cur->ai_addr)->sin6_addr.s6_addr, 16);
-				freeaddrinfo(addr);
-				return(FE_SUCCESS);
-			}
-	}
-
-	memset(&(inet6_ip->s6_addr), 0, sizeof(inet6_ip->s6_addr));
-
-	if (addr != NULL)
-		freeaddrinfo(addr);
-
-	return(FE_NOTFOUND);
-}
-
-struct sockaddr_in6 *firetalk_internal_remotehost6(client_t c) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-
-	return(&(conn->remote_addr6));
-}
-#endif
 
 int	firetalk_internal_connect_host_addr(const char *const host, const uint16_t port, struct sockaddr_in *inet4
-#ifdef _FC_USE_IPV6
+# ifdef _FC_USE_IPV6
 		, struct sockaddr_in6 *inet6
-#endif
+# endif
 ) {
-#ifdef _FC_USE_IPV6
-	if (firetalk_internal_resolve6(host, &(inet6->sin6_addr)) == FE_SUCCESS) {
+# ifdef _FC_USE_IPV6
+	if (firetalk_sock_resolve6(host, &(inet6->sin6_addr)) == FE_SUCCESS) {
 		inet6->sin6_port = htons(port);
 		inet6->sin6_family = AF_INET6;
 	} else
 		inet6 = NULL;
-#endif
-	if (firetalk_internal_resolve4(host, &(inet4->sin_addr)) == FE_SUCCESS) {
+# endif
+	if (firetalk_sock_resolve4(host, &(inet4->sin_addr)) == FE_SUCCESS) {
 		inet4->sin_port = htons(port);
 		inet4->sin_family = AF_INET;
 	} else
 		inet4 = NULL;
 
-	return firetalk_internal_connect(inet4
-#ifdef _FC_USE_IPV6
+	return(firetalk_internal_connect(inet4
+# ifdef _FC_USE_IPV6
 	   , inet6
-#endif
-	   );
+# endif
+	   ));
 }
 
 int	firetalk_internal_connect_host(const char *const host, const int port) {
 	struct sockaddr_in myinet4;
-#ifdef _FC_USE_IPV6
+# ifdef _FC_USE_IPV6
 	struct sockaddr_in6 myinet6;
-#endif
+# endif
 
 	return(firetalk_internal_connect_host_addr(host, port, &myinet4
-#ifdef _FC_USE_IPV6
+# ifdef _FC_USE_IPV6
 		, &myinet6
-#endif
+# endif
 	));
 }
 
 int	firetalk_internal_connect(struct sockaddr_in *inet4_ip
-#ifdef _FC_USE_IPV6
+# ifdef _FC_USE_IPV6
 		, struct sockaddr_in6 *inet6_ip
-#endif
+# endif
 		) {
-	int s,i;
+	int	s, i;
 
-#ifdef _FC_USE_IPV6
+# ifdef _FC_USE_IPV6
 	if (inet6_ip && (inet6_ip->sin6_addr.s6_addr[0] || inet6_ip->sin6_addr.s6_addr[1]
 		|| inet6_ip->sin6_addr.s6_addr[2] || inet6_ip->sin6_addr.s6_addr[3]
 		|| inet6_ip->sin6_addr.s6_addr[4] || inet6_ip->sin6_addr.s6_addr[5]
@@ -368,18 +238,18 @@ int	firetalk_internal_connect(struct sockaddr_in *inet4_ip
 		h_errno = 0;
 		s = socket(PF_INET6, SOCK_STREAM, 0);
 		if ((s != -1) && (fcntl(s, F_SETFL, O_NONBLOCK) == 0)) {
-			i = connect(s, (const struct sockaddr *)inet6_ip, sizeof(struct sockaddr_in6));
+			i = connect(s, (const struct sockaddr *)inet6_ip, sizeof(*inet6_ip));
 			if ((i == 0) || (errno == EINPROGRESS))
 				return(s);
 		}
 	}
-#endif
+# endif
 
 	if (inet4_ip && inet4_ip->sin_addr.s_addr) {
 		h_errno = 0;
 		s = socket(PF_INET, SOCK_STREAM, 0);
 		if ((s != -1) && (fcntl(s, F_SETFL, O_NONBLOCK) == 0)) {
-			i = connect(s, (const struct sockaddr *)inet4_ip, sizeof(struct sockaddr_in));
+			i = connect(s, (const struct sockaddr *)inet4_ip, sizeof(*inet4_ip));
 			if ((i == 0) || (errno == EINPROGRESS))
 				return(s);
 		}
@@ -389,40 +259,45 @@ int	firetalk_internal_connect(struct sockaddr_in *inet4_ip
 	return(-1);
 }
 
-enum firetalk_connectstate firetalk_internal_get_connectstate(client_t c) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-
-	return(conn->connected);
-}
-
-void firetalk_internal_set_connectstate(client_t c, enum firetalk_connectstate fcs) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-
-	conn->connected = fcs;
-}
-
-void firetalk_internal_send_data(firetalk_t c, const char *const data, const int length) {
-	if (c->connected == FCS_NOTCONNECTED || c->connected == FCS_WAITING_SYNACK)
-		return;
-
-	if (send(c->fd,data,length,MSG_DONTWAIT|MSG_NOSIGNAL) != length) {
+void	firetalk_internal_send_data(firetalk_connection_t *c, const char *const data, const int length) {
+	if (firetalk_sock_send(&(c->sock), data, length) != FE_SUCCESS)
 		/* disconnect client (we probably overran the queue, or the other end is gone) */
-		firetalk_callback_disconnect(c->handle,FE_PACKET);
-	}
-
-	/* request ratelimit info */
-	/* immediate send or queue? */
+		firetalk_callback_disconnect(c->handle, FE_PACKET);
 }
 
-fte_t	firetalk_user_visible(firetalk_t conn, const char *const nickname) {
-	struct s_firetalk_room *iter;
+struct sockaddr_in *firetalk_callback_remotehost4(struct firetalk_driver_connection_t *c) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+
+	return(firetalk_sock_remotehost4(&(conn->sock)));
+}
+
+#ifdef _FC_USE_IPV6
+struct sockaddr_in6 *firetalk_callback_remotehost6(struct firetalk_driver_connection_t *c) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+
+	return(firetalk_sock_remotehost6(&(conn->sock)));
+}
+#endif
+
+firetalk_sock_state_t firetalk_internal_get_connectstate(struct firetalk_driver_connection_t *c) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+
+	return(conn->sock.state);
+}
+
+void	firetalk_internal_set_connectstate(struct firetalk_driver_connection_t *c, firetalk_sock_state_t fcs) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+
+	conn->sock.state = fcs;
+}
+
+fte_t	firetalk_user_visible(firetalk_connection_t *conn, const char *const nickname) {
+	firetalk_room_t *iter;
 
 	VERIFYCONN;
 
 	for (iter = conn->room_head; iter != NULL; iter = iter->next) {
-		struct s_firetalk_member *mem;
+		firetalk_member_t *mem;
 
 		for (mem = iter->member_head; mem != NULL; mem = mem->next)
 			if (firetalk_protocols[conn->protocol]->comparenicks(mem->nickname, nickname) == FE_SUCCESS)
@@ -431,13 +306,13 @@ fte_t	firetalk_user_visible(firetalk_t conn, const char *const nickname) {
 	return(FE_NOMATCH);
 }
 
-fte_t	firetalk_user_visible_but(firetalk_t conn, const char *const room, const char *const nickname) {
-	struct s_firetalk_room *iter;
+fte_t	firetalk_user_visible_but(firetalk_connection_t *conn, const char *const room, const char *const nickname) {
+	firetalk_room_t *iter;
 
 	VERIFYCONN;
 
 	for (iter = conn->room_head; iter != NULL; iter = iter->next) {
-		struct s_firetalk_member *mem;
+		firetalk_member_t *mem;
 
 		if (firetalk_protocols[conn->protocol]->comparenicks(iter->name, room) == FE_SUCCESS)
 			continue;
@@ -448,8 +323,8 @@ fte_t	firetalk_user_visible_but(firetalk_t conn, const char *const room, const c
 	return(FE_NOMATCH);
 }
 
-fte_t	firetalk_chat_internal_add_room(firetalk_t conn, const char *const name) {
-	struct s_firetalk_room *iter;
+fte_t	firetalk_chat_internal_add_room(firetalk_connection_t *conn, const char *const name) {
+	firetalk_room_t *iter;
 
 	VERIFYCONN;
 
@@ -457,21 +332,21 @@ fte_t	firetalk_chat_internal_add_room(firetalk_t conn, const char *const name) {
 		if (firetalk_protocols[conn->protocol]->comparenicks(iter->name, name) == FE_SUCCESS)
 			return(FE_DUPEROOM); /* not an error, we're already in room */
 
-	iter = conn->room_head;
-	conn->room_head = calloc(1, sizeof(struct s_firetalk_room));
-	if (conn->room_head == NULL)
+	iter = calloc(1, sizeof(*iter));
+	if (iter == NULL)
 		abort();
-	conn->room_head->next = iter;
-	conn->room_head->name = strdup(name);
-	if (conn->room_head->name == NULL)
+	iter->next = conn->room_head;
+	conn->room_head = iter;
+	iter->name = strdup(name);
+	if (iter->name == NULL)
 		abort();
 
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_chat_internal_add_member(firetalk_t conn, const char *const room, const char *const nickname) {
-	struct s_firetalk_room *iter;
-	struct s_firetalk_member *memberiter;
+fte_t	firetalk_chat_internal_add_member(firetalk_connection_t *conn, const char *const room, const char *const nickname) {
+	firetalk_room_t *iter;
+	firetalk_member_t *memberiter;
 
 	VERIFYCONN;
 
@@ -486,20 +361,20 @@ fte_t	firetalk_chat_internal_add_member(firetalk_t conn, const char *const room,
 		if (firetalk_protocols[conn->protocol]->comparenicks(memberiter->nickname, nickname) == FE_SUCCESS)
 			return(FE_SUCCESS);
 
-	memberiter = iter->member_head;
-	iter->member_head = calloc(1, sizeof(struct s_firetalk_member));
-	if (iter->member_head == NULL)
+	memberiter = calloc(1, sizeof(*memberiter));
+	if (memberiter == NULL)
 		abort();
-	iter->member_head->next = memberiter;
-	iter->member_head->nickname = strdup(nickname);
-	if (iter->member_head->nickname == NULL)
+	memberiter->next = iter->member_head;
+	iter->member_head = memberiter;
+	memberiter->nickname = strdup(nickname);
+	if (memberiter->nickname == NULL)
 		abort();
 
 	return(FE_SUCCESS);
 }
 
-static void firetalk_im_delete_buddy(firetalk_t conn, const char *const nickname) {
-	struct s_firetalk_buddy *iter, *prev;
+static void firetalk_im_delete_buddy(firetalk_connection_t *conn, const char *const nickname) {
+	firetalk_buddy_t *iter, *prev;
 
 	for (prev = NULL, iter = conn->buddy_head; iter != NULL; prev = iter, iter = iter->next) {
 		assert(iter->nickname != NULL);
@@ -510,6 +385,9 @@ static void firetalk_im_delete_buddy(firetalk_t conn, const char *const nickname
 	}
 	if (iter == NULL)
 		return;
+
+	if (conn->callbacks[FC_IM_BUDDYREMOVED] != NULL)
+		conn->callbacks[FC_IM_BUDDYREMOVED](conn, conn->clientstruct, iter->nickname);
 
 	if (prev != NULL)
 		prev->next = iter->next;
@@ -531,8 +409,8 @@ static void firetalk_im_delete_buddy(firetalk_t conn, const char *const nickname
 	iter = NULL;
 }
 
-static struct s_firetalk_buddy *firetalk_im_find_buddy(firetalk_t conn, const char *const name) {
-	struct s_firetalk_buddy *iter;
+static firetalk_buddy_t *firetalk_im_find_buddy(firetalk_connection_t *conn, const char *const name) {
+	firetalk_buddy_t *iter;
 
 	for (iter = conn->buddy_head; iter != NULL; iter = iter->next) {
 		assert(iter->nickname != NULL);
@@ -544,16 +422,16 @@ static struct s_firetalk_buddy *firetalk_im_find_buddy(firetalk_t conn, const ch
 	return(NULL);
 }
 
-fte_t	firetalk_im_remove_buddy(firetalk_t conn, const char *const name) {
-	struct s_firetalk_buddy *iter;
+fte_t	firetalk_im_remove_buddy(firetalk_connection_t *conn, const char *const name) {
+	firetalk_buddy_t *iter;
 
 	VERIFYCONN;
 
 	if ((iter = firetalk_im_find_buddy(conn, name)) == NULL)
 		return(FE_NOTFOUND);
 
-	if (conn->connected != FCS_NOTCONNECTED) {
-		int	ret;
+	if (conn->sock.state != FCS_NOTCONNECTED) {
+		fte_t	ret;
 
 		ret = firetalk_protocols[conn->protocol]->im_remove_buddy(conn->handle, iter->nickname, iter->group);
 		if (ret != FE_SUCCESS)
@@ -565,15 +443,17 @@ fte_t	firetalk_im_remove_buddy(firetalk_t conn, const char *const name) {
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_im_internal_remove_deny(firetalk_t conn, const char *const nickname) {
-	struct s_firetalk_deny *iter;
-	struct s_firetalk_deny *prev;
+fte_t	firetalk_im_internal_remove_deny(firetalk_connection_t *conn, const char *const nickname) {
+	firetalk_deny_t *iter, *prev;
 
 	VERIFYCONN;
 
 	prev = NULL;
 	for (iter = conn->deny_head; iter != NULL; iter = iter->next) {
 		if (firetalk_protocols[conn->protocol]->comparenicks(nickname, iter->nickname) == FE_SUCCESS) {
+			if (conn->callbacks[FC_IM_DENYREMOVED] != NULL)
+				conn->callbacks[FC_IM_DENYREMOVED](conn, conn->clientstruct, iter->nickname);
+
 			if (prev)
 				prev->next = iter->next;
 			else
@@ -581,6 +461,7 @@ fte_t	firetalk_im_internal_remove_deny(firetalk_t conn, const char *const nickna
 			free(iter->nickname);
 			iter->nickname = NULL;
 			free(iter);
+
 			return(FE_SUCCESS);
 		}
 		prev = iter;
@@ -589,11 +470,9 @@ fte_t	firetalk_im_internal_remove_deny(firetalk_t conn, const char *const nickna
 	return(FE_NOTFOUND);
 }
 
-fte_t	firetalk_chat_internal_remove_room(firetalk_t conn, const char *const name) {
-	struct s_firetalk_room *iter;
-	struct s_firetalk_room *prev;
-	struct s_firetalk_member *memberiter;
-	struct s_firetalk_member *membernext;
+fte_t	firetalk_chat_internal_remove_room(firetalk_connection_t *conn, const char *const name) {
+	firetalk_room_t *iter, *prev;
+	firetalk_member_t *memberiter, *membernext;
 
 	VERIFYCONN;
 
@@ -624,10 +503,9 @@ fte_t	firetalk_chat_internal_remove_room(firetalk_t conn, const char *const name
 	return(FE_NOTFOUND);
 }
 
-fte_t	firetalk_chat_internal_remove_member(firetalk_t conn, const char *const room, const char *const nickname) {
-	struct s_firetalk_room *iter;
-	struct s_firetalk_member *memberiter;
-	struct s_firetalk_member *memberprev;
+fte_t	firetalk_chat_internal_remove_member(firetalk_connection_t *conn, const char *const room, const char *const nickname) {
+	firetalk_room_t *iter;
+	firetalk_member_t *memberiter, *memberprev;
 
 	VERIFYCONN;
 
@@ -658,8 +536,8 @@ fte_t	firetalk_chat_internal_remove_member(firetalk_t conn, const char *const ro
 	return(FE_SUCCESS);
 }
 
-struct s_firetalk_room *firetalk_find_room(firetalk_t c, const char *const room) {
-	struct s_firetalk_room *roomiter;
+firetalk_room_t *firetalk_find_room(firetalk_connection_t *c, const char *const room) {
+	firetalk_room_t *roomiter;
 	const char *normalroom;
 
 	normalroom = firetalk_protocols[c->protocol]->room_normalize(room);
@@ -671,8 +549,8 @@ struct s_firetalk_room *firetalk_find_room(firetalk_t c, const char *const room)
 	return(NULL);
 }
 
-static struct s_firetalk_member *firetalk_find_member(firetalk_t c, struct s_firetalk_room *r, const char *const name) {
-	struct s_firetalk_member *memberiter;
+static firetalk_member_t *firetalk_find_member(firetalk_connection_t *c, firetalk_room_t *r, const char *const name) {
+	firetalk_member_t *memberiter;
 
 	for (memberiter = r->member_head; memberiter != NULL; memberiter = memberiter->next)
 		if (firetalk_protocols[c->protocol]->comparenicks(memberiter->nickname, name) == FE_SUCCESS)
@@ -682,9 +560,8 @@ static struct s_firetalk_member *firetalk_find_member(firetalk_t c, struct s_fir
 	return(NULL);
 }
 
-void firetalk_callback_needpass(client_t c, char *pass, const int size) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_needpass(struct firetalk_driver_connection_t *c, char *pass, const int size) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_NEEDPASS])
 		conn->callbacks[FC_NEEDPASS](conn, conn->clientstruct, pass, size);
@@ -692,10 +569,9 @@ void firetalk_callback_needpass(client_t c, char *pass, const int size) {
 
 static const char *isonline_hack = NULL;
 
-void firetalk_callback_im_getmessage(client_t c, const char *const sender, const int automessage, const char *const message) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_deny *iter;
+void	firetalk_callback_im_getmessage(struct firetalk_driver_connection_t *c, const char *const sender, const int automessage, const char *const message) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_deny_t *iter;
 
 	if (strstr(message, "<a href=\"http://www.candidclicks.com/cgi-bin/enter.cgi?") != NULL) {
 		firetalk_im_evil(conn, sender);
@@ -711,10 +587,9 @@ void firetalk_callback_im_getmessage(client_t c, const char *const sender, const
 	}
 }
 
-void firetalk_callback_im_getaction(client_t c, const char *const sender, const int automessage, const char *const message) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_deny *iter;
+void	firetalk_callback_im_getaction(struct firetalk_driver_connection_t *c, const char *const sender, const int automessage, const char *const message) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_deny_t *iter;
 
 	if (conn->callbacks[FC_IM_GETACTION]) {
 		for (iter = conn->deny_head; iter != NULL; iter = iter->next)
@@ -726,10 +601,9 @@ void firetalk_callback_im_getaction(client_t c, const char *const sender, const 
 	}
 }
 
-void firetalk_callback_im_buddyonline(client_t c, const char *const nickname, int online) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_buddy *buddyiter;
+void	firetalk_callback_im_buddyonline(struct firetalk_driver_connection_t *c, const char *const nickname, int online) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_buddy_t *buddyiter;
 
 	online = online?1:0;
 
@@ -761,10 +635,9 @@ void firetalk_callback_im_buddyonline(client_t c, const char *const nickname, in
 		}
 }
 
-void firetalk_callback_im_buddyaway(client_t c, const char *const nickname, const int away) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_buddy *buddyiter;
+void	firetalk_callback_im_buddyaway(struct firetalk_driver_connection_t *c, const char *const nickname, const int away) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_buddy_t *buddyiter;
 
 	if ((buddyiter = firetalk_im_find_buddy(conn, nickname)) != NULL)
 		if ((buddyiter->away != away) && (buddyiter->online == 1)) {
@@ -776,170 +649,176 @@ void firetalk_callback_im_buddyaway(client_t c, const char *const nickname, cons
 		}
 }
 
-static void firetalk_im_insert_buddy(firetalk_t conn, const char *const name, const char *const group, const char *const friendly) {
-	struct s_firetalk_buddy *newiter;
+static firetalk_buddy_t *firetalk_im_insert_buddy(firetalk_connection_t *conn, const char *const name, const char *const group, const char *const friendly) {
+	firetalk_buddy_t *iter;
 
-	newiter = calloc(1, sizeof(*newiter));
-	if (newiter == NULL)
+	iter = calloc(1, sizeof(*iter));
+	if (iter == NULL)
 		abort();
-	newiter->next = conn->buddy_head;
-	conn->buddy_head = newiter;
-	newiter->nickname = strdup(name);
-	if (newiter->nickname == NULL)
+	iter->next = conn->buddy_head;
+	conn->buddy_head = iter;
+	iter->nickname = strdup(name);
+	if (iter->nickname == NULL)
 		abort();
-	newiter->group = strdup(group);
-	if (newiter->group == NULL)
+	iter->group = strdup(group);
+	if (iter->group == NULL)
 		abort();
 	if (friendly == NULL)
-		newiter->friendly = NULL;
+		iter->friendly = NULL;
 	else {
-		newiter->friendly = strdup(friendly);
-		if (newiter->friendly == NULL)
+		iter->friendly = strdup(friendly);
+		if (iter->friendly == NULL)
 			abort();
 	}
+	if (conn->callbacks[FC_IM_BUDDYADDED] != NULL)
+		conn->callbacks[FC_IM_BUDDYADDED](conn, conn->clientstruct, iter->nickname, iter->group, iter->friendly);
+	return(iter);
 }
 
-void	firetalk_callback_buddyadded(client_t c, const char *const name, const char *const group, const char *const friendly) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-
-	if (firetalk_im_find_buddy(conn, name) == NULL) {
-		firetalk_im_insert_buddy(conn, name, group, friendly);
+static void firetalk_im_replace_buddy(firetalk_connection_t *conn, firetalk_buddy_t *iter, const char *const name, const char *const group, const char *const friendly) {
+	if (!((strcmp(iter->group, group) == 0) && (((iter->friendly == NULL) && (friendly == NULL)) || ((iter->friendly != NULL) && (friendly != NULL) && (strcmp(iter->friendly, friendly) == 0))))) {
+		/* user is in buddy list somewhere other than where the clients wants it */
+		if ((conn->sock.state != FCS_NOTCONNECTED) && iter->uploaded)
+			firetalk_protocols[conn->protocol]->im_remove_buddy(conn->handle, iter->nickname, iter->group);
+		free(iter->group);
+		iter->group = strdup(group);
+		if (iter->group == NULL)
+			abort();
+		free(iter->friendly);
+		if (friendly == NULL)
+			iter->friendly = NULL;
+		else {
+			iter->friendly = strdup(friendly);
+			if (iter->friendly == NULL)
+				abort();
+		}
 		if (conn->callbacks[FC_IM_BUDDYADDED] != NULL)
-			conn->callbacks[FC_IM_BUDDYADDED](conn, conn->clientstruct, name, group, friendly);
+			conn->callbacks[FC_IM_BUDDYADDED](conn, conn->clientstruct, iter->nickname, iter->group, iter->friendly);
 	}
 }
 
-void	firetalk_callback_buddyremoved(client_t c, const char *const name, const char *const group) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_buddy *iter;
+void	firetalk_callback_buddyadded(struct firetalk_driver_connection_t *c, const char *const name, const char *const group, const char *const friendly) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_buddy_t *iter;
 
-	if (((iter = firetalk_im_find_buddy(conn, name)) != NULL) && ((group == NULL) || (strcmp(iter->group, group) == 0))) {
+	if ((iter = firetalk_im_find_buddy(conn, name)) != NULL)
+		firetalk_im_replace_buddy(conn, iter, name, group, friendly);
+	else
+		iter = firetalk_im_insert_buddy(conn, name, group, friendly);
+	iter->uploaded = 1;
+}
+
+void	firetalk_callback_buddyremoved(struct firetalk_driver_connection_t *c, const char *const name, const char *const group) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_buddy_t *iter;
+
+	if (((iter = firetalk_im_find_buddy(conn, name)) != NULL) && ((group == NULL) || (strcmp(iter->group, group) == 0)))
 		firetalk_im_delete_buddy(conn, name);
-		if (conn->callbacks[FC_IM_BUDDYREMOVED] != NULL)
-			conn->callbacks[FC_IM_BUDDYREMOVED](conn, conn->clientstruct, name);
-	}
 }
 
-void	firetalk_callback_typing(client_t c, const char *const name, const int typing) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_buddy *buddyiter;
+void	firetalk_callback_denyadded(struct firetalk_driver_connection_t *c, const char *const name) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_deny_t *iter;
+
+	iter = firetalk_im_internal_add_deny(conn, name);
+	iter->uploaded = 1;
+}
+
+void	firetalk_callback_denyremoved(struct firetalk_driver_connection_t *c, const char *const name) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+
+	firetalk_im_internal_remove_deny(conn, name);
+}
+
+void	firetalk_callback_typing(struct firetalk_driver_connection_t *c, const char *const name, const int typing) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_buddy_t *buddyiter;
 
 	assert(conn->username != NULL);
 	assert(name != NULL);
 	assert(typing >= 0);
 
-	if (!conn->callbacks[FC_IM_TYPINGINFO])
+	if (((buddyiter = firetalk_im_find_buddy(conn, name)) == NULL) || (buddyiter->online == 0))
 		return;
-
-	if ((buddyiter = firetalk_im_find_buddy(conn, name)) != NULL) {
-		assert(buddyiter->online != 0);
-		if (buddyiter->typing != typing) {
-			buddyiter->typing = typing;
+	if (buddyiter->typing != typing) {
+		buddyiter->typing = typing;
+		if (conn->callbacks[FC_IM_TYPINGINFO] != NULL)
 			conn->callbacks[FC_IM_TYPINGINFO](conn, conn->clientstruct, buddyiter->nickname, typing);
-		}
 	}
 }
 
-void	firetalk_callback_capabilities(client_t c, char const *const nickname, const char *const caps) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_buddy *buddyiter;
+void	firetalk_callback_capabilities(struct firetalk_driver_connection_t *c, char const *const nickname, const char *const caps) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_buddy_t *buddyiter;
 
-	if (!conn->callbacks[FC_IM_CAPABILITIES])
+	if (((buddyiter = firetalk_im_find_buddy(conn, nickname)) == NULL) || (buddyiter->online == 0))
 		return;
-
-	if ((buddyiter = firetalk_im_find_buddy(conn, nickname)) != NULL)
-		if ((buddyiter->capabilities == NULL) || (strcmp(buddyiter->capabilities, caps) != 0)) {
-			free(buddyiter->capabilities);
-			buddyiter->capabilities = strdup(caps);
+	if ((buddyiter->capabilities == NULL) || (strcmp(buddyiter->capabilities, caps) != 0)) {
+		free(buddyiter->capabilities);
+		buddyiter->capabilities = strdup(caps);
+		if (conn->callbacks[FC_IM_CAPABILITIES] != NULL)
 			conn->callbacks[FC_IM_CAPABILITIES](conn, conn->clientstruct, nickname, caps);
-		}
+	}
 }
 
-void	firetalk_callback_warninfo(client_t c, char const *const nickname, const long warnval) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_buddy *buddyiter;
+void	firetalk_callback_warninfo(struct firetalk_driver_connection_t *c, char const *const nickname, const long warnval) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_buddy_t *buddyiter;
 
-	if (!conn->callbacks[FC_IM_EVILINFO])
+	if (((buddyiter = firetalk_im_find_buddy(conn, nickname)) == NULL) || (buddyiter->online == 0))
 		return;
-
-	if ((buddyiter = firetalk_im_find_buddy(conn, nickname)) != NULL)
-		if ((buddyiter->warnval != warnval) && (buddyiter->online == 1)) {
-			buddyiter->warnval = warnval;
+	if (buddyiter->warnval != warnval) {
+		buddyiter->warnval = warnval;
+		if (conn->callbacks[FC_IM_EVILINFO] != NULL)
 			conn->callbacks[FC_IM_EVILINFO](conn, conn->clientstruct, nickname, warnval);
-		}
+	}
 }
 
-void firetalk_callback_error(client_t c, const int error, const char *const roomoruser, const char *const description) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_error(struct firetalk_driver_connection_t *c, const fte_t error, const char *const roomoruser, const char *const description) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_ERROR])
 		conn->callbacks[FC_ERROR](conn, conn->clientstruct, error, roomoruser, description);
 }
 
-void firetalk_callback_connectfailed(client_t c, const int error, const char *const description) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_connectfailed(struct firetalk_driver_connection_t *c, const fte_t error, const char *const description) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
-	if (conn->connected == FCS_NOTCONNECTED)
+	if (conn->sock.state == FCS_NOTCONNECTED)
 		return;
 
-	close(conn->fd);
-	conn->connected = FCS_NOTCONNECTED;
+	firetalk_sock_close(&(conn->sock));
 	if (conn->callbacks[FC_CONNECTFAILED])
 		conn->callbacks[FC_CONNECTFAILED](conn, conn->clientstruct, error, description);
 }
 
-void firetalk_callback_disconnect(client_t c, const int error) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_buddy *buddyiter, *buddynext;
-	struct s_firetalk_deny *denyiter, *denynext;
-	struct s_firetalk_room *roomiter, *roomnext;
+void	firetalk_callback_disconnect(struct firetalk_driver_connection_t *c, const fte_t error) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_buddy_t *buddyiter;
+	firetalk_deny_t *denyiter;
+	firetalk_room_t *roomiter, *roomnext;
 
-	if (conn->connected == FCS_NOTCONNECTED)
-		return;
-	close(conn->fd);
+	if (conn->sock.state != FCS_NOTCONNECTED)
+		firetalk_sock_close(&(conn->sock));
 
 	if (conn->username != NULL) {
 		free(conn->username);
 		conn->username = NULL;
 	}
 
-	for (buddyiter = conn->buddy_head; buddyiter != NULL; buddyiter = buddynext) {
-		buddynext = buddyiter->next;
-		buddyiter->next = NULL;
-		free(buddyiter->nickname);
-		buddyiter->nickname = NULL;
-		free(buddyiter->group);
-		buddyiter->group = NULL;
-		free(buddyiter->friendly);
-		buddyiter->friendly = NULL;
+	for (buddyiter = conn->buddy_head; buddyiter != NULL; buddyiter = buddyiter->next) {
 		if (buddyiter->capabilities != NULL) {
 			free(buddyiter->capabilities);
 			buddyiter->capabilities = NULL;
 		}
-		free(buddyiter);
+		buddyiter->idletime = buddyiter->warnval = buddyiter->typing = buddyiter->online = buddyiter->away = buddyiter->uploaded = 0;
 	}
-	conn->buddy_head = NULL;
 
-	for (denyiter = conn->deny_head; denyiter != NULL; denyiter = denynext) {
-		denynext = denyiter->next;
-		denyiter->next = NULL;
-		free(denyiter->nickname);
-		denyiter->nickname = NULL;
-		free(denyiter);
-	}
-	conn->deny_head = NULL;
+	for (denyiter = conn->deny_head; denyiter != NULL; denyiter = denyiter->next)
+		denyiter->uploaded = 0;
 
 	for (roomiter = conn->room_head; roomiter != NULL; roomiter = roomnext) {
-		struct s_firetalk_member *memberiter;
-		struct s_firetalk_member *membernext;
+		firetalk_member_t *memberiter, *membernext;
 
 		roomnext = roomiter->next;
 		roomiter->next = NULL;
@@ -957,26 +836,20 @@ void firetalk_callback_disconnect(client_t c, const int error) {
 	}
 	conn->room_head = NULL;
 
-	if (conn->connected == FCS_ACTIVE) {
-		conn->connected = FCS_NOTCONNECTED;
-		if (conn->callbacks[FC_DISCONNECT])
-			conn->callbacks[FC_DISCONNECT](conn, conn->clientstruct, error);
-	} else
-		conn->connected = FCS_NOTCONNECTED;
+	if (conn->callbacks[FC_DISCONNECT])
+		conn->callbacks[FC_DISCONNECT](conn, conn->clientstruct, error);
 }
 
-void firetalk_callback_gotinfo(client_t c, const char *const nickname, const char *const info, const int warning, const long online, const long idle, const int flags) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_gotinfo(struct firetalk_driver_connection_t *c, const char *const nickname, const char *const info, const int warning, const long online, const long idle, const int flags) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_IM_GOTINFO])
 		conn->callbacks[FC_IM_GOTINFO](conn, conn->clientstruct, nickname, info, warning, online, idle, flags);
 }
 
-void firetalk_callback_idleinfo(client_t c, char const *const nickname, const long idletime) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_buddy *buddyiter;
+void	firetalk_callback_idleinfo(struct firetalk_driver_connection_t *c, char const *const nickname, const long idletime) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_buddy_t *buddyiter;
 
 	if (!conn->callbacks[FC_IM_IDLEINFO])
 		return;
@@ -988,52 +861,46 @@ void firetalk_callback_idleinfo(client_t c, char const *const nickname, const lo
 		}
 }
 
-void firetalk_callback_doinit(client_t c, const char *const nickname) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_doinit(struct firetalk_driver_connection_t *c, const char *const nickname) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_DOINIT])
 		conn->callbacks[FC_DOINIT](conn, conn->clientstruct, nickname);
 }
 
-void firetalk_callback_setidle(client_t c, long *const idle) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_setidle(struct firetalk_driver_connection_t *c, long *const idle) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_SETIDLE])
 		conn->callbacks[FC_SETIDLE](conn, conn->clientstruct, idle);
 }
 
-void firetalk_callback_eviled(client_t c, const int newevil, const char *const eviler) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_eviled(struct firetalk_driver_connection_t *c, const int newevil, const char *const eviler) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_EVILED])
 		conn->callbacks[FC_EVILED](conn, conn->clientstruct, newevil, eviler);
 }
 
-void firetalk_callback_newnick(client_t c, const char *const nickname) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_newnick(struct firetalk_driver_connection_t *c, const char *const nickname) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_NEWNICK])
 		conn->callbacks[FC_NEWNICK](conn, conn->clientstruct, nickname);
 }
 
-void firetalk_callback_passchanged(client_t c) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_passchanged(struct firetalk_driver_connection_t *c) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_PASSCHANGED])
 		conn->callbacks[FC_PASSCHANGED](conn, conn->clientstruct);
 }
 
-void firetalk_callback_user_nickchanged(client_t c, const char *const oldnick, const char *const newnick) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_buddy *buddyiter;
-	struct s_firetalk_room *roomiter;
-	struct s_firetalk_member *memberiter;
+void	firetalk_callback_user_nickchanged(struct firetalk_driver_connection_t *c, const char *const oldnick, const char *const newnick) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_buddy_t *buddyiter;
+	firetalk_room_t *roomiter;
+	firetalk_member_t *memberiter;
 	char *tempstr;
 
 	if ((buddyiter = firetalk_im_find_buddy(conn, oldnick)) != NULL)
@@ -1063,17 +930,15 @@ void firetalk_callback_user_nickchanged(client_t c, const char *const oldnick, c
 			}
 }
 
-void firetalk_callback_chat_joined(client_t c, const char *const room) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_chat_joined(struct firetalk_driver_connection_t *c, const char *const room) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (firetalk_chat_internal_add_room(conn, room) != FE_SUCCESS)
 		return;
 }
 
-void firetalk_callback_chat_left(client_t c, const char *const room) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_chat_left(struct firetalk_driver_connection_t *c, const char *const room) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (firetalk_chat_internal_remove_room(conn, room) != FE_SUCCESS)
 		return;
@@ -1081,9 +946,8 @@ void firetalk_callback_chat_left(client_t c, const char *const room) {
 		conn->callbacks[FC_CHAT_LEFT](conn, conn->clientstruct, room);
 }
 
-void firetalk_callback_chat_kicked(client_t c, const char *const room, const char *const by, const char *const reason) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_chat_kicked(struct firetalk_driver_connection_t *c, const char *const room, const char *const by, const char *const reason) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (firetalk_chat_internal_remove_room(conn, room) != FE_SUCCESS)
 		return;
@@ -1091,34 +955,30 @@ void firetalk_callback_chat_kicked(client_t c, const char *const room, const cha
 		conn->callbacks[FC_CHAT_KICKED](conn, conn->clientstruct, room, by, reason);
 }
 
-void firetalk_callback_chat_getmessage(client_t c, const char *const room, const char *const from, const int automessage, const char *const message) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_chat_getmessage(struct firetalk_driver_connection_t *c, const char *const room, const char *const from, const int automessage, const char *const message) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_CHAT_GETMESSAGE])
 		conn->callbacks[FC_CHAT_GETMESSAGE](conn, conn->clientstruct, room, from, automessage, message);
 }
 
-void firetalk_callback_chat_getaction(client_t c, const char *const room, const char *const from, const int automessage, const char *const message) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_chat_getaction(struct firetalk_driver_connection_t *c, const char *const room, const char *const from, const int automessage, const char *const message) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_CHAT_GETACTION])
 		conn->callbacks[FC_CHAT_GETACTION](conn, conn->clientstruct, room, from, automessage, message);
 }
 
-void firetalk_callback_chat_invited(client_t c, const char *const room, const char *const from, const char *const message) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_chat_invited(struct firetalk_driver_connection_t *c, const char *const room, const char *const from, const char *const message) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_CHAT_INVITED])
 		conn->callbacks[FC_CHAT_INVITED](conn, conn->clientstruct, room, from, message);
 }
 
-void firetalk_callback_chat_user_joined(client_t c, const char *const room, const char *const who, const char *const extra) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_room *iter;
+void	firetalk_callback_chat_user_joined(struct firetalk_driver_connection_t *c, const char *const room, const char *const who, const char *const extra) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_room_t *iter;
 
 	iter = firetalk_find_room(conn, room);
 	if (iter == NULL)
@@ -1139,9 +999,8 @@ void firetalk_callback_chat_user_joined(client_t c, const char *const room, cons
 	}
 }
 
-void firetalk_callback_chat_user_left(client_t c, const char *const room, const char *const who, const char *const reason) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_chat_user_left(struct firetalk_driver_connection_t *c, const char *const room, const char *const who, const char *const reason) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (firetalk_chat_internal_remove_member(conn, room, who) != FE_SUCCESS)
 		return;
@@ -1149,11 +1008,10 @@ void firetalk_callback_chat_user_left(client_t c, const char *const room, const 
 		conn->callbacks[FC_CHAT_USER_LEFT](conn, conn->clientstruct, room, who, reason);
 }
 
-void firetalk_callback_chat_user_quit(client_t c, const char *const who, const char *const reason) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_room *roomiter;
-	struct s_firetalk_member *memberiter, *membernext;
+void	firetalk_callback_chat_user_quit(struct firetalk_driver_connection_t *c, const char *const who, const char *const reason) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_room_t *roomiter;
+	firetalk_member_t *memberiter, *membernext;
 	
 	for (roomiter = conn->room_head; roomiter != NULL; roomiter = roomiter->next)
 		for (memberiter = roomiter->member_head; memberiter != NULL; memberiter = membernext) {
@@ -1163,10 +1021,9 @@ void firetalk_callback_chat_user_quit(client_t c, const char *const who, const c
 		}
 }
 
-void firetalk_callback_chat_gottopic(client_t c, const char *const room, const char *const topic, const char *const author) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_room *r;
+void	firetalk_callback_chat_gottopic(struct firetalk_driver_connection_t *c, const char *const room, const char *const topic, const char *const author) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_room_t *r;
 
 	r = firetalk_find_room(conn, room);
 	if (r != NULL)
@@ -1175,20 +1032,18 @@ void firetalk_callback_chat_gottopic(client_t c, const char *const room, const c
 }
 
 #ifdef RAWIRCMODES
-void firetalk_callback_chat_modechanged(client_t c, const char *const room, const char *const mode, const char *const by) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_chat_modechanged(struct firetalk_driver_connection_t *c, const char *const room, const char *const mode, const char *const by) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_CHAT_MODECHANGED])
 		conn->callbacks[FC_CHAT_MODECHANGED](conn, conn->clientstruct, room, mode, by);
 }
 #endif
 
-void firetalk_callback_chat_user_opped(client_t c, const char *const room, const char *const who, const char *const by) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_room *r;
-	struct s_firetalk_member *m;
+void	firetalk_callback_chat_user_opped(struct firetalk_driver_connection_t *c, const char *const room, const char *const who, const char *const by) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_room_t *r;
+	firetalk_member_t *m;
 
 	r = firetalk_find_room(conn, room);
 	if (r == NULL)
@@ -1203,11 +1058,10 @@ void firetalk_callback_chat_user_opped(client_t c, const char *const room, const
 	}
 }
 
-void firetalk_callback_chat_user_deopped(client_t c, const char *const room, const char *const who, const char *const by) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_room *r;
-	struct s_firetalk_member *m;
+void	firetalk_callback_chat_user_deopped(struct firetalk_driver_connection_t *c, const char *const room, const char *const who, const char *const by) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_room_t *r;
+	firetalk_member_t *m;
 
 	r = firetalk_find_room(conn, room);
 	if (r == NULL)
@@ -1222,18 +1076,16 @@ void firetalk_callback_chat_user_deopped(client_t c, const char *const room, con
 	}
 }
 
-void firetalk_callback_chat_keychanged(client_t c, const char *const room, const char *const what, const char *const by) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_chat_keychanged(struct firetalk_driver_connection_t *c, const char *const room, const char *const what, const char *const by) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (conn->callbacks[FC_CHAT_KEYCHANGED])
 		conn->callbacks[FC_CHAT_KEYCHANGED](conn, conn->clientstruct, room, what, by);
 }
 
-void firetalk_callback_chat_opped(client_t c, const char *const room, const char *const by) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_room *r;
+void	firetalk_callback_chat_opped(struct firetalk_driver_connection_t *c, const char *const room, const char *const by) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_room_t *r;
 
 	r = firetalk_find_room(conn,room);
 	if (r == NULL)
@@ -1246,10 +1098,9 @@ void firetalk_callback_chat_opped(client_t c, const char *const room, const char
 		conn->callbacks[FC_CHAT_OPPED](conn, conn->clientstruct, room, by);
 }
 
-void firetalk_callback_chat_deopped(client_t c, const char *const room, const char *const by) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_room *r;
+void	firetalk_callback_chat_deopped(struct firetalk_driver_connection_t *c, const char *const room, const char *const by) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_room_t *r;
 
 	r = firetalk_find_room(conn,room);
 	if (r == NULL)
@@ -1262,9 +1113,8 @@ void firetalk_callback_chat_deopped(client_t c, const char *const room, const ch
 		conn->callbacks[FC_CHAT_DEOPPED](conn, conn->clientstruct, room, by);
 }
 
-void firetalk_callback_chat_user_kicked(client_t c, const char *const room, const char *const who, const char *const by, const char *const reason) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
+void	firetalk_callback_chat_user_kicked(struct firetalk_driver_connection_t *c, const char *const room, const char *const who, const char *const by, const char *const reason) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
 
 	if (firetalk_chat_internal_remove_member(conn, room, who) != FE_SUCCESS)
 		return;
@@ -1272,10 +1122,9 @@ void firetalk_callback_chat_user_kicked(client_t c, const char *const room, cons
 		conn->callbacks[FC_CHAT_USER_KICKED](conn, conn->clientstruct, room, who, by, reason);
 }
 
-const char *firetalk_subcode_get_request_reply(client_t c, const char *const command) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_subcode_callback *iter;
+const char *firetalk_subcode_get_request_reply(struct firetalk_driver_connection_t *c, const char *const command) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_subcode_callback_t *iter;
 
 	for (iter = conn->subcode_request_head; iter != NULL; iter = iter->next)
 		if (strcmp(command, iter->command) == 0)
@@ -1284,13 +1133,12 @@ const char *firetalk_subcode_get_request_reply(client_t c, const char *const com
 	return(NULL);
 }
 
-void firetalk_callback_subcode_request(client_t c, const char *const from, const char *const command, char *args) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_subcode_callback *iter;
-	enum firetalk_connectstate connectedsave = conn->connected; /* nasty hack: some IRC servers send CTCP VERSION requests during signon, before 001, and demand a reply; idiots */
+void	firetalk_callback_subcode_request(struct firetalk_driver_connection_t *c, const char *const from, const char *const command, char *args) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_subcode_callback_t *iter;
+	firetalk_sock_state_t connectedsave = conn->sock.state; /* nasty hack: some IRC servers send CTCP VERSION requests during signon, before 001, and demand a reply; idiots */
 
-	conn->connected = FCS_ACTIVE;
+	conn->sock.state = FCS_ACTIVE;
 
 	for (iter = conn->subcode_request_head; iter != NULL; iter = iter->next)
 		if (strcmp(command, iter->command) == 0) {
@@ -1302,7 +1150,7 @@ void firetalk_callback_subcode_request(client_t c, const char *const from, const
 				isonline_hack = NULL;
 			}
 
-			conn->connected = connectedsave;
+			conn->sock.state = connectedsave;
 
 			return;
 		}
@@ -1334,7 +1182,7 @@ void firetalk_callback_subcode_request(client_t c, const char *const from, const
 	} else if ((strcmp(command,"DCC") == 0) && (args != NULL) && (strncasecmp(args, "SEND ", 5) == 0)) {
 		/* DCC send */
 		struct in_addr addr;
-		unsigned long ip;
+		uint32_t ip;
 		long	size = -1;
 		uint16_t port;
 		char	**myargs;
@@ -1355,7 +1203,7 @@ void firetalk_callback_subcode_request(client_t c, const char *const from, const
 				}
 #endif
 			}
-			sscanf(myargs[1], "%lu", &ip);
+			sscanf(myargs[1], "%u", &ip);
 			ip = htonl(ip);
 			memcpy(&addr.s_addr, &ip, 4);
 			port = (uint16_t)atoi(myargs[2]);
@@ -1364,13 +1212,12 @@ void firetalk_callback_subcode_request(client_t c, const char *const from, const
 	} else if (conn->subcode_request_default != NULL)
 		conn->subcode_request_default->callback(conn, conn->clientstruct, from, command, args);
 
-	conn->connected = connectedsave;
+	conn->sock.state = connectedsave;
 }
 
-void firetalk_callback_subcode_reply(client_t c, const char *const from, const char *const command, const char *const args) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_subcode_callback *iter;
+void	firetalk_callback_subcode_reply(struct firetalk_driver_connection_t *c, const char *const from, const char *const command, const char *const args) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_subcode_callback_t *iter;
 
 	for (iter = conn->subcode_reply_head; iter != NULL; iter = iter->next)
 		if (strcmp(command, iter->command) == 0) {
@@ -1385,53 +1232,49 @@ void firetalk_callback_subcode_reply(client_t c, const char *const from, const c
 }
 
 /* size may be -1 if unknown (0 is valid) */
-void firetalk_callback_file_offer(client_t c, const char *const from, const char *const filename, const long size, const char *const ipstring, const char *const ip6string, const uint16_t port, const int type) {
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-	struct s_firetalk_file *iter;
+void	firetalk_callback_file_offer(struct firetalk_driver_connection_t *c, const char *const from, const char *const filename, const long size, const char *const ipstring, const char *const ip6string, const uint16_t port, const int type) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	firetalk_transfer_t *iter;
 
-	iter = conn->file_head;
-	conn->file_head = calloc(1, sizeof(struct s_firetalk_file));
-	if (conn->file_head == NULL)
+	iter = calloc(1, sizeof(*iter));
+	if (iter == NULL)
 		abort();
-	conn->file_head->who = strdup(from);
-	if (conn->file_head->who == NULL)
+	iter->next = conn->file_head;
+	conn->file_head = iter;
+	iter->who = strdup(from);
+	if (iter->who == NULL)
 		abort();
-	conn->file_head->filename = strdup(filename);
-	if (conn->file_head->filename == NULL)
+	iter->filename = strdup(filename);
+	if (iter->filename == NULL)
 		abort();
-	conn->file_head->size = size;
-	conn->file_head->bytes = 0;
-	conn->file_head->acked = 0;
-	conn->file_head->state = FF_STATE_WAITLOCAL;
-	conn->file_head->direction = FF_DIRECTION_RECEIVING;
-	conn->file_head->sockfd = -1;
-	conn->file_head->filefd = -1;
-	conn->file_head->port = htons(port);
-	conn->file_head->type = type;
-	conn->file_head->next = iter;
-	conn->file_head->clientfilestruct = NULL;
-	if (inet_aton(ipstring, &conn->file_head->inet_ip) == 0) {
-		firetalk_file_cancel(c, conn->file_head);
+	iter->size = size;
+	iter->state = FF_STATE_WAITLOCAL;
+	iter->direction = FF_DIRECTION_RECEIVING;
+	firetalk_sock_init(&(iter->sock));
+	iter->filefd = -1;
+	iter->port = htons(port);
+	iter->type = type;
+	iter->next = iter;
+	if (inet_aton(ipstring, &iter->inet_ip) == 0) {
+		assert(conn->file_head == iter);
+		firetalk_file_cancel(conn, iter);
+		assert(conn->file_head != iter);
 		return;
 	}
 #ifdef _FC_USE_IPV6
-	conn->file_head->tryinet6 = 0;
 	if (ip6string)
-		if (inet_pton(AF_INET6, ip6string, &conn->file_head->inet6_ip) != 0)
-			conn->file_head->tryinet6 = 1;
+		if (inet_pton(AF_INET6, ip6string, &iter->inet6_ip) != 0)
+			iter->tryinet6 = 1;
 #endif
 	if (conn->callbacks[FC_FILE_OFFER])
-		conn->callbacks[FC_FILE_OFFER](conn, conn->clientstruct, (void *)conn->file_head, from, filename, size);
+		conn->callbacks[FC_FILE_OFFER](conn, conn->clientstruct, iter, from, filename, size);
 }
 
-void firetalk_handle_receive(struct s_firetalk_handle *c, struct s_firetalk_file *filestruct) {
-	/* we have to copy from sockfd to filefd until we run out, then send the packet */
+void	firetalk_handle_receive(firetalk_connection_t *c, firetalk_transfer_t *filestruct) {
 	static char buffer[4096];
-	unsigned long netbytes;
-	ssize_t s;
+	ssize_t	s;
 
-	while ((s = recv(filestruct->sockfd, buffer, 4096, MSG_DONTWAIT)) == 4096) {
+	while ((s = recv(filestruct->sock.fd, buffer, 4096, MSG_DONTWAIT)) == 4096) {
 		if (write(filestruct->filefd, buffer, 4096) != 4096) {
 			if (c->callbacks[FC_FILE_ERROR])
 				c->callbacks[FC_FILE_ERROR](c, c->clientstruct, filestruct, filestruct->clientfilestruct, FE_IOERROR);
@@ -1450,8 +1293,9 @@ void firetalk_handle_receive(struct s_firetalk_handle *c, struct s_firetalk_file
 		filestruct->bytes += s;
 	}
 	if (filestruct->type == FF_TYPE_DCC) {
-		netbytes = htonl((uint32_t)filestruct->bytes);
-		if (write(filestruct->sockfd, &netbytes, 4) != 4) {
+		uint32_t netbytes = htonl((uint32_t)filestruct->bytes);
+
+		if (firetalk_sock_send(&(filestruct->sock), &netbytes, sizeof(netbytes)) != FE_SUCCESS) {
 			if (c->callbacks[FC_FILE_ERROR])
 				c->callbacks[FC_FILE_ERROR](c, c->clientstruct, filestruct, filestruct->clientfilestruct, FE_IOERROR);
 			firetalk_file_cancel(c, filestruct);
@@ -1467,17 +1311,15 @@ void firetalk_handle_receive(struct s_firetalk_handle *c, struct s_firetalk_file
 	}
 }
 
-void firetalk_handle_send(struct s_firetalk_handle *c, struct s_firetalk_file *filestruct) {
-	/* we have to copy from filefd to sockfd until we run out or sockfd refuses the data */
+void	firetalk_handle_send(firetalk_connection_t *c, firetalk_transfer_t *filestruct) {
 	static char buffer[4096];
-	ssize_t s;
+	ssize_t	s;
 
-	while ((s = read(filestruct->filefd, buffer, 4096)) == 4096) {
-		if ((s = send(filestruct->sockfd, buffer, 4096, MSG_DONTWAIT|MSG_NOSIGNAL)) != 4096) {
-			lseek(filestruct->filefd, -(4096 - s), SEEK_CUR);
-			filestruct->bytes += s;
-			if (c->callbacks[FC_FILE_PROGRESS])
-				c->callbacks[FC_FILE_PROGRESS](c, c->clientstruct, filestruct, filestruct->clientfilestruct, filestruct->bytes, filestruct->size);
+	while ((s = read(filestruct->filefd, buffer, sizeof(buffer))) > 0) {
+		if (firetalk_sock_send(&(filestruct->sock), buffer, s) != FE_SUCCESS) {
+			if (c->callbacks[FC_FILE_ERROR])
+				c->callbacks[FC_FILE_ERROR](c, c->clientstruct, filestruct, filestruct->clientfilestruct, FE_IOERROR);
+			firetalk_file_cancel(c, filestruct);
 			return;
 		}
 		filestruct->bytes += s;
@@ -1486,35 +1328,29 @@ void firetalk_handle_send(struct s_firetalk_handle *c, struct s_firetalk_file *f
 		if (filestruct->type == FF_TYPE_DCC) {
 			uint32_t acked = 0;
 
-			while (recv(filestruct->sockfd, &acked, 4, MSG_DONTWAIT) == 4)
+			while (recv(filestruct->sock.fd, &acked, 4, MSG_DONTWAIT) == 4)
 				filestruct->acked = ntohl(acked);
 		}
 	}
-	if (send(filestruct->sockfd, buffer, s, MSG_NOSIGNAL) != s) {
-		if (c->callbacks[FC_FILE_ERROR])
-			c->callbacks[FC_FILE_ERROR](c, c->clientstruct, filestruct, filestruct->clientfilestruct, FE_IOERROR);
-		firetalk_file_cancel(c, filestruct);
-		return;
-	}
-	filestruct->bytes += s;
 	if (filestruct->type == FF_TYPE_DCC) {
 		while (filestruct->acked < (uint32_t)filestruct->bytes) {
 			uint32_t acked = 0;
 
-			if (recv(filestruct->sockfd, &acked, 4, 0) == 4)
+			if (recv(filestruct->sock.fd, &acked, 4, 0) == 4)
 				filestruct->acked = ntohl(acked);
 		}
 	}
 	if (c->callbacks[FC_FILE_PROGRESS])
 		c->callbacks[FC_FILE_PROGRESS](c, c->clientstruct, filestruct, filestruct->clientfilestruct, filestruct->bytes, filestruct->size);
-	if (c->callbacks[FC_FILE_FINISH])
-		c->callbacks[FC_FILE_FINISH](c, c->clientstruct, filestruct, filestruct->clientfilestruct, filestruct->bytes);
+	if (filestruct->bytes == filestruct->size)
+		if (c->callbacks[FC_FILE_FINISH])
+			c->callbacks[FC_FILE_FINISH](c, c->clientstruct, filestruct, filestruct->clientfilestruct, filestruct->bytes);
 	firetalk_file_cancel(c, filestruct);
 }
 
 /* External function definitions */
 
-const char *firetalk_strprotocol(const enum firetalk_protocol p) {
+const char *firetalk_strprotocol(const int p) {
 	if ((p >= 0) && (p < FP_MAX))
 		return(firetalk_protocols[p]->strprotocol);
 	return(NULL);
@@ -1607,61 +1443,62 @@ const char *firetalk_strerror(const fte_t e) {
 	}
 }
 
-firetalk_t firetalk_create_handle(const int protocol, void *clientstruct) {
-	struct s_firetalk_handle *c;
+firetalk_connection_t *firetalk_create_handle(const int protocol, struct firetalk_useragent_connection_t *clientstruct) {
+	firetalk_connection_t *c;
 
 	if ((protocol < 0) || (protocol >= FP_MAX)) {
 		firetalkerror = FE_BADPROTO;
 		return(NULL);
 	}
-	c = handle_head;
-	handle_head = calloc(1, sizeof(*handle_head));
-	if (handle_head == NULL)
+	c = calloc(1, sizeof(*c));
+	if (c == NULL)
 		abort();
-	handle_head->buffer = calloc(1, firetalk_protocols[protocol]->default_buffersize);
-	if (handle_head->buffer == NULL)
-		abort();
-	handle_head->clientstruct = clientstruct;
-	handle_head->next = c;
-	handle_head->connected = FCS_NOTCONNECTED;
-	handle_head->protocol = protocol;
-	handle_head->handle = firetalk_protocols[protocol]->create_handle();
-	return(handle_head);
+	c->canary = CONNECTION_CANARY;
+	c->next = handle_head;
+	handle_head = c;
+	c->clientstruct = clientstruct;
+	c->protocol = protocol;
+	firetalk_sock_init(&(c->sock));
+	firetalk_buffer_init(&(c->buffer));
+	firetalk_buffer_alloc(&(c->buffer), firetalk_protocols[protocol]->default_buffersize);
+	c->handle = firetalk_protocols[protocol]->create_handle();
+	return(c);
 }
 
-void firetalk_destroy_handle(firetalk_t conn) {
+void	firetalk_destroy_handle(firetalk_connection_t *conn) {
 	VERIFYCONN;
 
 	assert(conn->deleted == 0);
 	assert(conn->handle != NULL);
+	memset(conn->callbacks, 0, sizeof(conn->callbacks));
 
 	firetalk_protocols[conn->protocol]->destroy_handle(conn->handle);
 	conn->handle = NULL;
 	conn->deleted = 1;
 }
 
-fte_t	firetalk_disconnect(firetalk_t conn) {
+fte_t	firetalk_disconnect(firetalk_connection_t *conn) {
 	VERIFYCONN;
 
-	if (conn->connected == FCS_NOTCONNECTED)
+	if (conn->sock.state == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
 
 	return(firetalk_protocols[conn->protocol]->disconnect(conn->handle));
 }
 
-fte_t	firetalk_signon(firetalk_t conn, const char *server, short port, const char *const username) {
+fte_t	firetalk_signon(firetalk_connection_t *conn, const char *server, uint16_t port, const char *const username) {
 	VERIFYCONN;
 
-	if (conn->connected != FCS_NOTCONNECTED) {
+	if (conn->sock.state != FCS_NOTCONNECTED) {
 		firetalk_disconnect(conn);
-		conn->connected = FCS_NOTCONNECTED;
+		conn->sock.state = FCS_NOTCONNECTED;
 	}
 
 	free(conn->username);
 	conn->username = strdup(username);
 	if (conn->username == NULL)
 		abort();
-	conn->bufferpos = 0;
+	conn->buffer.pos = 0;
 
 	if (server == NULL)
 		server = firetalk_protocols[conn->protocol]->default_server;
@@ -1669,69 +1506,25 @@ fte_t	firetalk_signon(firetalk_t conn, const char *server, short port, const cha
 	if (port == 0)
 		port = firetalk_protocols[conn->protocol]->default_port;
 
-	errno = 0;
-	conn->fd = firetalk_internal_connect_host_addr(server, port, &(conn->remote_addr)
-#ifdef _FC_USE_IPV6
-		, &(conn->remote_addr6)
-#endif
-	);
-
-	if (conn->fd != -1) {
-		conn->connected = FCS_WAITING_SYNACK;
-		return(FE_SUCCESS);
-	} else
-		return(firetalkerror);
+	return(firetalk_sock_connect_host(&(conn->sock), server, port));
 }
 
-fte_t	firetalk_handle_synack(firetalk_t conn) {
-	int i;
-	unsigned int o = sizeof(int);
+void	firetalk_callback_connected(struct firetalk_driver_connection_t *c) {
+	firetalk_connection_t *conn = firetalk_find_handle(c);
+	struct sockaddr_in *localaddr = firetalk_sock_localhost4(&(conn->sock));
 
-	if (getsockopt(conn->fd, SOL_SOCKET, SO_ERROR, &i, &o)) {
-		close(conn->fd);
-		conn->connected = FCS_NOTCONNECTED;
-		if (conn->callbacks[FC_CONNECTFAILED])
-			conn->callbacks[FC_CONNECTFAILED](conn, conn->clientstruct, FE_SOCKET, strerror(errno));
-		return(FE_SOCKET);
-	}
-
-	if (i != 0) {
-		close(conn->fd);
-		conn->connected = FCS_NOTCONNECTED;
-		if (conn->callbacks[FC_CONNECTFAILED])
-			conn->callbacks[FC_CONNECTFAILED](conn, conn->clientstruct, FE_CONNECT, strerror(i));
-		return(FE_CONNECT);
-	}
-
-	conn->connected = FCS_WAITING_SIGNON;
-	i = firetalk_protocols[conn->protocol]->signon(conn->handle, conn->username);
-	if (i != FE_SUCCESS)
-		return(i);
-
-	return(FE_SUCCESS);
-}
-
-void firetalk_callback_connected(client_t c) {
-	unsigned int l;
-	struct sockaddr_in addr;
-	struct s_firetalk_handle
-		*conn = firetalk_find_handle(c);
-
-	conn->connected = FCS_ACTIVE;
-	l = (unsigned int)sizeof(struct sockaddr_in);
-	getsockname(conn->fd, (struct sockaddr *)&addr, &l);
-	memcpy(&conn->localip, &addr.sin_addr.s_addr, 4);
-	conn->localip = htonl((uint32_t)conn->localip);
+	conn->sock.state = FCS_ACTIVE;
+	conn->localip = htonl(localaddr->sin_addr.s_addr);
 
 	if (conn->callbacks[FC_CONNECTED])
 		conn->callbacks[FC_CONNECTED](conn, conn->clientstruct);
 }
 
-fte_t	firetalk_handle_file_synack(firetalk_t conn, struct s_firetalk_file *file) {
-	int i;
+fte_t	firetalk_handle_file_synack(firetalk_connection_t *conn, firetalk_transfer_t *file) {
+	int	i;
 	unsigned int o = sizeof(int);
 
-	if (getsockopt(file->sockfd, SOL_SOCKET, SO_ERROR, &i, &o)) {
+	if (getsockopt(file->sock.fd, SOL_SOCKET, SO_ERROR, &i, &o)) {
 		firetalk_file_cancel(conn, file);
 		return(FE_SOCKET);
 	}
@@ -1748,120 +1541,76 @@ fte_t	firetalk_handle_file_synack(firetalk_t conn, struct s_firetalk_file *file)
 	return(FE_SUCCESS);
 }
 
-enum firetalk_protocol firetalk_get_protocol(firetalk_t conn) {
+int	firetalk_get_protocol(firetalk_connection_t *conn) {
 	VERIFYCONN;
 
 	return(conn->protocol);
 }
 
-fte_t	firetalk_register_callback(firetalk_t conn, const int type, void (*function)(firetalk_t, void *, ...)) {
+fte_t	firetalk_register_callback(firetalk_connection_t *conn, const int type, void (*function)(firetalk_connection_t *, struct firetalk_useragent_connection_t *, ...)) {
 	VERIFYCONN;
 
-	if (type < 0 || type >= FC_MAX)
+	if ((type < 0) || (type >= FC_MAX))
 		return(FE_CALLBACKNUM);
 	conn->callbacks[type] = function;
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_im_add_buddy(firetalk_t conn, const char *const name, const char *const group, const char *const friendly) {
-	struct s_firetalk_buddy *iter;
+fte_t	firetalk_im_add_buddy(firetalk_connection_t *conn, const char *const name, const char *const group, const char *const friendly) {
+	firetalk_buddy_t *iter;
 
 	VERIFYCONN;
 
-	if ((iter = firetalk_im_find_buddy(conn, name)) != NULL) {
-		if (!((strcmp(iter->group, group) == 0) && (((iter->friendly == NULL) && (friendly == NULL)) || ((iter->friendly != NULL) && (friendly != NULL) && (strcmp(iter->friendly, friendly) == 0))))) {
-			/* user is in buddy list somewhere other than where the clients wants it */
-			if (conn->connected != FCS_NOTCONNECTED) {
-				fte_t	ret;
+	if ((iter = firetalk_im_find_buddy(conn, name)) != NULL)
+		firetalk_im_replace_buddy(conn, iter, name, group, friendly);
+	else
+		iter = firetalk_im_insert_buddy(conn, name, group, friendly);
 
-				ret = firetalk_protocols[conn->protocol]->im_remove_buddy(conn->handle, iter->nickname, iter->group);
-				if (ret != FE_SUCCESS)
-					return(ret);
-			}
-			free(iter->group);
-			iter->group = strdup(group);
-			if (iter->group == NULL)
-				abort();
-			free(iter->friendly);
-			if (friendly == NULL)
-				iter->friendly = NULL;
-			else {
-				iter->friendly = strdup(friendly);
-				if (iter->friendly == NULL)
-					abort();
-			}
-		}
-	} else
-		firetalk_im_insert_buddy(conn, name, group, friendly);
-
-        if (conn->connected != FCS_NOTCONNECTED) {
+        if (conn->sock.state != FCS_NOTCONNECTED) {
 		fte_t	ret;
 
-		ret = firetalk_protocols[conn->protocol]->im_add_buddy(conn->handle, name, group, friendly);
+		ret = firetalk_protocols[conn->protocol]->im_add_buddy(conn->handle, iter->nickname, iter->group, iter->friendly);
 		if (ret != FE_SUCCESS)
 			return(ret);
 	}
 
-	if ((isonline_hack != NULL) && (firetalk_protocols[conn->protocol]->comparenicks(name, isonline_hack) == FE_SUCCESS))
-		firetalk_callback_im_buddyonline(conn->handle, isonline_hack, 1);
+	if ((isonline_hack != NULL) && (firetalk_protocols[conn->protocol]->comparenicks(iter->nickname, isonline_hack) == FE_SUCCESS))
+		firetalk_callback_im_buddyonline(conn->handle, iter->nickname, 1);
 
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_im_add_deny(firetalk_t conn, const char *const nickname) {
-	int ret;
-
+fte_t	firetalk_im_add_deny(firetalk_connection_t *conn, const char *const nickname) {
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
-		return(FE_NOTCONNECTED);
+	if (firetalk_im_internal_add_deny(conn, nickname) == NULL)
+		return(FE_UNKNOWN);
 
-	ret = firetalk_im_internal_add_deny(conn,nickname);
-	if (ret != FE_SUCCESS)
-		return(ret);
-
-	return(firetalk_protocols[conn->protocol]->im_add_deny(conn->handle,nickname));
+	if (conn->sock.state == FCS_ACTIVE)
+		return(firetalk_protocols[conn->protocol]->im_add_deny(conn->handle, nickname));
+	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_im_remove_deny(firetalk_t conn, const char *const nickname) {
-	int ret;
+fte_t	firetalk_im_remove_deny(firetalk_connection_t *conn, const char *const nickname) {
+	fte_t	ret;
 
 	VERIFYCONN;
-
-	if (conn->connected != FCS_ACTIVE)
-		return(FE_NOTCONNECTED);
 
 	ret = firetalk_im_internal_remove_deny(conn,nickname);
 	if (ret != FE_SUCCESS)
 		return(ret);
 
-	return(firetalk_protocols[conn->protocol]->im_remove_deny(conn->handle,nickname));
+	if (conn->sock.state == FCS_ACTIVE)
+		return(firetalk_protocols[conn->protocol]->im_remove_deny(conn->handle, nickname));
+	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_im_upload_buddies(firetalk_t conn) {
-	VERIFYCONN;
-
-	if (conn->connected != FCS_ACTIVE)
-		return(FE_NOTCONNECTED);
-
-	return(firetalk_protocols[conn->protocol]->im_upload_buddies(conn->handle));
-}
-
-fte_t	firetalk_im_upload_denies(firetalk_t conn) {
-	VERIFYCONN;
-
-	if (conn->connected != FCS_ACTIVE)
-		return(FE_NOTCONNECTED);
-
-	return(firetalk_protocols[conn->protocol]->im_upload_denies(conn->handle));
-}
-
-fte_t	firetalk_im_send_message(firetalk_t conn, const char *const dest, const char *const message, const int auto_flag) {
+fte_t	firetalk_im_send_message(firetalk_connection_t *conn, const char *const dest, const char *const message, const int auto_flag) {
 	fte_t	e;
 
 	VERIFYCONN;
 
-	if ((conn->connected != FCS_ACTIVE) && (strcasecmp(dest, ":RAW") != 0))
+	if ((conn->sock.state != FCS_ACTIVE) && (strcasecmp(dest, ":RAW") != 0))
 		return(FE_NOTCONNECTED);
 
 	e = firetalk_protocols[conn->protocol]->im_send_message(conn->handle, dest, message, auto_flag);
@@ -1875,12 +1624,12 @@ fte_t	firetalk_im_send_message(firetalk_t conn, const char *const dest, const ch
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_im_send_action(firetalk_t conn, const char *const dest, const char *const message, const int auto_flag) {
+fte_t	firetalk_im_send_action(firetalk_connection_t *conn, const char *const dest, const char *const message, const int auto_flag) {
 	fte_t	e;
 
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	e = firetalk_protocols[conn->protocol]->im_send_action(conn->handle, dest, message, auto_flag);
@@ -1894,48 +1643,31 @@ fte_t	firetalk_im_send_action(firetalk_t conn, const char *const dest, const cha
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_im_get_info(firetalk_t conn, const char *const nickname) {
+fte_t	firetalk_im_get_info(firetalk_connection_t *conn, const char *const nickname) {
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	return(firetalk_protocols[conn->protocol]->get_info(conn->handle, nickname));
 }
 
-fte_t	firetalk_set_info(firetalk_t conn, const char *const info) {
+fte_t	firetalk_set_info(firetalk_connection_t *conn, const char *const info) {
 	VERIFYCONN;
 
-	if (conn->connected == FCS_NOTCONNECTED)
+	if (conn->sock.state == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
 
 	return(firetalk_protocols[conn->protocol]->set_info(conn->handle, info));
 }
 
-fte_t	firetalk_im_list_buddies(firetalk_t conn) {
-	struct s_firetalk_buddy *buddyiter;
+fte_t	firetalk_chat_listmembers(firetalk_connection_t *conn, const char *const roomname) {
+	firetalk_room_t *room;
+	firetalk_member_t *memberiter;
 
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
-		return(FE_NOTCONNECTED);
-
-	if (!conn->callbacks[FC_IM_LISTBUDDY])
-		return(FE_SUCCESS);
-
-	for (buddyiter = conn->buddy_head; buddyiter != NULL; buddyiter = buddyiter->next)
-		conn->callbacks[FC_IM_LISTBUDDY](conn, conn->clientstruct, buddyiter->nickname, buddyiter->group, buddyiter->friendly, buddyiter->online, buddyiter->away, buddyiter->idletime);
-
-	return(FE_SUCCESS);
-}
-
-fte_t	firetalk_chat_listmembers(firetalk_t conn, const char *const roomname) {
-	struct s_firetalk_room *room;
-	struct s_firetalk_member *memberiter;
-
-	VERIFYCONN;
-
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	if (!conn->callbacks[FC_CHAT_LISTMEMBER])
@@ -1951,63 +1683,63 @@ fte_t	firetalk_chat_listmembers(firetalk_t conn, const char *const roomname) {
 	return(FE_SUCCESS);
 }
 
-const char *firetalk_chat_normalize(firetalk_t conn, const char *const room) {
+const char *firetalk_chat_normalize(firetalk_connection_t *conn, const char *const room) {
 	return(firetalk_protocols[conn->protocol]->room_normalize(room));
 }
 
-fte_t	firetalk_set_away(firetalk_t conn, const char *const message, const int auto_flag) {
+fte_t	firetalk_set_away(firetalk_connection_t *conn, const char *const message, const int auto_flag) {
 	VERIFYCONN;
 
-	if (conn->connected == FCS_NOTCONNECTED)
+	if (conn->sock.state == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
 
 	return(firetalk_protocols[conn->protocol]->set_away(conn->handle, message, auto_flag));
 }
 
-fte_t	firetalk_set_nickname(firetalk_t conn, const char *const nickname) {
+fte_t	firetalk_set_nickname(firetalk_connection_t *conn, const char *const nickname) {
 	VERIFYCONN;
 
-	if (conn->connected == FCS_NOTCONNECTED)
+	if (conn->sock.state == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
 
 	return(firetalk_protocols[conn->protocol]->set_nickname(conn->handle, nickname));
 }
 
-fte_t	firetalk_set_password(firetalk_t conn, const char *const oldpass, const char *const newpass) {
+fte_t	firetalk_set_password(firetalk_connection_t *conn, const char *const oldpass, const char *const newpass) {
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	return(firetalk_protocols[conn->protocol]->set_password(conn->handle, oldpass, newpass));
 }
 
-fte_t	firetalk_set_privacy(firetalk_t conn, const char *const mode) {
+fte_t	firetalk_set_privacy(firetalk_connection_t *conn, const char *const mode) {
 	VERIFYCONN;
 
 	assert(mode != NULL);
 
-	if (conn->connected == FCS_NOTCONNECTED)
+	if (conn->sock.state == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
 
 	return(firetalk_protocols[conn->protocol]->set_privacy(conn->handle, mode));
 }
 
-fte_t	firetalk_im_evil(firetalk_t conn, const char *const who) {
+fte_t	firetalk_im_evil(firetalk_connection_t *conn, const char *const who) {
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	return(firetalk_protocols[conn->protocol]->im_evil(conn->handle, who));
 }
 
-fte_t	firetalk_chat_join(firetalk_t conn, const char *const room) {
+fte_t	firetalk_chat_join(firetalk_connection_t *conn, const char *const room) {
 	const char *normalroom;
 
 	VERIFYCONN;
 
-	if (conn->connected == FCS_NOTCONNECTED)
+	if (conn->sock.state == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
 
 	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
@@ -2017,12 +1749,12 @@ fte_t	firetalk_chat_join(firetalk_t conn, const char *const room) {
 	return(firetalk_protocols[conn->protocol]->chat_join(conn->handle, normalroom));
 }
 
-fte_t	firetalk_chat_part(firetalk_t conn, const char *const room) {
+fte_t	firetalk_chat_part(firetalk_connection_t *conn, const char *const room) {
 	const char *normalroom;
 
 	VERIFYCONN;
 
-	if (conn->connected == FCS_NOTCONNECTED)
+	if (conn->sock.state == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
 
 	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
@@ -2032,12 +1764,12 @@ fte_t	firetalk_chat_part(firetalk_t conn, const char *const room) {
 	return(firetalk_protocols[conn->protocol]->chat_part(conn->handle, normalroom));
 }
 
-fte_t	firetalk_chat_send_message(firetalk_t conn, const char *const room, const char *const message, const int auto_flag) {
+fte_t	firetalk_chat_send_message(firetalk_connection_t *conn, const char *const room, const char *const message, const int auto_flag) {
 	const char *normalroom;
 
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	if (*room == ':')
@@ -2050,12 +1782,12 @@ fte_t	firetalk_chat_send_message(firetalk_t conn, const char *const room, const 
 	return(firetalk_protocols[conn->protocol]->chat_send_message(conn->handle, normalroom, message, auto_flag));
 }
 
-fte_t	firetalk_chat_send_action(firetalk_t conn, const char *const room, const char *const message, const int auto_flag) {
+fte_t	firetalk_chat_send_action(firetalk_connection_t *conn, const char *const room, const char *const message, const int auto_flag) {
 	const char *normalroom;
 
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
@@ -2065,12 +1797,12 @@ fte_t	firetalk_chat_send_action(firetalk_t conn, const char *const room, const c
 	return(firetalk_protocols[conn->protocol]->chat_send_action(conn->handle, normalroom, message, auto_flag));
 }
 
-fte_t	firetalk_chat_invite(firetalk_t conn, const char *const room, const char *const who, const char *const message) {
+fte_t	firetalk_chat_invite(firetalk_connection_t *conn, const char *const room, const char *const who, const char *const message) {
 	const char *normalroom;
 
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
@@ -2080,12 +1812,12 @@ fte_t	firetalk_chat_invite(firetalk_t conn, const char *const room, const char *
 	return(firetalk_protocols[conn->protocol]->chat_invite(conn->handle, normalroom, who, message));
 }
 
-fte_t	firetalk_chat_set_topic(firetalk_t conn, const char *const room, const char *const topic) {
+fte_t	firetalk_chat_set_topic(firetalk_connection_t *conn, const char *const room, const char *const topic) {
 	const char *normalroom;
 
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
@@ -2095,12 +1827,12 @@ fte_t	firetalk_chat_set_topic(firetalk_t conn, const char *const room, const cha
 	return(firetalk_protocols[conn->protocol]->chat_set_topic(conn->handle, normalroom, topic));
 }
 
-fte_t	firetalk_chat_op(firetalk_t conn, const char *const room, const char *const who) {
+fte_t	firetalk_chat_op(firetalk_connection_t *conn, const char *const room, const char *const who) {
 	const char *normalroom;
 
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
@@ -2110,12 +1842,12 @@ fte_t	firetalk_chat_op(firetalk_t conn, const char *const room, const char *cons
 	return(firetalk_protocols[conn->protocol]->chat_op(conn->handle, normalroom, who));
 }
 
-fte_t	firetalk_chat_deop(firetalk_t conn, const char *const room, const char *const who) {
+fte_t	firetalk_chat_deop(firetalk_connection_t *conn, const char *const room, const char *const who) {
 	const char *normalroom;
 
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
@@ -2125,12 +1857,12 @@ fte_t	firetalk_chat_deop(firetalk_t conn, const char *const room, const char *co
 	return(firetalk_protocols[conn->protocol]->chat_deop(conn->handle, normalroom, who));
 }
 
-fte_t	firetalk_chat_kick(firetalk_t conn, const char *const room, const char *const who, const char *const reason) {
+fte_t	firetalk_chat_kick(firetalk_connection_t *conn, const char *const room, const char *const who, const char *const reason) {
 	const char *normalroom;
 
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
@@ -2140,10 +1872,10 @@ fte_t	firetalk_chat_kick(firetalk_t conn, const char *const room, const char *co
 	return(firetalk_protocols[conn->protocol]->chat_kick(conn->handle, normalroom, who, reason));
 }
 
-fte_t	firetalk_subcode_send_request(firetalk_t conn, const char *const to, const char *const command, const char *const args) {
+fte_t	firetalk_subcode_send_request(firetalk_connection_t *conn, const char *const to, const char *const command, const char *const args) {
 	VERIFYCONN;
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 //	return(firetalk_protocols[conn->protocol]->subcode_send_request(conn->handle, to, command, args));
@@ -2151,10 +1883,10 @@ fte_t	firetalk_subcode_send_request(firetalk_t conn, const char *const to, const
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_subcode_send_reply(firetalk_t conn, const char *const to, const char *const command, const char *const args) {
+fte_t	firetalk_subcode_send_reply(firetalk_connection_t *conn, const char *const to, const char *const command, const char *const args) {
 	VERIFYCONN;
 
-	if ((conn->connected != FCS_ACTIVE) && (*to != ':'))
+	if ((conn->sock.state != FCS_ACTIVE) && (*to != ':'))
 		return(FE_NOTCONNECTED);
 
 //	return(firetalk_protocols[conn->protocol]->subcode_send_reply(conn->handle, to, command, args));
@@ -2162,165 +1894,183 @@ fte_t	firetalk_subcode_send_reply(firetalk_t conn, const char *const to, const c
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_subcode_register_request_callback(firetalk_t conn, const char *const command, void (*callback)(firetalk_t, void *, const char *const, const char *const, const char *const)) {
-	struct s_firetalk_subcode_callback *iter;
-
+fte_t	firetalk_subcode_register_request_callback(firetalk_connection_t *conn, const char *const command, void (*callback)(firetalk_connection_t *, struct firetalk_useragent_connection_t *, const char *const, const char *const, const char *const)) {
 	VERIFYCONN;
 
 	if (command == NULL) {
-		if (conn->subcode_request_default)
+		if (conn->subcode_request_default != NULL) {
+			if (conn->subcode_request_default->staticresp != NULL) {
+				free(conn->subcode_request_default->staticresp);
+				conn->subcode_request_default->staticresp = NULL;
+			}
 			free(conn->subcode_request_default);
-		conn->subcode_request_default = calloc(1, sizeof(struct s_firetalk_subcode_callback));
+		}
+		conn->subcode_request_default = calloc(1, sizeof(*conn->subcode_request_default));
 		if (conn->subcode_request_default == NULL)
 			abort();
 		conn->subcode_request_default->callback = (ptrtofnct)callback;
 	} else {
-		iter = conn->subcode_request_head;
-		conn->subcode_request_head = calloc(1, sizeof(struct s_firetalk_subcode_callback));
-		if (conn->subcode_request_head == NULL)
+		firetalk_subcode_callback_t *iter;
+
+		iter = calloc(1, sizeof(*iter));
+		if (iter == NULL)
 			abort();
-		conn->subcode_request_head->next = iter;
-		conn->subcode_request_head->command = strdup(command);
-		if (conn->subcode_request_head->command == NULL)
+		iter->next = conn->subcode_request_head;
+		conn->subcode_request_head = iter;
+		iter->command = strdup(command);
+		if (iter->command == NULL)
 			abort();
-		conn->subcode_request_head->callback = (ptrtofnct)callback;
+		iter->callback = (ptrtofnct)callback;
 	}
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_subcode_register_request_reply(firetalk_t conn, const char *const command, const char *const reply) {
-	struct s_firetalk_subcode_callback *iter;
-
+fte_t	firetalk_subcode_register_request_reply(firetalk_connection_t *conn, const char *const command, const char *const reply) {
 	VERIFYCONN;
 
 	if (command == NULL) {
-		if (conn->subcode_request_default)
+		if (conn->subcode_request_default != NULL) {
+			if (conn->subcode_request_default->staticresp != NULL) {
+				free(conn->subcode_request_default->staticresp);
+				conn->subcode_request_default->staticresp = NULL;
+			}
 			free(conn->subcode_request_default);
-		conn->subcode_request_default = calloc(1, sizeof(struct s_firetalk_subcode_callback));
+		}
+		conn->subcode_request_default = calloc(1, sizeof(*conn->subcode_request_default));
 		if (conn->subcode_request_default == NULL)
 			abort();
 		conn->subcode_request_default->staticresp = strdup(reply);
 		if (conn->subcode_request_default->staticresp == NULL)
 			abort();
 	} else {
-		iter = conn->subcode_request_head;
-		conn->subcode_request_head = calloc(1, sizeof(struct s_firetalk_subcode_callback));
-		if (conn->subcode_request_head == NULL)
+		firetalk_subcode_callback_t *iter;
+
+		iter = calloc(1, sizeof(*iter));
+		if (iter == NULL)
 			abort();
-		conn->subcode_request_head->next = iter;
-		conn->subcode_request_head->command = strdup(command);
-		if (conn->subcode_request_head->command == NULL)
+		iter->next = conn->subcode_request_head;
+		conn->subcode_request_head = iter;
+		iter->command = strdup(command);
+		if (iter->command == NULL)
 			abort();
-		conn->subcode_request_head->staticresp = strdup(reply);
-		if (conn->subcode_request_head->staticresp == NULL)
+		iter->staticresp = strdup(reply);
+		if (iter->staticresp == NULL)
 			abort();
 	}
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_subcode_register_reply_callback(firetalk_t conn, const char *const command, void (*callback)(firetalk_t, void *, const char *const, const char *const, const char *const)) {
-	struct s_firetalk_subcode_callback *iter;
-
+fte_t	firetalk_subcode_register_reply_callback(firetalk_connection_t *conn, const char *const command, void (*callback)(firetalk_connection_t *, struct firetalk_useragent_connection_t *, const char *const, const char *const, const char *const)) {
 	VERIFYCONN;
 
 	if (command == NULL) {
 		if (conn->subcode_reply_default)
 			free(conn->subcode_reply_default);
-		conn->subcode_reply_default = calloc(1, sizeof(struct s_firetalk_subcode_callback));
+		conn->subcode_reply_default = calloc(1, sizeof(*conn->subcode_reply_default));
 		if (conn->subcode_reply_default == NULL)
 			abort();
 		conn->subcode_reply_default->callback = (ptrtofnct)callback;
 	} else {
-		iter = conn->subcode_reply_head;
-		conn->subcode_reply_head = calloc(1, sizeof(struct s_firetalk_subcode_callback));
-		if (conn->subcode_reply_head == NULL)
+		firetalk_subcode_callback_t *iter;
+
+		iter = calloc(1, sizeof(*iter));
+		if (iter == NULL)
 			abort();
-		conn->subcode_reply_head->next = iter;
-		conn->subcode_reply_head->command = strdup(command);
-		if (conn->subcode_reply_head->command == NULL)
+		iter->next = conn->subcode_reply_head;
+		conn->subcode_reply_head = iter;
+		iter->command = strdup(command);
+		if (iter->command == NULL)
 			abort();
-		conn->subcode_reply_head->callback = (ptrtofnct)callback;
+		iter->callback = (ptrtofnct)callback;
 	}
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_file_offer(firetalk_t conn, const char *const nickname, const char *const filename, void *clientfilestruct) {
-	struct s_firetalk_file *iter;
+fte_t	firetalk_file_offer(firetalk_connection_t *conn, const char *const nickname, const char *const filename, struct firetalk_useragent_transfer_t *clientfilestruct) {
+	firetalk_transfer_t *iter;
 	struct stat s;
 	struct sockaddr_in addr;
-	char args[256];
+	char	args[256];
 	unsigned int l;
 
 	VERIFYCONN;
 
-	iter = conn->file_head;
-	conn->file_head = calloc(1, sizeof(struct s_firetalk_file));
-	if (conn->file_head == NULL)
+	iter = calloc(1, sizeof(*iter));
+	if (iter == NULL)
 		abort();
-	conn->file_head->who = strdup(nickname);
-	if (conn->file_head->who == NULL)
+	iter->next = conn->file_head;
+	conn->file_head = iter;
+	iter->who = strdup(nickname);
+	if (iter->who == NULL)
 		abort();
-	conn->file_head->filename = strdup(filename);
-	if (conn->file_head->filename == NULL)
+	iter->filename = strdup(filename);
+	if (iter->filename == NULL)
 		abort();
-	conn->file_head->sockfd = -1;
-	conn->file_head->clientfilestruct = clientfilestruct;
+	iter->clientfilestruct = clientfilestruct;
 
-	conn->file_head->filefd = open(filename, O_RDONLY);
-	if (conn->file_head->filefd == -1) {
-		firetalk_file_cancel(conn, conn->file_head);
+	iter->filefd = open(filename, O_RDONLY);
+	if (iter->filefd == -1) {
+		assert(conn->file_head == iter);
+		firetalk_file_cancel(conn, iter);
+		assert(conn->file_head != iter);
 		return(FE_IOERROR);
 	}
 
-	if (fstat(conn->file_head->filefd, &s) != 0) {
-		firetalk_file_cancel(conn, conn->file_head);
+	if (fstat(iter->filefd, &s) != 0) {
+		assert(conn->file_head == iter);
+		firetalk_file_cancel(conn, iter);
+		assert(conn->file_head != iter);
 		return(FE_IOERROR);
 	}
 
-	conn->file_head->size = (long)s.st_size;
+	iter->size = (long)s.st_size;
 
-	conn->file_head->sockfd = socket(PF_INET, SOCK_STREAM, 0);
-	if (conn->file_head->sockfd == -1) {
-		firetalk_file_cancel(conn, conn->file_head);
+	iter->sock.fd = socket(PF_INET, SOCK_STREAM, 0);
+	if (iter->sock.fd == -1) {
+		assert(conn->file_head == iter);
+		firetalk_file_cancel(conn, iter);
+		assert(conn->file_head != iter);
 		return(FE_SOCKET);
 	}
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = 0;
 	addr.sin_addr.s_addr = INADDR_ANY;
-	if (bind(conn->file_head->sockfd, (struct sockaddr *)&addr, sizeof(struct sockaddr_in)) != 0) {
-		firetalk_file_cancel(conn, conn->file_head);
+	if (bind(iter->sock.fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+		assert(conn->file_head == iter);
+		firetalk_file_cancel(conn, iter);
+		assert(conn->file_head != iter);
 		return(FE_SOCKET);
 	}
 
-	if (listen(conn->file_head->sockfd, 1) != 0) {
-		firetalk_file_cancel(conn, conn->file_head);
+	if (listen(iter->sock.fd, 1) != 0) {
+		assert(conn->file_head == iter);
+		firetalk_file_cancel(conn, iter);
+		assert(conn->file_head != iter);
 		return(FE_SOCKET);
 	}
 
-	l = (unsigned int)sizeof(struct sockaddr_in);
-	if (getsockname(conn->file_head->sockfd, (struct sockaddr *)&addr, &l) != 0) {
-		firetalk_file_cancel(conn, conn->file_head);
+	l = (unsigned int)sizeof(addr);
+	if (getsockname(iter->sock.fd, (struct sockaddr *)&addr, &l) != 0) {
+		assert(conn->file_head == iter);
+		firetalk_file_cancel(conn, iter);
+		assert(conn->file_head != iter);
 		return(FE_SOCKET);
 	}
 
-	conn->file_head->bytes = 0;
-	conn->file_head->state = FF_STATE_WAITREMOTE;
-	conn->file_head->direction = FF_DIRECTION_SENDING;
-	conn->file_head->port = ntohs(addr.sin_port);
-	conn->file_head->next = iter;
-	conn->file_head->type = FF_TYPE_DCC;
-	snprintf(args, sizeof(args), "SEND %s %lu %u %ld", conn->file_head->filename, conn->localip, conn->file_head->port, conn->file_head->size);
+	iter->state = FF_STATE_WAITREMOTE;
+	iter->direction = FF_DIRECTION_SENDING;
+	iter->port = ntohs(addr.sin_port);
+	iter->type = FF_TYPE_DCC;
+	snprintf(args, sizeof(args), "SEND %s %u %u %ld", iter->filename, conn->localip, iter->port, iter->size);
 	return(firetalk_subcode_send_request(conn, nickname, "DCC", args));
 }
 
-fte_t	firetalk_file_accept(firetalk_t conn, void *filehandle, void *clientfilestruct, const char *const localfile) {
-	struct s_firetalk_file *fileiter;
+fte_t	firetalk_file_accept(firetalk_connection_t *conn, firetalk_transfer_t *fileiter, struct firetalk_useragent_transfer_t *clientfilestruct, const char *const localfile) {
 	struct sockaddr_in addr;
 
 	VERIFYCONN;
 
-	fileiter = filehandle;
 	fileiter->clientfilestruct = clientfilestruct;
 
 	fileiter->filefd = open(localfile, O_WRONLY|O_CREAT|O_EXCL, S_IRWXU);
@@ -2330,21 +2080,21 @@ fte_t	firetalk_file_accept(firetalk_t conn, void *filehandle, void *clientfilest
 	addr.sin_family = AF_INET;
 	addr.sin_port = fileiter->port;
 	memcpy(&addr.sin_addr.s_addr, &fileiter->inet_ip, 4);
-	fileiter->sockfd = firetalk_internal_connect(&addr
+	fileiter->sock.fd = firetalk_internal_connect(&addr
 #ifdef _FC_USE_IPV6
 	, NULL
 #endif
 	);
-	if (fileiter->sockfd == -1) {
-		firetalk_file_cancel(conn, filehandle);
+	if (fileiter->sock.fd == -1) {
+		firetalk_file_cancel(conn, fileiter);
 		return(FE_SOCKET);
 	}
 	fileiter->state = FF_STATE_WAITSYNACK;
 	return(FE_SUCCESS);
 }
 
-fte_t	firetalk_file_cancel(firetalk_t conn, void *filehandle) {
-	struct s_firetalk_file *fileiter, *prev;
+fte_t	firetalk_file_cancel(firetalk_connection_t *conn, firetalk_transfer_t *filehandle) {
+	firetalk_transfer_t *fileiter, *prev;
 
 	VERIFYCONN;
 
@@ -2363,10 +2113,7 @@ fte_t	firetalk_file_cancel(firetalk_t conn, void *filehandle) {
 				free(fileiter->filename);
 				fileiter->filename = NULL;
 			}
-			if (fileiter->sockfd >= 0) {
-				close(fileiter->sockfd);
-				fileiter->sockfd = -1;
-			}
+			firetalk_sock_close(&(fileiter->sock));
 			if (fileiter->filefd >= 0) {
 				close(fileiter->filefd);
 				fileiter->filefd = -1;
@@ -2379,32 +2126,35 @@ fte_t	firetalk_file_cancel(firetalk_t conn, void *filehandle) {
 	return(FE_NOTFOUND);
 }
 
-fte_t	firetalk_file_refuse(firetalk_t conn, void *filehandle) {
+fte_t	firetalk_file_refuse(firetalk_connection_t *conn, firetalk_transfer_t *filehandle) {
 	return(firetalk_file_cancel(conn, filehandle));
 }
 
-fte_t	firetalk_compare_nicks(firetalk_t conn, const char *const nick1, const char *const nick2) {
+fte_t	firetalk_compare_nicks(firetalk_connection_t *conn, const char *const nick1, const char *const nick2) {
 	VERIFYCONN;
+
+	if ((nick1 == NULL) || (nick2 == NULL))
+		return(FE_NOMATCH);
 
 	return(firetalk_protocols[conn->protocol]->comparenicks(nick1, nick2));
 }
 
-fte_t	firetalk_isprint(firetalk_t conn, const int c) {
+fte_t	firetalk_isprint(firetalk_connection_t *conn, const int c) {
 	VERIFYCONN;
 
 	return(firetalk_protocols[conn->protocol]->isprintable(c));
 }
 
-fte_t	firetalk_select() {
+fte_t	firetalk_select(void) {
 	return(firetalk_select_custom(0, NULL, NULL, NULL, NULL));
 }
 
 fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *fd_except, struct timeval *timeout) {
-	int ret;
+	fte_t	ret;
 	fd_set *my_read, *my_write, *my_except;
 	fd_set internal_read, internal_write, internal_except;
 	struct timeval internal_timeout, *my_timeout;
-	struct s_firetalk_handle *fchandle;
+	firetalk_connection_t *fchandle;
 
 	my_read = fd_read;
 	my_write = fd_write;
@@ -2437,12 +2187,43 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 
 	/* internal preselect */
 	for (fchandle = handle_head; fchandle != NULL; fchandle = fchandle->next) {
-		struct s_firetalk_file *fileiter;
+		firetalk_transfer_t *fileiter;
 
 		if (fchandle->deleted)
 			continue;
 
-		if (fchandle->connected == FCS_NOTCONNECTED)
+		for (fileiter = fchandle->file_head; fileiter != NULL; fileiter = fileiter->next) {
+			if (fileiter->state == FF_STATE_TRANSFERRING) {
+				if (fileiter->sock.fd >= n)
+					n = fileiter->sock.fd + 1;
+				switch (fileiter->direction) {
+				  case FF_DIRECTION_SENDING:
+					assert(fileiter->sock.fd >= 0);
+					FD_SET(fileiter->sock.fd, my_write);
+					FD_SET(fileiter->sock.fd, my_except);
+					break;
+				  case FF_DIRECTION_RECEIVING:
+					assert(fileiter->sock.fd >= 0);
+					FD_SET(fileiter->sock.fd, my_read);
+					FD_SET(fileiter->sock.fd, my_except);
+					break;
+				}
+			} else if (fileiter->state == FF_STATE_WAITREMOTE) {
+				assert(fileiter->sock.fd >= 0);
+				if (fileiter->sock.fd >= n)
+					n = fileiter->sock.fd + 1;
+				FD_SET(fileiter->sock.fd, my_read);
+				FD_SET(fileiter->sock.fd, my_except);
+			} else if (fileiter->state == FF_STATE_WAITSYNACK) {
+				assert(fileiter->sock.fd >= 0);
+				if (fileiter->sock.fd >= n)
+					n = fileiter->sock.fd + 1;
+				FD_SET(fileiter->sock.fd, my_write);
+				FD_SET(fileiter->sock.fd, my_except);
+			}
+		}
+
+		if (fchandle->sock.state == FCS_NOTCONNECTED)
 			continue;
 
 		while (fchandle->subcode_requests.count > 0) {
@@ -2460,48 +2241,8 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 		}
 
 		firetalk_protocols[fchandle->protocol]->periodic(fchandle);
-		if (fchandle->connected == FCS_NOTCONNECTED)
-			continue;
 
-		if (fchandle->fd >= n)
-			n = fchandle->fd + 1;
-		assert(fchandle->fd >= 0);
-		FD_SET(fchandle->fd, my_except);
-		if (fchandle->connected == FCS_WAITING_SYNACK)
-			FD_SET(fchandle->fd, my_write);
-		else
-			FD_SET(fchandle->fd, my_read);
-
-		for (fileiter = fchandle->file_head; fileiter != NULL; fileiter = fileiter->next) {
-			if (fileiter->state == FF_STATE_TRANSFERRING) {
-				if (fileiter->sockfd >= n)
-					n = fileiter->sockfd + 1;
-				switch (fileiter->direction) {
-				  case FF_DIRECTION_SENDING:
-					assert(fileiter->sockfd >= 0);
-					FD_SET(fileiter->sockfd, my_write);
-					FD_SET(fileiter->sockfd, my_except);
-					break;
-				  case FF_DIRECTION_RECEIVING:
-					assert(fileiter->sockfd >= 0);
-					FD_SET(fileiter->sockfd, my_read);
-					FD_SET(fileiter->sockfd, my_except);
-					break;
-				}
-			} else if (fileiter->state == FF_STATE_WAITREMOTE) {
-				assert(fileiter->sockfd >= 0);
-				if (fileiter->sockfd >= n)
-					n = fileiter->sockfd + 1;
-				FD_SET(fileiter->sockfd, my_read);
-				FD_SET(fileiter->sockfd, my_except);
-			} else if (fileiter->state == FF_STATE_WAITSYNACK) {
-				assert(fileiter->sockfd >= 0);
-				if (fileiter->sockfd >= n)
-					n = fileiter->sockfd + 1;
-				FD_SET(fileiter->sockfd, my_write);
-				FD_SET(fileiter->sockfd, my_except);
-			}
-		}
+		firetalk_sock_preselect(&(fchandle->sock), my_read, my_write, my_except, &n);
 	}
 
 	/* per-protocol preselect, UI prepoll */
@@ -2532,97 +2273,100 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 
 	/* internal postpoll */
 	for (fchandle = handle_head; fchandle != NULL; fchandle = fchandle->next) {
-		struct s_firetalk_file *fileiter, *filenext;
+		firetalk_transfer_t *fileiter, *filenext;
+		firetalk_sock_state_t state;
+		fte_t	ret;
 
 		if (fchandle->deleted)
 			continue;
 
-		if (fchandle->connected == FCS_NOTCONNECTED)
-			continue;
-		assert(fchandle->fd >= 0);
-		if (FD_ISSET(fchandle->fd, my_except))
-			firetalk_protocols[fchandle->protocol]->disconnect(fchandle->handle);
-		else if (FD_ISSET(fchandle->fd, my_read)) {
-			short	length;
-
-			/* read data into handle buffer */
-			length = recv(fchandle->fd, &fchandle->buffer[fchandle->bufferpos], firetalk_protocols[fchandle->protocol]->default_buffersize - fchandle->bufferpos, MSG_DONTWAIT);
-
-			if (length < 1)
-				firetalk_callback_disconnect(fchandle->handle, FE_DISCONNECT);
-			else {
-				fchandle->bufferpos += length;
-				if (fchandle->connected == FCS_ACTIVE)
-					firetalk_protocols[fchandle->protocol]->got_data(fchandle->handle, fchandle->buffer, &fchandle->bufferpos);
-				else
-					firetalk_protocols[fchandle->protocol]->got_data_connecting(fchandle->handle, fchandle->buffer, &fchandle->bufferpos);
-				if (fchandle->bufferpos == firetalk_protocols[fchandle->protocol]->default_buffersize)
-					firetalk_callback_disconnect(fchandle->handle, FE_PACKETSIZE);
-			}
-		} else if (FD_ISSET(fchandle->fd, my_write))
-			firetalk_handle_synack(fchandle);
-
 		for (fileiter = fchandle->file_head; fileiter != NULL; fileiter = filenext) {
 			filenext = fileiter->next;
 			if (fileiter->state == FF_STATE_TRANSFERRING) {
-				assert(fileiter->sockfd >= 0);
-				if (FD_ISSET(fileiter->sockfd, my_write))
+				assert(fileiter->sock.fd >= 0);
+				if (FD_ISSET(fileiter->sock.fd, my_write))
 					firetalk_handle_send(fchandle, fileiter);
-				if ((fileiter->sockfd != -1) && FD_ISSET(fileiter->sockfd, my_read))
+				if ((fileiter->sock.fd != -1) && FD_ISSET(fileiter->sock.fd, my_read))
 					firetalk_handle_receive(fchandle, fileiter);
-				if ((fileiter->sockfd != -1) && FD_ISSET(fileiter->sockfd, my_except)) {
+				if ((fileiter->sock.fd != -1) && FD_ISSET(fileiter->sock.fd, my_except)) {
 					if (fchandle->callbacks[FC_FILE_ERROR])
 						fchandle->callbacks[FC_FILE_ERROR](fchandle, fchandle->clientstruct, fileiter, fileiter->clientfilestruct, FE_IOERROR);
 					firetalk_file_cancel(fchandle, fileiter);
 				}
 			} else if (fileiter->state == FF_STATE_WAITREMOTE) {
-				assert(fileiter->sockfd >= 0);
-				if (FD_ISSET(fileiter->sockfd, my_read)) {
-					unsigned int l = sizeof(struct sockaddr_in);
+				assert(fileiter->sock.fd >= 0);
+				if (FD_ISSET(fileiter->sock.fd, my_read)) {
 					struct sockaddr_in addr;
-					int s;
+					unsigned int l = sizeof(addr);
+					int	s;
 
-					s = accept(fileiter->sockfd, (struct sockaddr *)&addr, &l);
+					s = accept(fileiter->sock.fd, (struct sockaddr *)&addr, &l);
 					if (s == -1) {
 						if (fchandle->callbacks[FC_FILE_ERROR])
 							fchandle->callbacks[FC_FILE_ERROR](fchandle, fchandle->clientstruct, fileiter, fileiter->clientfilestruct, FE_SOCKET);
 						firetalk_file_cancel(fchandle, fileiter);
 					} else {
-						close(fileiter->sockfd);
-						fileiter->sockfd = s;
+						close(fileiter->sock.fd);
+						fileiter->sock.fd = s;
 						fileiter->state = FF_STATE_TRANSFERRING;
 						if (fchandle->callbacks[FC_FILE_START])
 							fchandle->callbacks[FC_FILE_START](fchandle, fchandle->clientstruct, fileiter, fileiter->clientfilestruct);
 					}
-				} else if (FD_ISSET(fileiter->sockfd, my_except)) {
+				} else if (FD_ISSET(fileiter->sock.fd, my_except)) {
 					if (fchandle->callbacks[FC_FILE_ERROR])
 						fchandle->callbacks[FC_FILE_ERROR](fchandle, fchandle->clientstruct, fileiter, fileiter->clientfilestruct, FE_IOERROR);
 					firetalk_file_cancel(fchandle, fileiter);
 				}
 			} else if (fileiter->state == FF_STATE_WAITSYNACK) {
-				assert(fileiter->sockfd >= 0);
-				if (FD_ISSET(fileiter->sockfd, my_write))
+				assert(fileiter->sock.fd >= 0);
+				if (FD_ISSET(fileiter->sock.fd, my_write))
 					firetalk_handle_file_synack(fchandle, fileiter);
-				if (FD_ISSET(fileiter->sockfd, my_except))
+				if (FD_ISSET(fileiter->sock.fd, my_except))
 					firetalk_file_cancel(fchandle, fileiter);
 			}
+		}
+
+		errno = 0;
+		state = fchandle->sock.state;
+		if ((ret = firetalk_sock_postselect(&(fchandle->sock), my_read, my_write, my_except, &(fchandle->buffer))) != FE_SUCCESS) {
+			assert(fchandle->sock.state == FCS_NOTCONNECTED);
+			if (state == FCS_ACTIVE)
+				firetalk_protocols[fchandle->protocol]->disconnected(fchandle->handle, FE_DISCONNECT);
+			else {
+				if (fchandle->callbacks[FC_CONNECTFAILED])
+					fchandle->callbacks[FC_CONNECTFAILED](fchandle, fchandle->clientstruct, ret, strerror(errno));
+			}
+			continue;
+		}
+
+		if (fchandle->sock.state == FCS_SEND_SIGNON) {
+			fchandle->sock.state = FCS_WAITING_SIGNON;
+			firetalk_protocols[fchandle->protocol]->signon(fchandle->handle, fchandle->username);
+		} else if (fchandle->buffer.readdata) {
+			if (fchandle->sock.state == FCS_ACTIVE)
+				firetalk_protocols[fchandle->protocol]->got_data(fchandle->handle, fchandle->buffer.buffer, &fchandle->buffer.pos);
+			else
+				firetalk_protocols[fchandle->protocol]->got_data_connecting(fchandle->handle, fchandle->buffer.buffer, &fchandle->buffer.pos);
+			if (fchandle->buffer.pos == fchandle->buffer.size)
+				firetalk_callback_disconnect(fchandle->handle, FE_PACKETSIZE);
 		}
 	}
 
 	/* handle deleted connections */
 	{
-		struct s_firetalk_handle *fchandleprev, *fchandlenext;
+		firetalk_connection_t *fchandleprev, *fchandlenext;
 
 		fchandleprev = NULL;
 		for (fchandle = handle_head; fchandle != NULL; fchandle = fchandlenext) {
 			fchandlenext = fchandle->next;
-			if (fchandle->deleted == 1) {
+			if (fchandle->deleted) {
 				assert(fchandle->handle == NULL);
 				if (fchandle->buddy_head != NULL) {
-					struct s_firetalk_buddy *iter, *iternext;
+					firetalk_buddy_t *iter, *iternext;
 
 					for (iter = fchandle->buddy_head; iter != NULL; iter = iternext) {
 						iternext = iter->next;
+						iter->next = NULL;
 						if (iter->nickname != NULL) {
 							free(iter->nickname);
 							iter->nickname = NULL;
@@ -2630,6 +2374,10 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 						if (iter->group != NULL) {
 							free(iter->group);
 							iter->group = NULL;
+						}
+						if (iter->friendly != NULL) {
+							free(iter->friendly);
+							iter->friendly = NULL;
 						}
 						if (iter->capabilities != NULL) {
 							free(iter->capabilities);
@@ -2640,10 +2388,11 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 					fchandle->buddy_head = NULL;
 				}
 				if (fchandle->deny_head != NULL) {
-					struct s_firetalk_deny *iter, *iternext;
+					firetalk_deny_t *iter, *iternext;
 
 					for (iter = fchandle->deny_head; iter != NULL; iter = iternext) {
 						iternext = iter->next;
+						iter->next = NULL;
 						if (iter->nickname != NULL) {
 							free(iter->nickname);
 							iter->nickname = NULL;
@@ -2653,13 +2402,14 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 					fchandle->deny_head = NULL;
 				}
 				if (fchandle->room_head != NULL) {
-					struct s_firetalk_room *iter, *iternext;
+					firetalk_room_t *iter, *iternext;
 
 					for (iter = fchandle->room_head; iter != NULL; iter = iternext) {
-						struct s_firetalk_member *memberiter, *memberiternext;
+						firetalk_member_t *memberiter, *memberiternext;
 
 						for (memberiter = iter->member_head; memberiter != NULL; memberiter = memberiternext) {
 							memberiternext = memberiter->next;
+							memberiter->next = NULL;
 							if (memberiter->nickname != NULL) {
 								free(memberiter->nickname);
 								memberiter->nickname = NULL;
@@ -2676,28 +2426,14 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 					}
 					fchandle->room_head = NULL;
 				}
-				if (fchandle->file_head != NULL) {
-					struct s_firetalk_file *iter, *iternext;
-
-					for (iter = fchandle->file_head; iter != NULL; iter = iternext) {
-						iternext = iter->next;
-						if (iter->who != NULL) {
-							free(iter->who);
-							iter->who = NULL;
-						}
-						if (iter->filename != NULL) {
-							free(iter->filename);
-							iter->filename = NULL;
-						}
-						free(iter);
-					}
-					fchandle->file_head = NULL;
-				}
+				while (fchandle->file_head != NULL)
+					firetalk_file_cancel(fchandle, fchandle->file_head);
 				if (fchandle->subcode_request_head != NULL) {
-					struct s_firetalk_subcode_callback *iter, *iternext;
+					firetalk_subcode_callback_t *iter, *iternext;
 
 					for (iter = fchandle->subcode_request_head; iter != NULL; iter = iternext) {
 						iternext = iter->next;
+						iter->next = NULL;
 						if (iter->command != NULL) {
 							free(iter->command);
 							iter->command = NULL;
@@ -2715,15 +2451,21 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 						free(fchandle->subcode_request_default->command);
 						fchandle->subcode_request_default->command = NULL;
 					}
+					if (fchandle->subcode_request_default->staticresp != NULL) {
+						free(fchandle->subcode_request_default->staticresp);
+						fchandle->subcode_request_default->staticresp = NULL;
+					}
 					free(fchandle->subcode_request_default);
 					fchandle->subcode_request_default = NULL;
 				}
 				if (fchandle->subcode_reply_head != NULL) {
-					struct s_firetalk_subcode_callback *iter, *iternext;
+					firetalk_subcode_callback_t *iter, *iternext;
 
 					for (iter = fchandle->subcode_reply_head; iter != NULL; iter = iternext) {
 						iternext = iter->next;
+						iter->next = NULL;
 						free(iter->command);
+						iter->command = NULL;
 						free(iter);
 					}
 					fchandle->subcode_reply_head = NULL;
@@ -2740,10 +2482,7 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 					free(fchandle->username);
 					fchandle->username = NULL;
 				}
-				if (fchandle->buffer != NULL) {
-					free(fchandle->buffer);
-					fchandle->buffer = NULL;
-				}
+				firetalk_buffer_free(&(fchandle->buffer));
 				if (fchandleprev == NULL) {
 					assert(fchandle == handle_head);
 					handle_head = fchandlenext;
@@ -2752,64 +2491,13 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 					fchandleprev->next = fchandlenext;
 				}
 
+				fchandle->canary = NULL;
 				free(fchandle);
+				fchandle = NULL;
 			} else
 				fchandleprev = fchandle;
 		}
 	}
 
 	return(FE_SUCCESS);
-}
-
-void	firetalk_enqueue(firetalk_queue_t *queue, const char *const key, void *data) {
-	queue->count++;
-	queue->keys = realloc(queue->keys, (queue->count)*sizeof(*(queue->keys)));
-	queue->data = realloc(queue->data, (queue->count)*sizeof(*(queue->data)));
-	queue->keys[queue->count-1] = strdup(key);
-	if (queue->keys[queue->count-1] == NULL)
-		abort();
-	queue->data[queue->count-1] = data;
-}
-
-const void *firetalk_peek(firetalk_queue_t *queue, const char *const key) {
-	int	i;
-
-	assert(queue != NULL);
-	assert(key != NULL);
-
-	for (i = 0; i < queue->count; i++)
-		if (strcmp(queue->keys[i], key) == 0)
-			return(queue->data[i]);
-	return(NULL);
-}
-
-void	*firetalk_dequeue(firetalk_queue_t *queue, const char *const key) {
-	int	i;
-
-	assert(queue != NULL);
-	assert(key != NULL);
-
-	for (i = 0; i < queue->count; i++)
-		if (strcmp(queue->keys[i], key) == 0) {
-			void	*data = queue->data[i];
-
-			memmove(queue->keys+i, queue->keys+i+1, (queue->count-i-1)*sizeof(*(queue->keys)));
-			memmove(queue->data+i, queue->data+i+1, (queue->count-i-1)*sizeof(*(queue->data)));
-			queue->count--;
-			queue->keys = realloc(queue->keys, (queue->count)*sizeof(*(queue->keys)));
-			queue->data = realloc(queue->data, (queue->count)*sizeof(*(queue->data)));
-			return(data);
-		}
-	return(NULL);
-}
-
-void	firetalk_queue_append(char *buf, int buflen, firetalk_queue_t *queue, const char *const key) {
-	const char *data;
-
-	while ((data = firetalk_peek(queue, key)) != NULL) {
-		if (strlen(buf)+strlen(data) >= buflen-1)
-			break;
-		strcat(buf, data);
-		free(firetalk_dequeue(queue, key));
-	}
 }

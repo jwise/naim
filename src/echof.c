@@ -11,7 +11,7 @@ extern conn_t	*curconn;
 extern int	wsetup_called, inplayback;
 extern time_t	now;
 extern double	nowf;
-extern faimconf_t	faimconf;
+extern faimconf_t faimconf;
 
 void	status_echof(conn_t *conn, const unsigned char *format, ...) {
 	char	buf[1024*8];

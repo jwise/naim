@@ -17,27 +17,23 @@ typedef struct {
 #include <naim/naim.h>
 
 extern conn_t	*curconn;
-extern faimconf_t	faimconf;
+extern faimconf_t faimconf;
 extern int	scrollbackoff, buddyc, doredraw, inpaste, withtextcomp;
 extern time_t	now, awaytime;
 extern double	nowf, changetime;
 extern int	wbuddy_widthy;
 
-extern win_t
-	win_input G_GNUC_INTERNAL,
+extern win_t win_input G_GNUC_INTERNAL,
 	win_buddy G_GNUC_INTERNAL,
 	win_info G_GNUC_INTERNAL,
 	win_away G_GNUC_INTERNAL;
-extern int
-	wsetup_called G_GNUC_INTERNAL,
+extern int wsetup_called G_GNUC_INTERNAL,
 	quakeoff G_GNUC_INTERNAL;
-extern char
-	*statusbar_text G_GNUC_INTERNAL;
-win_t
-	win_input,
-	win_buddy,
-	win_info,
-	win_away;
+extern char *statusbar_text G_GNUC_INTERNAL;
+win_t	win_input = { 0 },
+	win_buddy = { 0 },
+	win_info = { 0 },
+	win_away = { 0 };
 int	wsetup_called = 0,
 	quakeoff = 0;
 char	*statusbar_text = NULL;
@@ -306,33 +302,33 @@ void	wsetup(void) {
 	whidecursor();
 
 	{
-		win_t	dummy;
+		win_t	dummy = { 0 };
 
-		memset(&dummy, 0, sizeof(dummy));
+		assert(dummy.win == NULL);
 		dummy.win = stdscr;
 		nw_initwin(&dummy, 0);
 		nw_refresh(&dummy);
 	}
 
-	memset(&win_input, 0, sizeof(win_input));
+	assert(win_input.win == NULL);
 	win_input.win = NWIN(winput);
 	assert(win_input.win != NULL);
 	nw_initwin(&win_input, cINPUT);
 	scrollok(win_input.win, FALSE);
 
-	memset(&win_buddy, 0, sizeof(win_buddy));
+	assert(win_buddy.win == NULL);
 	win_buddy.win = NPAD(wstatus);
 	assert(win_buddy.win != NULL);
 	nw_initwin(&win_buddy, cWINLIST);
 	scrollok(win_buddy.win, FALSE);
 
-	memset(&win_info, 0, sizeof(win_info));
+	assert(win_info.win == NULL);
 	win_info.win = NWIN(winfo);
 	assert(win_info.win != NULL);
 	nw_initwin(&win_info, cTEXT);
 	scrollok(win_info.win, FALSE);
 
-	memset(&win_away, 0, sizeof(win_away));
+	assert(win_away.win == NULL);
 	win_away.win = NWIN(waway);
 	assert(win_away.win != NULL);
 	nw_initwin(&win_away, cWINLIST-1);
@@ -353,6 +349,10 @@ void	wshutitdown(void) {
 		echof(curconn, "WSHUTITDOWN", "wsetup() hasn't been called\n");
 		return;
 	}
+	nw_delwin(&win_input);
+	nw_delwin(&win_buddy);
+	nw_delwin(&win_info);
+	nw_delwin(&win_away);
 	endwin();
 	wsetup_called = 0;
 }
@@ -370,7 +370,7 @@ void	win_resize(void) {
 	nw_resize(&win_info,  faimconf.winfo.widthy,  faimconf.winfo.widthx);
 	nw_mvwin(&win_info, faimconf.winfo.starty, faimconf.winfo.startx);
 	do {
-		buddywin_t	*bwin = conn->curbwin;
+		buddywin_t *bwin = conn->curbwin;
 
 		naim_setversion(conn);
 		assert(conn->nwin.win != NULL);

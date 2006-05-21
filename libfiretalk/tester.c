@@ -428,5 +428,5 @@ int	main(int argc, char *argv[]) {
 
 		fprintf(stderr, "\r\n");
 	}
-	return 0;
+	return(0);
 }

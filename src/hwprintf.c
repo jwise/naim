@@ -8,7 +8,7 @@
 
 #include "naim-int.h"
 
-extern faimconf_t	faimconf;
+extern faimconf_t faimconf;
 extern conn_t	*curconn;
 extern int	inplayback;
 
@@ -160,7 +160,7 @@ static const struct {
 #define CHECKAMP(tag)	(strcasecmp(tagbuf, (tag)) == 0)
 
 static const char *const parsehtml_pair_RGB(int pair, char bold) {
-	static char	buf[20];
+	static char buf[20];
 	int	i;
 
 	for (i = 0; i < sizeof(colar)/sizeof(*colar); i++)
@@ -228,11 +228,11 @@ static int parsehtml_pair(const unsigned char *buf, int _pair, char *inbold, cha
 }
 
 static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
-	unsigned char
-		tagbuf[20], argbuf[1024], *textsave = text, *tagbase;
+	unsigned char tagbuf[20] = { 0 },
+		argbuf[1024] = { 0 },
+		*textsave = text, *tagbase;
 	int	tagpos = 0;
-	static char
-		last_inunderline = 0;
+	static char last_inunderline = 0;
 	static struct {
 		int	pair;
 		unsigned char
@@ -240,11 +240,7 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 			initalic:1,
 			inunderline:1;
 	} fontstack[20];
-	static int
-		fontstacklen = 0;
-
-	memset(tagbuf, 0, sizeof(tagbuf));
-	memset(argbuf, 0, sizeof(argbuf));
+	static int fontstacklen = 0;
 
 	while (isspace(*text))
 		text++;
@@ -525,16 +521,13 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 }
 
 static unsigned long parsehtml_amp(h_t *h, unsigned char *text) {
-	unsigned char
-		tagbuf[20], *textsave = text;
+	unsigned char tagbuf[20] = { 0 },
+		*textsave = text;
 	int	tagpos = 0;
-
-	memset(tagbuf, 0, sizeof(tagbuf));
 
 	while (isspace(*text))
 		text++;
-	while ((*text) && (!isspace(*text)) && (*text != ';')
-		&& (*text != '\n')) {
+	while ((*text) && (!isspace(*text)) && (*text != ';') && (*text != '\n')) {
 		if (tagpos < sizeof(tagbuf)-1)
 			tagbuf[tagpos++] = *text;
 		else
@@ -579,8 +572,7 @@ static unsigned long parsehtml(h_t *h, char *str, int backup) {
 }
 
 int	vhwprintf(win_t *win, int _pair, const unsigned char *format, va_list msg) {
-	static unsigned char
-		buf[20*1024];
+	static unsigned char buf[20*1024];
 	size_t	len = 0;
 	int	pos = -1, lines = 0;
 	h_t	h;
@@ -619,8 +611,8 @@ int	vhwprintf(win_t *win, int _pair, const unsigned char *format, va_list msg) {
 	nw_color(win, h.pair);
 	while (++pos < len) {
 		if ((buf[pos] == '<') || (buf[pos] == '&')) {
-			static int	lastpos = 0;
-			unsigned long	skiplen = 0;
+			static int lastpos = 0;
+			unsigned long skiplen = 0;
 
 			if ((skiplen = parsehtml(&h, buf+pos, pos-lastpos)) == 0) {
 				nw_wrap_addch(&h, buf[pos]);

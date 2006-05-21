@@ -7,15 +7,11 @@
 
 #include "naim-int.h"
 
-extern conn_t
-	*curconn;
+extern conn_t *curconn;
 
-extern script_t
-	*scriptar G_GNUC_INTERNAL;
-extern int
-	scriptc G_GNUC_INTERNAL;
-script_t
-	*scriptar = NULL;
+extern script_t *scriptar G_GNUC_INTERNAL;
+extern int scriptc G_GNUC_INTERNAL;
+script_t *scriptar = NULL;
 int	scriptc = 0;
 
 void	script_makealias(const char *alias, const char *script) {

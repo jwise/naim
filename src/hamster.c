@@ -11,13 +11,12 @@
 
 extern conn_t	*curconn;
 extern time_t	now;
-extern faimconf_t	faimconf;
+extern faimconf_t faimconf;
 
 extern time_t awaytime G_GNUC_INTERNAL;
 time_t	awaytime = -1;
 
-void	logim(conn_t *conn, const char *source, const char *target,
-	const unsigned char *msg) {
+void	logim(conn_t *conn, const char *source, const char *target, const unsigned char *msg) {
 	struct tm	*tmptr = NULL;
 
 	if (target == NULL)
@@ -155,7 +154,7 @@ static int sendto_send(conn_t *conn, char **name, char **dest,
 	}
 
 	if (ret != FE_SUCCESS) {
-		buddywin_t	*bwin = bgetwin(conn, *dest, BUDDY);
+		buddywin_t *bwin = bgetwin(conn, *dest, BUDDY);
 
 		if (bwin == NULL)
 			bwin = bgetwin(conn, *dest, CHAT);
@@ -211,7 +210,7 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 		naim_send_message(conn, SN, msg, ischat, 0, 0);
 								// send the message through the protocol layer
 	} else {
-		struct tm	*tmptr = NULL;
+		struct tm *tmptr = NULL;
 
 		tmptr = localtime(&now);
 		assert(tmptr != NULL);
@@ -290,7 +289,7 @@ void	setaway(const int auto_flag) {
 		status_echof(conn, "You are now away--hurry back!\n");
 		firetalk_set_away(conn->conn, awaymsg, auto_flag);
 		if (conn->online > 0)
-			naim_set_info(conn->conn, conn->profile);
+			naim_set_info(conn, conn->profile);
 	} while ((conn = conn->next) != curconn);
 }
 
@@ -303,7 +302,7 @@ void	unsetaway(void) {
 		status_echof(conn, "You are no longer away--welcome back =)\n");
 		firetalk_set_away(conn->conn, NULL, 0);
 		if (conn->online > 0)
-			naim_set_info(conn->conn, conn->profile);
+			naim_set_info(conn, conn->profile);
 	} while ((conn = conn->next) != curconn);
 }
 

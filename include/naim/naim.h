@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #ifndef naim_h
@@ -72,15 +72,13 @@ enum {
 
 typedef struct {
 	char	*name;
-	unsigned char
-		gotaway:1;
+	unsigned char gotaway:1;
 } awayar_t;
 
 typedef struct {
 	char	*buf;
 	int	len;
-	unsigned char
-		foundfirst:1,
+	unsigned char foundfirst:1,
 		foundmatch:1,
 		foundmult:1;
 } namescomplete_t;
@@ -93,12 +91,11 @@ typedef struct buddylist_ts {
 		*tzname,
 		*tag,
 		*caps;
-	struct buddylist_ts	*next;
+	struct buddylist_ts *next;
 	long	warnval;
 	int	peer,
 		typing;
-	unsigned char
-		offline:1,
+	unsigned char offline:1,
 		isaway:1,
 		isidle:1;	// is the buddy idle for more than some threshhold?
 } buddylist_t;
@@ -110,25 +107,22 @@ typedef struct buddylist_ts {
 #define USER_PERMANENT(x) (strcasecmp((x)->_group, DEFAULT_GROUP) != 0)
 
 typedef struct {
-	unsigned char
-		isoper:1,	// chat operator
-		isaddressed:1,	// message addressed sent to me
-		offline:1;
 	char	*key;
 	struct {
-		unsigned char
-			*line;
+		unsigned char *line;
 		char	*name;
 		int	reps;
 		time_t	lasttime;
 		int	flags;
-		unsigned char
-			istome:1;
+		unsigned char istome:1;
 	} last;
+	unsigned char isoper:1,	// chat operator
+		isaddressed:1,	// message addressed sent to me
+		offline:1;
 } chatlist_t;
 
-typedef struct {
-	void	*handle;
+typedef struct firetalk_useragent_transfer_t {
+	struct firetalk_transfer_t *handle;
 	char	*from,
 		*remote,
 		*local;
@@ -136,6 +130,7 @@ typedef struct {
 		bytes;
 	double	started;
 	time_t	lastupdate;
+	struct buddywin_t *bwin;
 } transfer_t;
 
 typedef enum {
@@ -149,17 +144,15 @@ typedef struct {
 	void	*_win;
 	FILE	*logfile;
 	int	height;
-	unsigned char
-		dirty:1,
+	unsigned char dirty:1,
 		small:1;
 } win_t;
 #endif
 
-typedef struct buddywin_ts {
+typedef struct buddywin_t {
 	char	*winname,
 		*blurb;
-	unsigned char
-		waiting:1,	/* text waiting to be read (overrides
+	unsigned char waiting:1,/* text waiting to be read (overrides
 				** offline and isbuddy in bupdate())
 				*/
 		keepafterso:1;	/* keep window open after buddy signs off? */
@@ -175,15 +168,13 @@ typedef struct buddywin_ts {
 		transfer_t	*transfer;
 	} e;
 	et_t	et;
-	struct buddywin_ts
-		*next;
+	struct buddywin_t *next;
 } buddywin_t;
 
 typedef struct ignorelist_ts {
 	char	*screenname,
 		*notes;
-	struct ignorelist_ts
-		*next;
+	struct ignorelist_ts *next;
 	time_t	informed;
 } ignorelist_t;
 
@@ -200,7 +191,7 @@ typedef struct {
 #define CI(back, fore)	(          faimconf.b[c ## back] + nw_COLORS*(faimconf.f[c ## fore]%COLOR_PAIRS))
 #define CB(back, fore)	(nw_COLORS*faimconf.b[c ## back] +            faimconf.b[c ## fore])
 
-typedef struct conn_ts {
+typedef struct firetalk_useragent_connection_t {
 	char	*sn,
 		*password,
 		*winname,
@@ -210,14 +201,13 @@ typedef struct conn_ts {
 	int	port, proto;
 	time_t	online;
 	double	lastupdate, lag;
-	void	*conn;
+	struct firetalk_connection_t *conn;
 	FILE	*logfile;
 	win_t	nwin;
 	buddylist_t	*buddyar;
 	ignorelist_t	*idiotar;
 	buddywin_t	*curbwin;
-	struct conn_ts
-		*next;
+	struct firetalk_useragent_connection_t *next;
 } conn_t;
 
 typedef struct {
@@ -226,18 +216,15 @@ typedef struct {
 } script_t;
 
 typedef struct {
-	const char
-		*var,
+	const char *var,
 		*val,
 		*desc;
 } rc_var_s_t;
 
 typedef struct {
-	const char
-		*var;
+	const char *var;
 	long	val;
-	const char
-		*desc;
+	const char *desc;
 } rc_var_i_t;
 
 typedef struct {
@@ -337,9 +324,9 @@ static inline int naim_strtocol(const char *str) {
 #define WINTIME(win, cpre)	WINTIME_NOTNOW(win, cpre, now)
 
 #define WINTIMENOLOG(win, cpre) do { \
-	struct tm	*tptr = localtime(&now); \
-	unsigned char	buf[64]; \
-	char		*format; \
+	struct tm *tptr = localtime(&now); \
+	unsigned char buf[64]; \
+	char	*format; \
 	\
 	if ((format = secs_getvar("timeformat")) == NULL) \
 		format = "[%H:%M:%S]&nbsp;"; \
@@ -347,7 +334,7 @@ static inline int naim_strtocol(const char *str) {
 	hwprintf(win, -C(cpre,EVENT)-1, "</B>%s", buf); \
 } while (0)
 
-extern int	consolescroll;
+extern int consolescroll;
 #define inconsole	(consolescroll != -1)
 #define inconn_real	((curconn != NULL) && (curconn->curbwin != NULL))
 #define inconn		(!inconsole && inconn_real)
@@ -369,10 +356,8 @@ void	bidle(conn_t *conn, const char *, int) G_GNUC_INTERNAL;
 void	baway(conn_t *conn, const char *, int) G_GNUC_INTERNAL;
 void	verify_winlist_sanity(conn_t *const conn, const buddywin_t *const verifywin) G_GNUC_INTERNAL;
 void	bclose(conn_t *conn, buddywin_t *bwin, int _auto);
-buddywin_t
-	*bgetwin(conn_t *conn, const char *, et_t);
-buddywin_t
-	*bgetanywin(conn_t *conn, const char *);
+buddywin_t *bgetwin(conn_t *conn, const char *, et_t);
+buddywin_t *bgetanywin(conn_t *conn, const char *);
 void	bclearall(conn_t *conn, int) G_GNUC_INTERNAL;
 void	naim_changetime(void) G_GNUC_INTERNAL;
 
@@ -394,13 +379,12 @@ void	event_handle(time_t) G_GNUC_INTERNAL;
 /* fireio.c */
 void	chat_flush(buddywin_t *bwin) G_GNUC_INTERNAL;
 conn_t	*naim_newconn(int);
-void	naim_set_info(void *, const char *) G_GNUC_INTERNAL;
+void	naim_set_info(conn_t *conn, const char *) G_GNUC_INTERNAL;
 void	naim_lastupdate(conn_t *conn) G_GNUC_INTERNAL;
-buddywin_t
-	*cgetwin(conn_t *, const char *);
+buddywin_t *cgetwin(conn_t *, const char *);
+void	naim_chat_listmembers(conn_t *conn, const char *const chat) G_GNUC_INTERNAL;
 void	fremove(transfer_t *) G_GNUC_INTERNAL;
-transfer_t
-	*fnewtransfer(void *handle, const char *filename,
+transfer_t *fnewtransfer(struct firetalk_transfer_t *handle, buddywin_t *bwin, const char *filename,
 		const char *from, long size) G_GNUC_INTERNAL;
 void	fireio_hook_init(void) G_GNUC_INTERNAL;
 void	naim_awaylog(conn_t *conn, const char *src, const char *msg) G_GNUC_INTERNAL;
@@ -426,12 +410,12 @@ int	vhwprintf(win_t *, int, const unsigned char *, va_list);
 int	hwprintf(win_t *, int, const unsigned char *, ...);
 
 /* rc.c */
-const char
-	*buddy_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
-buddylist_t
-	*rgetlist(conn_t *, const char *);
-buddylist_t
-	*raddbuddy(conn_t *, const char *, const char *, const char *);
+const char *account_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
+const char *buddy_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
+const char *idiot_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
+buddylist_t *rgetlist(conn_t *, const char *);
+buddylist_t *rgetlist_friendly(conn_t *conn, const char *friendly);
+buddylist_t *raddbuddy(conn_t *, const char *, const char *, const char *);
 void	do_delbuddy(buddylist_t *b);
 void	rdelbuddy(conn_t *, const char *);
 void	raddidiot(conn_t *, const char *, const char *);
@@ -443,10 +427,8 @@ int	naim_read_config(const char *) G_GNUC_INTERNAL;
 /* rodents.c */
 int	aimcmp(const unsigned char *, const unsigned char *) G_GNUC_INTERNAL;
 int	aimncmp(const unsigned char *, const unsigned char *, int len) G_GNUC_INTERNAL;
-const char
-	*dtime(double t) G_GNUC_INTERNAL;
-const char
-	*dsize(double b) G_GNUC_INTERNAL;
+const char *dtime(double t) G_GNUC_INTERNAL;
+const char *dsize(double b) G_GNUC_INTERNAL;
 void	htmlstrip(char *bb);
 void	htmlreplace(char *bb, char what);
 
@@ -455,8 +437,7 @@ void	script_makealias(const char *, const char *);
 int	script_doalias(const char *, const char *);
 
 /* set.c */
-const char
-	*set_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
+const char *set_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
 void	set_echof(const char *const format, ...);
 void	set_setvar(const char *, const char *) G_GNUC_INTERNAL;
 

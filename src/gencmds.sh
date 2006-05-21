@@ -106,6 +106,12 @@ echo '#include "conio.c"' \
 				atype = "W";
 			else if ($2 == "buddy")
 				atype = "B";
+			else if ($2 == "account")
+				atype = "A";
+			else if ($2 == "cmember")
+				atype = "M";
+			else if ($2 == "idiot")
+				atype = "I";
 			else if ($2 == "chat")
 				atype = "C";
 			else if ($2 == "filename")
@@ -129,6 +135,12 @@ echo '#include "conio.c"' \
 				atype = "W";
 			else if ($2 == "buddy")
 				atype = "B";
+			else if ($2 == "account")
+				atype = "A";
+			else if ($2 == "cmember")
+				atype = "M";
+			else if ($2 == "idiot")
+				atype = "I";
 			else if ($2 == "chat")
 				atype = "C";
 			else if ($2 == "filename")

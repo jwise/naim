@@ -2,12 +2,11 @@ EXTRA_DIST = firetalk.m4
 
 noinst_LIBRARIES = libfiretalk.a
 libfiretalk_a_SOURCES = \
-	aim.c \
-	aim.h \
 	firetalk.c \
 	firetalk-int.h \
 	irc.c \
 	lily.c \
+	pdutil.c \
 	toc2.c \
 	toc2_uuids.h
 

@@ -1,6 +1,6 @@
 /*  _ __   __ _ ___ __  __
 ** | '_ \ / _` |_ _|  \/  | naim
-** | | | | (_| || || |\/| | Copyright 1998-2004 Daniel Reed <n@ml.org>
+** | | | | (_| || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 #include <naim/naim.h>
@@ -8,14 +8,12 @@
 
 #include "naim-int.h"
 
-extern conn_t	*curconn;
-extern const char	*home;
-extern time_t	now;
+extern conn_t *curconn;
+extern const char *home;
+extern time_t now;
 
-buddylist_t
-	*raddbuddy(conn_t *conn, const char *screenname, const char *group,
-	const char *notes) {
-	buddylist_t	*buddy = NULL;
+buddylist_t *raddbuddy(conn_t *conn, const char *screenname, const char *group, const char *friendly) {
+	buddylist_t *buddy = NULL;
 
 	assert(conn != NULL);
 	assert(screenname != NULL);
@@ -29,8 +27,8 @@ buddylist_t
 	assert(buddy != NULL);
 	STRREPLACE(buddy->_account, screenname);
 	STRREPLACE(buddy->_group, group);
-	if (notes != NULL)
-		STRREPLACE(buddy->_name, notes);
+	if (friendly != NULL)
+		STRREPLACE(buddy->_name, friendly);
 	else
 		FREESTR(buddy->_name);
 
@@ -64,7 +62,7 @@ void	do_delbuddy(buddylist_t *b) {
 }
 
 void	rdelbuddy(conn_t *conn, const char *screenname) {
-	buddylist_t	*buddy = NULL;
+	buddylist_t *buddy = NULL;
 
 	assert(conn != NULL);
 	assert(screenname != NULL);
@@ -98,16 +96,14 @@ void	rdelbuddy(conn_t *conn, const char *screenname) {
 }
 
 void	raddidiot(conn_t *conn, const char *screenname, const char *notes) {
-	ignorelist_t	*idiot = NULL;
+	ignorelist_t *idiot = NULL;
 
 	assert(conn != NULL);
 	assert(screenname != NULL);
-	idiot = conn->idiotar;
-	while (idiot != NULL) {
+
+	for (idiot = conn->idiotar; idiot != NULL; idiot = idiot->next)
 		if (firetalk_compare_nicks(conn->conn, screenname, idiot->screenname) == FE_SUCCESS)
 			break;
-		idiot = idiot->next;
-	}
 	if (idiot == NULL) {
 		idiot = calloc(1, sizeof(ignorelist_t));
 		assert(idiot != NULL);
@@ -118,18 +114,18 @@ void	raddidiot(conn_t *conn, const char *screenname, const char *notes) {
 	if (notes != NULL)
 		STRREPLACE(idiot->notes, notes);
 	else
-		STRREPLACE(idiot->notes, "There is no reason, you're just"
-			" ignored!");
+		STRREPLACE(idiot->notes, "There is no reason, you're just ignored!");
 }
 
 void	rdelidiot(conn_t *conn, const char *screenname) {
-	ignorelist_t	*idiot = NULL;
+	ignorelist_t *idiot = NULL;
 
 	assert(conn != NULL);
 	assert(screenname != NULL);
 
 	if ((idiot = conn->idiotar) == NULL)
 		return;
+
 	if (firetalk_compare_nicks(conn->conn, screenname, idiot->screenname) == FE_SUCCESS) {
 		conn->idiotar = idiot->next;
 		free(idiot->screenname);
@@ -155,9 +151,8 @@ void	rdelidiot(conn_t *conn, const char *screenname) {
 	}
 }
 
-buddylist_t
-	*rgetlist(conn_t *conn, const char *screenname) {
-	buddylist_t	*blist = NULL;
+buddylist_t *rgetlist(conn_t *conn, const char *screenname) {
+	buddylist_t *blist = NULL;
 
 	assert(conn != NULL);
 	assert(screenname != NULL);
@@ -169,11 +164,22 @@ buddylist_t
 	return(NULL);
 }
 
-const char
-	*buddy_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
-	static char
-		str[1024];
-	buddylist_t	*blist = NULL;
+buddylist_t *rgetlist_friendly(conn_t *conn, const char *friendly) {
+	buddylist_t *blist = NULL;
+
+	assert(conn != NULL);
+	assert(friendly != NULL);
+	if ((blist = conn->buddyar) != NULL)
+		do {
+			if ((blist->_name != NULL) && (firetalk_compare_nicks(conn->conn, blist->_name, friendly) == FE_SUCCESS))
+				return(blist);
+		} while ((blist = blist->next) != NULL);
+	return(NULL);
+}
+
+const char *account_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
+	static char str[1024];
+	buddylist_t *blist = NULL;
 	size_t	slen;
 
 	assert(start != NULL);
@@ -181,8 +187,7 @@ const char
 	if ((blist = conn->buddyar) != NULL)
 		do {
 			if (aimncmp(blist->_account, start, slen) == 0) {
-				const char
-					*name = blist->_account;
+				const char *name = blist->_account;
 				int	j;
 
 				if (match != NULL)
@@ -201,9 +206,85 @@ const char
 	return(NULL);
 }
 
+const char *buddy_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
+	static char str[1024];
+	buddylist_t *blist = NULL;
+	size_t	slen;
+
+	assert(start != NULL);
+	slen = strlen(start);
+	if ((blist = conn->buddyar) != NULL)
+		do {
+			if (aimncmp(blist->_account, start, slen) == 0) {
+				const char *name = blist->_account;
+				int	j;
+
+				if (match != NULL)
+					*match = bufloc - (start-buf);
+				if (desc != NULL)
+					*desc = blist->_name;
+				for (j = 0; (j < sizeof(str)-1) && (*name != 0); j++) {
+					while (*name == ' ')
+						name++;
+					str[j] = *(name++);
+				}
+				str[j] = 0;
+				return(str);
+			}
+		} while ((blist = blist->next) != NULL);
+	if ((blist = conn->buddyar) != NULL)
+		do {
+			if ((blist->_name != NULL) && (aimncmp(blist->_name, start, slen) == 0)) {
+				const char *name = blist->_name;
+				int	j;
+
+				if (match != NULL)
+					*match = bufloc - (start-buf);
+				if (desc != NULL)
+					*desc = blist->_account;
+				for (j = 0; (j < sizeof(str)-1) && (*name != 0); j++) {
+					while (*name == ' ')
+						name++;
+					str[j] = *(name++);
+				}
+				str[j] = 0;
+				return(str);
+			}
+		} while ((blist = blist->next) != NULL);
+	return(NULL);
+}
+
+const char *idiot_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
+	static char str[1024];
+	ignorelist_t *idiot = NULL;
+	size_t	slen;
+
+	assert(start != NULL);
+	slen = strlen(start);
+	if ((idiot = conn->idiotar) != NULL)
+		do {
+			if (aimncmp(idiot->screenname, start, slen) == 0) {
+				const char *name = idiot->screenname;
+				int	j;
+
+				if (match != NULL)
+					*match = bufloc - (start-buf);
+				if (desc != NULL)
+					*desc = idiot->notes;
+				for (j = 0; (j < sizeof(str)-1) && (*name != 0); j++) {
+					while (*name == ' ')
+						name++;
+					str[j] = *(name++);
+				}
+				str[j] = 0;
+				return(str);
+			}
+		} while ((idiot = idiot->next) != NULL);
+	return(NULL);
+}
+
 #if 0
-static int
-	naim_eval(const char *str) {
+static int naim_eval(const char *str) {
 	assert(str != NULL);
 	if (*str == 0)
 		return(0);
@@ -244,8 +325,7 @@ static int
 #endif
 
 int	rc_resize(faimconf_t *conf) {
-	static int
-		lastCOLS = 0,
+	static int lastCOLS = 0,
 		lastLINES = 0;
 
 	if ((lastCOLS == COLS) && (lastLINES == LINES))
@@ -280,8 +360,7 @@ int	rc_resize(faimconf_t *conf) {
 	return(1);
 }
 
-rc_var_s_t
-	rc_var_s_ar[] = {
+rc_var_s_t rc_var_s_ar[] = {
 	{ "nameformat",		"$user_name_account$user_name_ifwarn",
 								"window list name format for unnamed users" },
 	{ "nameformat_named",	"$user_name_account$user_name_ifwarn ($user_name_name)",
@@ -307,11 +386,9 @@ rc_var_s_t
 	{ "im_prefix",		"",				"string added to the beginning of every IM sent" },
 	{ "im_suffix",		"",				"string added to the end of every IM sent" },
 };
-const int
-	rc_var_s_c = sizeof(rc_var_s_ar)/sizeof(*rc_var_s_ar);
+const int rc_var_s_c = sizeof(rc_var_s_ar)/sizeof(*rc_var_s_ar);
 
-rc_var_i_t
-	rc_var_i_ar[] = {
+rc_var_i_t rc_var_i_ar[] = {
 	{ "chatter",		(IM_MESSAGE | CH_ATTACKED | CH_ATTACKS | CH_MESSAGE),
 					"determines which events trigger 'updated' status (yellow)" },
 	{ "awaylog",		0,	"1 = log IM's to an :AWAYLOG window when away, 2 = IM's and chat messages" },
@@ -334,11 +411,9 @@ rc_var_i_t
 	{ "updatecheck",	4*60,	"number of minutes to wait to check for new versions of naim" },
 #endif
 };
-const int
-	rc_var_i_c = sizeof(rc_var_i_ar)/sizeof(*rc_var_i_ar);
+const int rc_var_i_c = sizeof(rc_var_i_ar)/sizeof(*rc_var_i_ar);
 
-rc_var_i_t
-	rc_var_b_ar[] = {
+rc_var_i_t rc_var_b_ar[] = {
 	{ "autounaway",		0,	"automatically unmark away status whenever an IM is sent" },
 	{ "autoidle",		1,	"automatically increment $idletime by 1 every minute" },
 	{ "autounidle",		1,	"reset $idletime to 0 whenever an IM is sent" },
@@ -359,8 +434,7 @@ rc_var_i_t
 	{ "forceascii",		0,	"always use ASCII linedraw chars" },
 #endif
 };
-const int
-	rc_var_b_c = sizeof(rc_var_b_ar)/sizeof(*rc_var_b_ar);
+const int rc_var_b_c = sizeof(rc_var_b_ar)/sizeof(*rc_var_b_ar);
 
 
 #define timeoff		(-100*timezone/(60*60))
@@ -368,16 +442,14 @@ const int
 #define chrtimeoff	((timeoff < 0)?'-':'+')
 
 void	rc_initdefs(faimconf_t *conf) {
-	static char
-		autozone[1024];
+	static char autozone[1024];
 	int	i;
 
 	memset(conf, 0, sizeof(*conf));
 
 #ifdef HAVE_STRUCT_TM_TM_ZONE
 	{
-		struct tm
-			*tmptr;
+		struct tm *tmptr;
 
 		if ((tmptr = localtime(&now)) != NULL) {
 			if (strchr(tmptr->tm_zone, ' ') == NULL)
@@ -390,8 +462,7 @@ void	rc_initdefs(faimconf_t *conf) {
 	}
 #elif HAVE_TZNAME
 	{
-		extern char
-			*tzname[2];
+		extern char *tzname[2];
 
 		localtime(&now);
 		if (strchr(tzname[0], ' ') == NULL)

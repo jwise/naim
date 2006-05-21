@@ -18,19 +18,17 @@ extern int	awayc;
 extern awayar_t	*awayar;
 extern int	printtitle;
 
-extern int
-	buddyc G_GNUC_INTERNAL,
+extern int buddyc G_GNUC_INTERNAL,
 	wbuddy_widthy G_GNUC_INTERNAL,
 	inplayback G_GNUC_INTERNAL;
 int	buddyc = -1,
 	wbuddy_widthy = -1,
 	inplayback = 0;
 
-static void
-	iupdate(void) {
+static void iupdate(void) {
 	time_t	t;
 	long	idletime = secs_getvar_int("idletime");
-	struct tm	*tmptr;
+	struct tm *tmptr;
 	char	buf[1024];
 
 	assert(sizeof(buf) > faimconf.winfo.widthx);
@@ -272,7 +270,7 @@ static void bsort(conn_t *conn) {
 }
 
 void	bupdate(void) {
-	static win_t	*lwin = NULL;
+	static win_t *lwin = NULL;
 	int	waiting,
 		widthx = secs_getvar_int("winlistchars"),
 		M = widthx,
@@ -326,7 +324,7 @@ void	bupdate(void) {
 	}
 
 	do {
-		buddywin_t	*bwin = conn->curbwin;
+		buddywin_t *bwin = conn->curbwin;
 		char	*lastgroup = NULL;
 		int	hidegroup = 0,
 			autosort = getvar_int(conn, "autosort");
@@ -527,9 +525,8 @@ void	bupdate(void) {
 	iupdate();
 }
 
-buddywin_t
-	*bgetwin(conn_t *conn, const char *buddy, et_t et) {
-	buddywin_t	*bwin = conn->curbwin;
+buddywin_t *bgetwin(conn_t *conn, const char *buddy, et_t et) {
+	buddywin_t *bwin = conn->curbwin;
 
 	assert(buddy != NULL);
 	if (bwin == NULL)
@@ -546,9 +543,8 @@ buddywin_t
 	return(NULL);
 }
 
-buddywin_t
-	*bgetanywin(conn_t *conn, const char *buddy) {
-	buddywin_t	*bwin = conn->curbwin;
+buddywin_t *bgetanywin(conn_t *conn, const char *buddy) {
+	buddywin_t *bwin = conn->curbwin;
 
 	assert(buddy != NULL);
 	if (bwin == NULL)
@@ -563,8 +559,7 @@ buddywin_t
 	return(NULL);
 }
 
-static void
-	bremove(buddywin_t *bwin) {
+static void bremove(buddywin_t *bwin) {
 	int	i;
 
 	assert(bwin != NULL);
@@ -581,7 +576,7 @@ static void
 	bwin->blurb = NULL;
 
 	if (bwin->nwin.logfile != NULL) {
-		struct tm	*tmptr;
+		struct tm *tmptr;
 
 		tmptr = localtime(&now);
 		fprintf(bwin->nwin.logfile, "<I>-----</I> <font color=\"#FFFFFF\">Log file closed %04i-%02i-%02iT%02i:%02i</font> <I>-----</I><br>\n",
@@ -594,7 +589,7 @@ static void
 }
 
 void	verify_winlist_sanity(conn_t *const conn, const buddywin_t *const verifywin) {
-	buddywin_t	*bwin;
+	buddywin_t *bwin;
 	int	i = 0, found = 0;
 
 	assert(conn != NULL);
@@ -689,7 +684,7 @@ void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 }
 
 const unsigned char *naim_normalize(const unsigned char *const name) {
-	static char	newname[2048];
+	static char newname[2048];
 	int	i, j = 0;
 
 	for (i = 0; (name[i] != 0) && (j < sizeof(newname)-1); i++)
@@ -701,8 +696,7 @@ const unsigned char *naim_normalize(const unsigned char *const name) {
 	return(newname);
 }
 
-static int
-	makedir(const char *d) {
+static int makedir(const char *d) {
 	char	*dir;
 
 	if (*d != '/') {
@@ -733,8 +727,7 @@ static int
 	return(0);
 }
 
-static FILE
-	*playback_fopen(conn_t *const conn, buddywin_t *const bwin, const char *const mode) {
+static FILE *playback_fopen(conn_t *const conn, buddywin_t *const bwin, const char *const mode) {
 	FILE	*rfile;
 	char	*n, *nhtml, *ptr,
 		buf[256];
@@ -825,7 +818,7 @@ void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 }
 
 void	bnewwin(conn_t *conn, const char *name, et_t et) {
-	buddywin_t	*bwin;
+	buddywin_t *bwin;
 	int	i;
 
 	assert(name != NULL);
@@ -864,8 +857,8 @@ void	bnewwin(conn_t *conn, const char *name, et_t et) {
 		bwin->next = bwin;
 		conn->curbwin = bwin;
 	} else {
-		buddywin_t	*lastbwin = conn->curbwin,
-				*srchbwin = conn->curbwin;
+		buddywin_t *lastbwin = conn->curbwin,
+			*srchbwin = conn->curbwin;
 
 		do {
 			if (aimcmp(lastbwin->winname, lastbwin->next->winname) == 1)
@@ -888,7 +881,7 @@ void	bnewwin(conn_t *conn, const char *name, et_t et) {
 			status_echof(conn, "Unable to open scrollback buffer file: %s\n",
 				strerror(errno));
 		else {
-			struct tm	*tmptr;
+			struct tm *tmptr;
 
 			fchmod(fileno(bwin->nwin.logfile), 0600);
 			tmptr = localtime(&now);
@@ -907,15 +900,13 @@ void	bnewwin(conn_t *conn, const char *name, et_t et) {
 }
 
 void	bcoming(conn_t *conn, const char *buddy) {
-	buddywin_t	*bwin = NULL;
-	buddylist_t	*blist = NULL;
+	buddywin_t *bwin = NULL;
+	buddylist_t *blist = NULL;
 
 	assert(buddy != NULL);
 
-	if ((blist = rgetlist(conn, buddy)) == NULL) {
-		status_echof(conn, "Adding %s to your buddy list due to sign-on.\n", buddy);
-		blist = raddbuddy(conn, buddy, DEFAULT_GROUP, NULL);
-	}
+	blist = rgetlist(conn, buddy);
+	assert(blist != NULL);
 	STRREPLACE(blist->_account, buddy);
 	if ((bwin = bgetwin(conn, buddy, BUDDY)) == NULL) {
 		if (getvar_int(conn, "autoquery") != 0) {
@@ -961,8 +952,8 @@ void	bcoming(conn_t *conn, const char *buddy) {
 }
 
 void	bgoing(conn_t *conn, const char *buddy) {
-	buddywin_t	*bwin = conn->curbwin;
-	buddylist_t	*blist = NULL;
+	buddywin_t *bwin = conn->curbwin;
+	buddylist_t *blist = NULL;
 
 	assert(buddy != NULL);
 
@@ -1012,10 +1003,9 @@ void	bgoing(conn_t *conn, const char *buddy) {
 				/* assert(bwin->waiting == 0); */
 				bclose(conn, bwin, 1);
 				bwin = NULL;
-				if ((autoclose > 0) && !USER_PERMANENT(blist)) {
-					rdelbuddy(conn, buddy);
-					firetalk_im_remove_buddy(conn->conn, buddy);
-				}
+				if ((autoclose > 0) && !USER_PERMANENT(blist))
+					if (firetalk_im_remove_buddy(conn->conn, buddy) != FE_SUCCESS)
+						rdelbuddy(conn, buddy);
 			}
 			bupdate();
 			return;
@@ -1024,8 +1014,8 @@ void	bgoing(conn_t *conn, const char *buddy) {
 }
 
 void	bidle(conn_t *conn, const char *buddy, int isidle) {
-	buddywin_t	*bwin = NULL;
-	buddylist_t	*blist = NULL;
+	buddywin_t *bwin = NULL;
+	buddylist_t *blist = NULL;
 
 	assert(buddy != NULL);
 	bwin = bgetwin(conn, buddy, BUDDY);
@@ -1048,8 +1038,8 @@ void	bidle(conn_t *conn, const char *buddy, int isidle) {
 }
 
 void	baway(conn_t *conn, const char *buddy, int isaway) {
-	buddywin_t	*bwin = NULL;
-	buddylist_t	*blist = NULL;
+	buddywin_t *bwin = NULL;
+	buddylist_t *blist = NULL;
 
 	assert(buddy != NULL);
 	bwin = bgetwin(conn, buddy, BUDDY);
@@ -1082,8 +1072,7 @@ void	baway(conn_t *conn, const char *buddy, int isaway) {
 	blist->isaway = isaway;
 }
 
-static void
-	bclearall_bwin(conn_t *conn, buddywin_t *bwin, int force) {
+static void bclearall_bwin(conn_t *conn, buddywin_t *bwin, int force) {
 	if (bwin->blurb != NULL) {
 		free(bwin->blurb);
 		bwin->blurb = NULL;
@@ -1119,8 +1108,7 @@ static void
 	}
 }
 
-static void
-	bclearall_buddy(buddylist_t *buddy) {
+static void bclearall_buddy(buddylist_t *buddy) {
 	if (buddy->crypt != NULL) {
 		free(buddy->crypt);
 		buddy->crypt = NULL;
@@ -1135,7 +1123,7 @@ static void
 
 void	bclearall(conn_t *conn, int force) {
 	if (conn->curbwin != NULL) {
-		buddywin_t	*bwin = conn->curbwin;
+		buddywin_t *bwin = conn->curbwin;
 		int	i, l = 0;
 
 		do {
@@ -1143,7 +1131,7 @@ void	bclearall(conn_t *conn, int force) {
 		} while ((bwin = bwin->next) != conn->curbwin);
 
 		for (i = 0; i < l; i++) {
-			buddywin_t	*bnext = bwin->next;
+			buddywin_t *bnext = bwin->next;
 
 			bclearall_bwin(conn, bwin, force);
 			bwin = bnext;
@@ -1153,15 +1141,15 @@ void	bclearall(conn_t *conn, int force) {
 	}
 
 	if (conn->buddyar != NULL) {
-		buddylist_t	*blist = conn->buddyar;
+		buddylist_t *blist = conn->buddyar;
 
 		if (force) {
 			buddylist_t *bnext;
 
 			do {
 				bnext = blist->next;
-				firetalk_im_remove_buddy(conn->conn, blist->_account);
-				do_delbuddy(blist);
+				if (firetalk_im_remove_buddy(conn->conn, blist->_account) != FE_SUCCESS)
+					do_delbuddy(blist);
 			} while ((blist = bnext) != NULL);
 			conn->buddyar = NULL;
 		} else

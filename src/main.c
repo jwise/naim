@@ -15,44 +15,33 @@
 #include "snapshot.h"
 #include "help.h"
 
-extern int
-	wsetup_called;
-extern mod_fd_list_t
-	*mod_fd_listar;
-extern int
-	mod_fd_listc;
+extern int wsetup_called;
+extern mod_fd_list_t *mod_fd_listar;
+extern int mod_fd_listc;
 
-extern faimconf_t
-	faimconf G_GNUC_INTERNAL;
-extern int
-	stayconnected G_GNUC_INTERNAL,
+extern faimconf_t faimconf G_GNUC_INTERNAL;
+extern int stayconnected G_GNUC_INTERNAL,
 	printtitle G_GNUC_INTERNAL;
-extern time_t
-	startuptime G_GNUC_INTERNAL,
+extern time_t startuptime G_GNUC_INTERNAL,
 	now G_GNUC_INTERNAL;
-extern double
-	nowf G_GNUC_INTERNAL,
+extern double nowf G_GNUC_INTERNAL,
 	changetime G_GNUC_INTERNAL;
-extern const char
-	*home G_GNUC_INTERNAL,
+extern const char *home G_GNUC_INTERNAL,
 	*sty G_GNUC_INTERNAL,
 	*invocation G_GNUC_INTERNAL;
-extern char
-	naimrcfilename[1024] G_GNUC_INTERNAL;
+extern char naimrcfilename[1024] G_GNUC_INTERNAL;
 conn_t	*curconn = NULL;
-faimconf_t
-	faimconf;
+faimconf_t faimconf;
 int	stayconnected = 0,
 	printtitle = 0;
 time_t	startuptime = 0,
 	now = 0;
 double	nowf = 0.0,
 	changetime = 0.0;
-const char
-	*home = NULL,
+const char *home = NULL,
 	*sty = NULL,
 	*invocation = NULL;
-char	naimrcfilename[1024];
+char	naimrcfilename[1024] = { 0 };
 
 
 
@@ -69,8 +58,7 @@ char	naimrcfilename[1024];
 # endif
 #endif
 
-static void
-	dummy(int sig) {
+static void dummy(int sig) {
 	signal(sig, dummy);
 	switch (sig) {
 #ifdef KEY_SIGHUP
@@ -94,8 +82,7 @@ static void
 }
 
 #ifdef HAVE_BACKTRACE
-static void
-	naim_segfault(int sig) {
+static void naim_segfault(int sig) {
 	void	*bt[25];
 	size_t	len;
 
@@ -108,8 +95,7 @@ static void
 }
 #endif
 
-static void
-	childexit(int sig) {
+static void childexit(int sig) {
 	int	saveerrno = errno;
 
 	signal(sig, childexit);
@@ -300,8 +286,8 @@ int	main_stub(int argc, char **args) {
 	lt_dlsetsearchpath(DLSEARCHPATH);
 
 	{
-		const char	*args[] = { "dummy", "AIM" };
-		extern void	conio_newconn(void *, int, const char **);
+		const char *args[] = { "dummy", "AIM" };
+		extern void conio_newconn(conn_t *, int, const char **);
 
 		conio_newconn(NULL, 2, args);
 	}
@@ -381,8 +367,8 @@ int	main_stub(int argc, char **args) {
 		abort();
 
 	if (curconn->next != curconn) {
-		const char	*args[] = { "dummy" };
-		extern void	conio_delconn(void *, int, const char **);
+		const char *args[] = { "dummy" };
+		extern void conio_delconn(conn_t *, int, const char **);
 
 		conio_delconn(curconn, 1, args);
 	}

@@ -6,11 +6,10 @@
 #include "naim-int.h"
 #include <naim/modutil.h>
 
-mod_fd_list_t	*mod_fd_listar = NULL;
+mod_fd_list_t *mod_fd_listar = NULL;
 int	mod_fd_listc = 0;
 
-int	mod_fd_register(int fd, int type, char *buf, int buflen,
-		void (*func)()) {
+int	mod_fd_register(int fd, int type, char *buf, int buflen, void (*func)()) {
 	int	i = mod_fd_listc;
 
 	if (type == (O_RDONLY+1))
@@ -36,8 +35,7 @@ void	mod_fd_read_raw(int fd, void (*func)(int, int)) {
 	mod_fd_register(fd, (O_RDONLY+1), NULL, 0, func);
 }
 
-void	mod_fd_read_buf(int fd, void (*func)(char *, int), char *buf,
-		int buflen) {
+void	mod_fd_read_buf(int fd, void (*func)(char *, int), char *buf, int buflen) {
 	mod_fd_register(fd, (O_RDONLY+1), buf, buflen, func);
 }
 

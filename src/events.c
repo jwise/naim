@@ -20,7 +20,7 @@
 extern conn_t	*curconn;
 extern time_t	startuptime, awaytime;
 extern double	nowf;
-extern faimconf_t	faimconf;
+extern faimconf_t faimconf;
 
 void	updateidletime(void) {
 	if ((awaytime > 0) && (secs_getvar_int("autounaway") != 0))
@@ -35,7 +35,7 @@ void	event_handle(time_t now) {
 	long	idletime = secs_getvar_int("idletime");
 	int	tprint, logtprint, autoaway, lagcheck, dailycol, regularcol;
 	conn_t	*conn;
-	struct tm	*tmptr;
+	struct tm *tmptr;
 	int	cleanedone = 0;
 
 	whidecursor();
@@ -83,7 +83,7 @@ void	event_handle(time_t now) {
 
 	conn = curconn;
 	do {
-		buddywin_t	*bwin = conn->curbwin;
+		buddywin_t *bwin = conn->curbwin;
 
 		if ((conn->online == -1) && (getvar_int(conn, "autoreconnect") != 0)) {
 			echof(conn, NULL, "Attempting to reconnect...\n");
@@ -102,10 +102,10 @@ void	event_handle(time_t now) {
 		}
 
 		if ((conn->online > 0) && (awaytime > 0))
-			naim_set_info(conn->conn, conn->profile);
+			naim_set_info(conn, conn->profile);
 
 		if (bwin != NULL) {
-			buddywin_t	*bnext;
+			buddywin_t *bnext;
 			time_t	nowm = now/60;
 
 			do {
@@ -143,12 +143,11 @@ void	event_handle(time_t now) {
 					else {
 						char	*name = strdup(bwin->winname);
 
+						status_echof(conn, "Cleaning up auto-added buddy %s.\n", name);
 						bclose(conn, bwin, 1);
 						bwin = NULL;
-						rdelbuddy(conn, name);
-						firetalk_im_remove_buddy(conn->conn, name);
-						status_echof(conn, "Cleaning up auto-added buddy %s.\n",
-							name);
+						if (firetalk_im_remove_buddy(conn->conn, name) != FE_SUCCESS)
+							rdelbuddy(conn, name);
 						free(name);
 					}
 				}

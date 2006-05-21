@@ -10,10 +10,9 @@
 #include "conio_cmds.h"
 
 extern conn_t	*curconn;
-extern faimconf_t	faimconf;
+extern faimconf_t faimconf;
 
-static HelpType
-	help_findtopic(const char *topic) {
+static HelpType help_findtopic(const char *topic) {
 	int	i = 0;
 
 	while (h_texts[i].tag != NULL) {
@@ -24,8 +23,7 @@ static HelpType
 	return(NULL);
 }
 
-static void
-	help_printcmd(win_t *nwin, int col, int cmd) {
+static void help_printcmd(win_t *nwin, int col, int cmd) {
 	int	i;
 
 	hwprintf(nwin, col, "&nbsp; <font color=\"#FF00FF\">SYNTAX</font>: <font color=\"#00FF00\">/%s</font>", cmdar[cmd].c);
@@ -102,8 +100,7 @@ void	help_printhelp(const char *topic) {
 	}
 
 	{
-		HelpType
-			helptext;
+		HelpType helptext;
 
 		if ((helptext = help_findtopic(topic)) != NULL) {
 			hwprintf(nwin, col, "Help on <B>%s</B>:<br>", topic);

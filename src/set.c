@@ -16,10 +16,8 @@ extern const int	rc_var_i_c;
 extern rc_var_i_t	rc_var_b_ar[];
 extern const int	rc_var_b_c;
 
-const char
-	*set_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
-	const char
-		*var;
+const char *set_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
+	const char *var;
 	size_t	stublen;
 
 	if (*start == '$')
@@ -29,8 +27,7 @@ const char
 		return(NULL);
 
 	{
-		static char
-			descbuf[1024];
+		static char descbuf[1024];
 		int	i;
 
 		for (i = 0; i < rc_var_b_c; i++)
