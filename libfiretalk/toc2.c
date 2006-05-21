@@ -731,7 +731,7 @@ static int toc_internal_add_room(handle_t *c, const char *const name, const int 
 	toc_room_t *iter;
 
 	iter = calloc(1, sizeof(*iter));
-	if (c->room_head == NULL)
+	if (iter == NULL)
 		abort();
 	iter->next = c->room_head;
 	c->room_head = iter;
