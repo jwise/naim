@@ -589,6 +589,6 @@ void	nw_getpass(win_t *win, char *pass, int len) {
 			nw_printf(win, C(INPUT,TEXT), 1, ".");
 		}
 		statrefresh();
-	} while ((pass[i] != '\n') && (pass[i] != '\r') && ((i+1) < len));
+	} while ((i == -1) || ((pass[i] != '\n') && (pass[i] != '\r') && ((i+1) < len)));
 	pass[i] = 0;
 }

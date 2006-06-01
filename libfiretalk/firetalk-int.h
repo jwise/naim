@@ -1,19 +1,19 @@
-/*
-firetalk-int.h - FireTalk wrapper declarations
-Copyright (C) 2000 Ian Gulliver
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of version 2 of the GNU General Public License as
-published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+/* firetalk-int.h - FireTalk wrapper declarations
+** Copyright (C) 2000 Ian Gulliver
+** Copyright 2002-2006 Daniel Reed <n@ml.org>
+** 
+** This program is free software; you can redistribute it and/or modify
+** it under the terms of version 2 of the GNU General Public License as
+** published by the Free Software Foundation.
+** 
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** GNU General Public License for more details.
+** 
+** You should have received a copy of the GNU General Public License
+** along with this program; if not, write to the Free Software
+** Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 #ifndef _FIRETALK_INT_H
 #define _FIRETALK_INT_H
@@ -30,6 +30,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 # include <stdint.h>
 #endif
 
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -38,14 +39,42 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 # define inet_aton(x,y)	inet_pton(AF_INET, (x), (y))
 #endif
 
-#define DEBUG
-
 #include "firetalk.h"
 
 #ifndef SHUT_RDWR
 #define SHUT_RDWR 2
 #endif
 
+#define ZERO_CTOR(T) \
+static inline void T ## _ctor(T *this) { \
+	memset(this, 0, sizeof(*this)); \
+}
+
+#define TYPE_NEW(T) \
+static inline T *T ## _new(void) { \
+	T *this; \
+	\
+	if ((this = malloc(sizeof(*this))) == NULL) \
+		return(NULL); \
+	T ## _ctor(this); \
+	return(this); \
+}
+
+#define TYPE_DELETE(T) \
+static inline void T ## _delete(T *this) { \
+	T ## _dtor(this); \
+	free(this); \
+}
+
+#define LIST_DELETE(T) \
+static inline void T ## _list_delete(T *head) { \
+	if (head != NULL) { \
+		T *next = head->next; \
+		\
+		T ## _delete(head); \
+		T ## _list_delete(next); \
+	} \
+}
 
 typedef void (*ptrtofnct)(struct firetalk_connection_t *, struct firetalk_useragent_connection_t *, ...);
 
@@ -54,6 +83,22 @@ typedef struct {
 	void	**data;
 	int	count;
 } firetalk_queue_t;
+
+ZERO_CTOR(firetalk_queue_t);
+TYPE_NEW(firetalk_queue_t);
+static inline void firetalk_queue_t_dtor(firetalk_queue_t *this) {
+	int	i;
+
+	assert(this != NULL);
+	for (i = 0; i < this->count; i++) {
+		free(this->keys[i]);
+		this->keys[i] = NULL;
+	}
+	free(this->keys);
+	free(this->data);
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(firetalk_queue_t);
 
 typedef struct firetalk_buddy_t {
 	struct firetalk_buddy_t *next;
@@ -69,17 +114,50 @@ typedef struct firetalk_buddy_t {
 		uploaded:1;
 } firetalk_buddy_t;
 
+ZERO_CTOR(firetalk_buddy_t);
+TYPE_NEW(firetalk_buddy_t);
+static inline void firetalk_buddy_t_dtor(firetalk_buddy_t *this) {
+	assert(this != NULL);
+	free(this->nickname);
+	free(this->group);
+	free(this->friendly);
+	free(this->capabilities);
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(firetalk_buddy_t);
+LIST_DELETE(firetalk_buddy_t);
+
 typedef struct firetalk_deny_t {
 	struct firetalk_deny_t *next;
 	char	*nickname;
 	uint8_t	uploaded:1;
 } firetalk_deny_t;
 
+ZERO_CTOR(firetalk_deny_t);
+TYPE_NEW(firetalk_deny_t);
+static inline void firetalk_deny_t_dtor(firetalk_deny_t *this) {
+	assert(this != NULL);
+	free(this->nickname);
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(firetalk_deny_t);
+LIST_DELETE(firetalk_deny_t);
+
 typedef struct firetalk_member_t {
 	struct firetalk_member_t *next;
-	char *nickname;
+	char	*nickname;
 	uint8_t	admin:1;
 } firetalk_member_t;
+
+ZERO_CTOR(firetalk_member_t);
+TYPE_NEW(firetalk_member_t);
+static inline void firetalk_member_t_dtor(firetalk_member_t *this) {
+	assert(this != NULL);
+	free(this->nickname);
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(firetalk_member_t);
+LIST_DELETE(firetalk_member_t);
 
 typedef struct firetalk_room_t {
 	struct firetalk_room_t *next;
@@ -88,6 +166,17 @@ typedef struct firetalk_room_t {
 	uint8_t	admin:1,
 		sentjoin:1;
 } firetalk_room_t;
+
+ZERO_CTOR(firetalk_room_t);
+TYPE_NEW(firetalk_room_t);
+static inline void firetalk_room_t_dtor(firetalk_room_t *this) {
+	assert(this != NULL);
+	free(this->name);
+	firetalk_member_t_list_delete(this->member_head);
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(firetalk_room_t);
+LIST_DELETE(firetalk_room_t);
 
 typedef enum {
 	FCS_NOTCONNECTED,
@@ -110,12 +199,49 @@ typedef struct {
 #endif
 } firetalk_sock_t;
 
+static inline void firetalk_sock_t_ctor(firetalk_sock_t *this) {
+	extern int firetalk_sock_t_canary;
+
+	memset(this, 0, sizeof(*this));
+	this->canary = &firetalk_sock_t_canary;
+	this->fd = -1;
+	this->state = FCS_NOTCONNECTED;
+}
+TYPE_NEW(firetalk_sock_t);
+static inline void firetalk_sock_t_dtor(firetalk_sock_t *this) {
+	extern int firetalk_sock_t_canary;
+
+	assert(this != NULL);
+	assert(this->canary == &firetalk_sock_t_canary);
+	if (this->fd != -1)
+		close(this->fd);
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(firetalk_sock_t);
+
 typedef struct {
 	void	*canary;
 	uint16_t size, pos;
 	uint8_t	*buffer,
 		readdata:1;
 } firetalk_buffer_t;
+
+static inline void firetalk_buffer_t_ctor(firetalk_buffer_t *this) {
+	extern int firetalk_buffer_t_canary;
+
+	memset(this, 0, sizeof(*this));
+	this->canary = &firetalk_buffer_t_canary;
+}
+TYPE_NEW(firetalk_buffer_t);
+static inline void firetalk_buffer_t_dtor(firetalk_buffer_t *this) {
+	extern int firetalk_buffer_t_canary;
+
+	assert(this != NULL);
+	assert(this->canary == &firetalk_buffer_t_canary);
+	free(this->buffer);
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(firetalk_buffer_t);
 
 typedef struct firetalk_transfer_t {
 	struct firetalk_transfer_t *next;
@@ -147,11 +273,40 @@ typedef struct firetalk_transfer_t {
 	struct firetalk_useragent_transfer_t *clientfilestruct;
 } firetalk_transfer_t;
 
+static inline void firetalk_transfer_t_ctor(firetalk_transfer_t *this) {
+	memset(this, 0, sizeof(*this));
+	this->filefd = -1;
+	firetalk_sock_t_ctor(&(this->sock));
+}
+TYPE_NEW(firetalk_transfer_t);
+static inline void firetalk_transfer_t_dtor(firetalk_transfer_t *this) {
+	assert(this != NULL);
+	free(this->who);
+	free(this->filename);
+	if (this->filefd >= 0)
+		close(this->filefd);
+	firetalk_sock_t_dtor(&(this->sock));
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(firetalk_transfer_t);
+LIST_DELETE(firetalk_transfer_t);
+
 typedef struct firetalk_subcode_callback_t {
 	struct firetalk_subcode_callback_t *next;
 	char	*command, *staticresp;
 	ptrtofnct callback;
 } firetalk_subcode_callback_t;
+
+ZERO_CTOR(firetalk_subcode_callback_t);
+TYPE_NEW(firetalk_subcode_callback_t);
+static inline void firetalk_subcode_callback_t_dtor(firetalk_subcode_callback_t *this) {
+	assert(this != NULL);
+	free(this->command);
+	free(this->staticresp);
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(firetalk_subcode_callback_t);
+LIST_DELETE(firetalk_subcode_callback_t);
 
 typedef struct firetalk_connection_t {
 	void	*canary;
@@ -177,6 +332,41 @@ typedef struct firetalk_connection_t {
 	uint8_t	deleted:1;
 } firetalk_connection_t;
 
+static inline void firetalk_connection_t_ctor(firetalk_connection_t *this) {
+	extern int firetalk_connection_t_canary;
+
+	memset(this, 0, sizeof(*this));
+	this->canary = &firetalk_connection_t_canary;
+	firetalk_sock_t_ctor(&(this->sock));
+	firetalk_buffer_t_ctor(&(this->buffer));
+	firetalk_queue_t_ctor(&(this->subcode_requests));
+	firetalk_queue_t_ctor(&(this->subcode_replies));
+}
+TYPE_NEW(firetalk_connection_t);
+static inline void firetalk_connection_t_dtor(firetalk_connection_t *this) {
+	extern int firetalk_connection_t_canary;
+
+	assert(this != NULL);
+	assert(this->canary == &firetalk_connection_t_canary);
+	firetalk_sock_t_dtor(&(this->sock));
+	firetalk_buffer_t_dtor(&(this->buffer));
+	free(this->username);
+	firetalk_buddy_t_list_delete(this->buddy_head);
+	firetalk_deny_t_list_delete(this->deny_head);
+	firetalk_room_t_list_delete(this->room_head);
+	firetalk_transfer_t_list_delete(this->file_head);
+	firetalk_subcode_callback_t_list_delete(this->subcode_request_head);
+	firetalk_subcode_callback_t_list_delete(this->subcode_reply_head);
+	firetalk_subcode_callback_t_delete(this->subcode_request_default);
+	firetalk_subcode_callback_t_delete(this->subcode_reply_default);
+	firetalk_queue_t_dtor(&(this->subcode_requests));
+	firetalk_queue_t_dtor(&(this->subcode_replies));
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(firetalk_connection_t);
+
+
+
 struct firetalk_driver_connection_t;
 
 typedef struct {
@@ -187,8 +377,8 @@ typedef struct {
 	fte_t	(*periodic)(firetalk_connection_t *const conn);
 	fte_t	(*preselect)(struct firetalk_driver_connection_t *c, fd_set *read, fd_set *write, fd_set *except, int *n);
 	fte_t	(*postselect)(struct firetalk_driver_connection_t *c, fd_set *read, fd_set *write, fd_set *except);
-	fte_t	(*got_data)(struct firetalk_driver_connection_t *c, unsigned char *buffer, uint16_t *bufferpos);
-	fte_t	(*got_data_connecting)(struct firetalk_driver_connection_t *c, unsigned char *buffer, uint16_t *bufferpos);
+	fte_t	(*got_data)(struct firetalk_driver_connection_t *c, firetalk_buffer_t *buffer);
+	fte_t	(*got_data_connecting)(struct firetalk_driver_connection_t *c, firetalk_buffer_t *buffer);
 	fte_t	(*comparenicks)(const char *const, const char *const);
 	fte_t	(*isprintable)(const int);
 	fte_t	(*disconnect)(struct firetalk_driver_connection_t *c);
@@ -218,9 +408,32 @@ typedef struct {
 	fte_t	(*chat_send_action)(struct firetalk_driver_connection_t *c, const char *const, const char *const, const int);
 	char	*(*subcode_encode)(struct firetalk_driver_connection_t *c, const char *const, const char *const);
 	const char *(*room_normalize)(const char *const);
-	struct firetalk_driver_connection_t *(*create_handle)(void);
-	void	(*destroy_handle)(struct firetalk_driver_connection_t *c);
+	struct firetalk_driver_connection_t *(*create_conn)(void);
+	void	(*destroy_conn)(struct firetalk_driver_connection_t *c);
 } firetalk_driver_t;
+
+
+
+#define STRREPLACE(target, source) do { \
+		if ((source) == NULL) { \
+			free(target); \
+			(target) = NULL; \
+		} else { \
+			assert((source) != (target)); \
+			if (((target) = realloc((target), strlen(source)+1)) == NULL) \
+				abort(); \
+			strcpy((target), (source)); \
+		} \
+	} while (0)
+
+#define FREESTR(x) do { \
+		if ((x) != NULL) { \
+			free(x); \
+			(x) = NULL; \
+		} \
+	} while (0)
+
+
 
 fte_t	firetalk_register_protocol(const firetalk_driver_t *const proto);
 
@@ -277,7 +490,7 @@ const void *firetalk_peek(firetalk_queue_t *queue, const char *const key);
 void	*firetalk_dequeue(firetalk_queue_t *queue, const char *const key);
 void	firetalk_queue_append(char *buf, int buflen, firetalk_queue_t *queue, const char *const key);
 
-firetalk_connection_t *firetalk_find_handle(struct firetalk_driver_connection_t *c);
+firetalk_connection_t *firetalk_find_conn(const struct firetalk_driver_connection_t *const c);
 
 fte_t	firetalk_chat_internal_add_room(firetalk_connection_t *conn, const char *const name);
 fte_t	firetalk_chat_internal_add_member(firetalk_connection_t *conn, const char *const room, const char *const nickname);
@@ -324,14 +537,15 @@ void	firetalk_sock_close(firetalk_sock_t *sock);
 fte_t	firetalk_sock_send(firetalk_sock_t *sock, const void *const buffer, const int bufferlen);
 void	firetalk_sock_preselect(firetalk_sock_t *sock, fd_set *my_read, fd_set *my_write, fd_set *my_except, int *n);
 fte_t	firetalk_sock_postselect(firetalk_sock_t *sock, fd_set *my_read, fd_set *my_write, fd_set *my_except, firetalk_buffer_t *buffer);
+int	firetalk_sock_valid(const firetalk_sock_t *sock);
 
-void	firetalk_buffer_init(firetalk_buffer_t *buffer);
 fte_t	firetalk_buffer_alloc(firetalk_buffer_t *buffer, uint16_t size);
-void	firetalk_buffer_free(firetalk_buffer_t *buffer);
+int	firetalk_buffer_valid(const firetalk_buffer_t *buffer);
 
 char	*firetalk_htmlclean(const char *str);
 const char *firetalk_nhtmlentities(const char *str, int len);
 const char *firetalk_htmlentities(const char *str);
 const char *firetalk_debase64(const char *const str);
+const char *firetalk_printable(const char *const str);
 
 #endif

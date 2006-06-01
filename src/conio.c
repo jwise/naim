@@ -423,7 +423,7 @@ static void do_delconn(conn_t *conn) {
 	bclearall(conn, 1);
 
 	firetalk_disconnect(conn->conn);
-	firetalk_destroy_handle(conn->conn);
+	firetalk_destroy_conn(conn->conn);
 	conn->conn = NULL;
 
 	if (conn->next == conn) {
@@ -1100,7 +1100,7 @@ static void do_open(conn_t *conn, buddylist_t *blist, const int added) {
 	buddywin_t *bwin;
 
 	bnewwin(conn, USER_ACCOUNT(blist), BUDDY);
-	bwin = bgetwin(conn, USER_ACCOUNT(blist), BUDDY);
+	bwin = bgetbuddywin(conn, blist);
 	assert(bwin != NULL);
 	if (added)
 		window_echof(bwin, "Query window created and user added as a temporary buddy.\n");
@@ -1531,12 +1531,12 @@ CONIOAOPT(account,name)
 		status_echof(conn, "<font color=\"#00FFFF\">%s</font> is not in your buddy list.\n",
 			name);
 
+	assert(rgetlist(conn, name) == NULL);
+
 	if ((argc == 0) && (lastclose != NULL)) {
 		free(lastclose);
 		lastclose = NULL;
 	}
-
-	assert(rgetlist(conn, name) == NULL);
 }
 
 CONIOFUNC(op) {

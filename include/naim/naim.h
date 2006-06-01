@@ -17,7 +17,7 @@
 #define CONIO_MAXPARMS	10
 
 enum {
-	cEVENT = 0,
+	cEVENT,
 	cEVENT_ALT,
 	cTEXT,
 	cSELF,
@@ -33,7 +33,7 @@ enum {
 };
 
 enum {
-	cINPUT = 0,
+	cINPUT,
 	cWINLIST,
 	cWINLISTHIGHLIGHT,
 	cCONN,
@@ -68,6 +68,12 @@ enum {
 	RF_NOLOG = (1 << 2),
 	RF_ENCRYPTED = (1 << 3),
 	RF_CHAT = (1 << 4),
+};
+
+enum {
+	COLOR_HONOR_USER,
+	COLOR_FORCE_OFF,
+	COLOR_FORCE_ON,
 };
 
 typedef struct {
@@ -358,6 +364,7 @@ void	verify_winlist_sanity(conn_t *const conn, const buddywin_t *const verifywin
 void	bclose(conn_t *conn, buddywin_t *bwin, int _auto);
 buddywin_t *bgetwin(conn_t *conn, const char *, et_t);
 buddywin_t *bgetanywin(conn_t *conn, const char *);
+buddywin_t *bgetbuddywin(conn_t *conn, const buddylist_t *);
 void	bclearall(conn_t *conn, int) G_GNUC_INTERNAL;
 void	naim_changetime(void) G_GNUC_INTERNAL;
 

@@ -20,10 +20,10 @@ extern int	printtitle;
 
 extern int buddyc G_GNUC_INTERNAL,
 	wbuddy_widthy G_GNUC_INTERNAL,
-	inplayback G_GNUC_INTERNAL;
+	colormode G_GNUC_INTERNAL;
 int	buddyc = -1,
 	wbuddy_widthy = -1,
-	inplayback = 0;
+	colormode = COLOR_HONOR_USER;
 
 static void iupdate(void) {
 	time_t	t;
@@ -532,12 +532,8 @@ buddywin_t *bgetwin(conn_t *conn, const char *buddy, et_t et) {
 	if (bwin == NULL)
 		return(NULL);
 	do {
-		if (bwin->et == et) {
-			if (firetalk_compare_nicks(conn->conn, buddy, bwin->winname) == FE_SUCCESS)
-				return(bwin);
-//			if ((bwin->et == BUDDY) && (firetalk_compare_nicks(conn->conn, buddy, USER_NAME(bwin->e.buddy)) == FE_SUCCESS))
-//				return(bwin);
-		}
+		if ((bwin->et == et) && (firetalk_compare_nicks(conn->conn, buddy, bwin->winname) == FE_SUCCESS))
+			return(bwin);
 	} while ((bwin = bwin->next) != conn->curbwin);
 
 	return(NULL);
@@ -553,6 +549,20 @@ buddywin_t *bgetanywin(conn_t *conn, const char *buddy) {
 		if (firetalk_compare_nicks(conn->conn, buddy, bwin->winname) == FE_SUCCESS)
 			return(bwin);
 		if ((bwin->et == BUDDY) && (firetalk_compare_nicks(conn->conn, buddy, USER_NAME(bwin->e.buddy)) == FE_SUCCESS))
+			return(bwin);
+	} while ((bwin = bwin->next) != conn->curbwin);
+
+	return(NULL);
+}
+
+buddywin_t *bgetbuddywin(conn_t *conn, const buddylist_t *blist) {
+	buddywin_t *bwin = conn->curbwin;
+
+	assert(blist != NULL);
+	if (bwin == NULL)
+		return(NULL);
+	do {
+		if ((bwin->et == BUDDY) && (bwin->e.buddy == blist))
 			return(bwin);
 	} while ((bwin = bwin->next) != conn->curbwin);
 
@@ -800,7 +810,10 @@ void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 		assert(playbackstart >= 0);
 		pos = 0;
 		playbacklen = filesize-playbackstart;
-		inplayback = 1;
+		if (secs_getvar_int("color"))
+			colormode = COLOR_FORCE_ON;
+		else
+			colormode = COLOR_FORCE_OFF;
 		while (fgets(buf, sizeof(buf), rfile) != NULL) {
 			long	len = strlen(buf);
 
@@ -812,7 +825,7 @@ void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 				lastprogress = now;
 			}
 		}
-		inplayback = 0;
+		colormode = COLOR_HONOR_USER;
 		fclose(rfile);
 	}
 }
@@ -908,10 +921,10 @@ void	bcoming(conn_t *conn, const char *buddy) {
 	blist = rgetlist(conn, buddy);
 	assert(blist != NULL);
 	STRREPLACE(blist->_account, buddy);
-	if ((bwin = bgetwin(conn, buddy, BUDDY)) == NULL) {
+	if ((bwin = bgetbuddywin(conn, blist)) == NULL) {
 		if (getvar_int(conn, "autoquery") != 0) {
 			bnewwin(conn, buddy, BUDDY);
-			bwin = bgetwin(conn, buddy, BUDDY);
+			bwin = bgetbuddywin(conn, blist);
 			assert(bwin != NULL);
 		}
 	}

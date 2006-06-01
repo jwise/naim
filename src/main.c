@@ -88,7 +88,9 @@ static void naim_segfault(int sig) {
 
 	wshutitdown();
 	len = backtrace(bt, sizeof(bt)/sizeof(*bt));
-	fprintf(stderr, "\r\n\r\n\r\nSegmentation violation; partial symbolic backtrace:\r\n");
+	fprintf(stderr, "\r\n\r\n\r\n");
+	fprintf(stderr, "Running " PACKAGE_STRING NAIM_SNAPSHOT " for %s.\n", dtime(now - startuptime));
+	fprintf(stderr, "Segmentation violation; partial symbolic backtrace:\r\n");
 	backtrace_symbols_fd(bt, len, STDERR_FILENO);
 	fprintf(stderr, "\r\nThis information is not a replacement for running naim in gdb. If you are interested in debugging this problem, please re-run naim within gdb and reproduce the fault. When you are presented with the (gdb) prompt again, type \"backtrace\" to receive the full symbolic backtrace and mail this to Daniel Reed <n@ml.org>.\r\n\r\n");
 	abort();

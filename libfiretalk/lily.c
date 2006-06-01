@@ -1,7 +1,6 @@
 /* lily.c - FireTalk SLCP protocol driver
 ** Copyright 2002-2006 Daniel Reed <n@ml.org>
 */
-#include <assert.h>	/* assert() */
 #include <ctype.h>	/* isspace() */
 #include <string.h>	/* strcasecmp() */
 #include <stdarg.h>	/* va_* */
@@ -37,6 +36,14 @@ typedef struct {
 	lily_state_t	 state;
 } lily_user_t;
 
+ZERO_CTOR(lily_user_t);
+TYPE_NEW(lily_user_t);
+static inline void lily_user_t_dtor(lily_user_t *this) {
+	free(this->name);
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(lily_user_t);
+
 typedef struct {
 	int		 handle;
 	char		*name,
@@ -48,15 +55,21 @@ typedef struct {
 			 isemote;
 } lily_chat_t;
 
+ZERO_CTOR(lily_chat_t);
+TYPE_NEW(lily_chat_t);
+static inline void lily_chat_t_dtor(lily_chat_t *this) {
+	free(this->name);
+	free(this->title);
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(lily_chat_t);
+
 typedef struct firetalk_driver_connection_t {
 	char	*nickname,
-		*password,
-		 buffer[1024+1];
-	lily_user_t
-		*lily_userar;
+		*password;
+	lily_user_t *lily_userar;
 	int	 lily_userc;
-	lily_chat_t
-		*lily_chatar;
+	lily_chat_t *lily_chatar;
 	int	 lily_chatc;
 	struct {
 		int	key;
@@ -65,8 +78,27 @@ typedef struct firetalk_driver_connection_t {
 	int	 qc;
 } lily_conn_t;
 
-static lily_user_t
-	*lily_user_find_hand(lily_conn_t *c, int handle) {
+ZERO_CTOR(lily_conn_t);
+TYPE_NEW(lily_conn_t);
+static inline void lily_conn_t_dtor(lily_conn_t *this) {
+	int	i;
+
+	free(this->nickname);
+	free(this->password);
+	for (i = 0; i < this->lily_userc; i++)
+		lily_user_t_dtor(&(this->lily_userar[i]));
+	free(this->lily_userar);
+	for (i = 0; i < this->lily_chatc; i++)
+		lily_chat_t_dtor(&(this->lily_chatar[i]));
+	free(this->lily_chatar);
+	free(this->qar);
+	memset(this, 0, sizeof(*this));
+}
+TYPE_DELETE(lily_conn_t);
+
+
+
+static lily_user_t *lily_user_find_hand(lily_conn_t *c, int handle) {
 	int	i;
 
 	for (i = 0; i < c->lily_userc; i++)
@@ -75,8 +107,7 @@ static lily_user_t
 	return(NULL);
 }
 
-static lily_user_t
-	*lily_user_find_name(lily_conn_t *c, const char *name) {
+static lily_user_t *lily_user_find_name(lily_conn_t *c, const char *name) {
 	int	i;
 
 	for (i = 0; i < c->lily_userc; i++)
@@ -188,10 +219,8 @@ static void lily_chat_add(lily_conn_t *c, int handle, const char *const name, co
 	lily_chat_t	*lily_chat;
 
 	if ((lily_chat = lily_chat_find_hand(c, handle)) != NULL) {
-		free(lily_chat->name);
-		lily_chat->name = NULL;
-		free(lily_chat->title);
-		lily_chat->title = NULL;
+		FREESTR(lily_chat->name);
+		FREESTR(lily_chat->title);
 	} else {
 		c->lily_chatc++;
 		c->lily_chatar = realloc(c->lily_chatar, (c->lily_chatc)*sizeof(*(c->lily_chatar)));
@@ -440,20 +469,7 @@ static char *lily_lily_to_html(const char *const string) {
 }
 
 static fte_t lily_internal_disconnect(lily_conn_t *c, const int error) {
-	if (c->nickname) {
-		free(c->nickname);
-		c->nickname = NULL;
-	}
-	if (c->password) {
-		free(c->password);
-		c->password = NULL;
-	}
-	if (c->qar != NULL) {
-		free(c->qar);
-		c->qar = NULL;
-		c->qc = 0;
-	}
-	assert(c->qc == 0);
+	lily_conn_t_dtor(c);
 	firetalk_callback_disconnect(c, error);
 
 	return(FE_SUCCESS);
@@ -508,7 +524,7 @@ static fte_t lily_send_printf(lily_conn_t *c, const char *const format, ...) {
 	datai += 2;
 
 	{
-		firetalk_connection_t *fchandle = firetalk_find_handle(c);
+		firetalk_connection_t *fchandle = firetalk_find_conn(c);
 
 		firetalk_internal_send_data(fchandle, data, datai);
 	}
@@ -584,8 +600,7 @@ static char *lily_recv_line(lily_conn_t *c, char *buffer, uint16_t *bufferpos) {
 	*r = 0;
 	r += 2;
 
-	free(str);
-	str = strdup(buffer);
+	STRREPLACE(str, buffer);
 
 	*bufferpos -= (r-buffer);
 	memmove(buffer, r, *bufferpos);
@@ -675,10 +690,8 @@ static void lily_recv_unhandled(lily_conn_t *c, const char *str) {
 
 		if ((lily_recvar[i].content[0] == '#')
 			&& ((handle = atoi(lily_recvar[i].content+1)) > 0)) {
-			const lily_user_t
-				*lily_user = NULL;
-			const lily_chat_t
-				*lily_chat = NULL;
+			const lily_user_t *lily_user = NULL;
+			const lily_chat_t *lily_chat = NULL;
 
 			if ((lily_user = lily_user_find_hand(c, handle)) != NULL)
 				r = lily_user->name;
@@ -705,8 +718,7 @@ static fte_t lily_set_nickname(lily_conn_t *c, const char *const nickname) {
 	lily_send_printf(c, "/reserve %s", nickname);
 	lily_send_printf(c, "/rename %s", nickname);
 	lily_send_printf(c, "/reserve %s", c->nickname);
-	free(c->nickname);
-	c->nickname = strdup(nickname);
+	STRREPLACE(c->nickname, nickname);
 	firetalk_callback_newnick(c, nickname);
 	return(FE_SUCCESS);
 }
@@ -721,31 +733,9 @@ static fte_t lily_set_password(lily_conn_t *c, const char *const oldpass, const 
 	return(lily_send_printf(c, "%s", newpass));
 }
 
-static void lily_destroy_handle(lily_conn_t *c) {
-	int	i;
-
+static void lily_destroy_conn(lily_conn_t *c) {
 	lily_internal_disconnect(c, FE_USERDISCONNECT);
-	free(c->nickname);
-	c->nickname = NULL;
-	free(c->password);
-	c->password = NULL;
-	for (i = 0; i < c->lily_userc; i++) {
-		free(c->lily_userar[i].name);
-		c->lily_userar[i].name = NULL;
-	}
-	free(c->lily_userar);
-	c->lily_userar = NULL;
-	for (i = 0; i < c->lily_chatc; i++) {
-		free(c->lily_chatar[i].name);
-		c->lily_chatar[i].name = NULL;
-		free(c->lily_chatar[i].title);
-		c->lily_chatar[i].title = NULL;
-	}
-	free(c->lily_chatar);
-	c->lily_chatar = NULL;
-	free(c->qar);
-	c->qar = NULL;
-	free(c);
+	lily_conn_t_delete(c);
 	c = NULL;
 }
 
@@ -760,28 +750,16 @@ static fte_t lily_disconnected(lily_conn_t *c, const fte_t reason) {
 	return(lily_internal_disconnect(c, reason));
 }
 
-static lily_conn_t *lily_create_handle(void) {
+static lily_conn_t *lily_create_conn(void) {
 	lily_conn_t *c;
 
-	c = calloc(1, sizeof(*c));
-	if (c == NULL)
+	if ((c = lily_conn_t_new()) == NULL)
 		abort();
-	c->nickname = NULL;
-	c->password = NULL;
-	c->lily_userar = NULL;
-	c->lily_userc = 0;
-	c->lily_chatar = NULL;
-	c->lily_chatc = 0;
-	c->qar = NULL;
-	c->qc = 0;
-
 	return(c);
 }
 
 static fte_t lily_signon(lily_conn_t *c, const char *const nickname) {
-	c->nickname = strdup(nickname);
-	if (c->nickname == NULL)
-		abort();
+	STRREPLACE(c->nickname, nickname);
 
 	if (lily_send_printf(c, "#$# options +sender +recip +usertype +whoami +slcp +sendgroup +connected +leaf-msg +prompt +leaf-cmd +leaf +prompt2") != FE_SUCCESS)
 		return(FE_PACKET);
@@ -1009,7 +987,7 @@ static fte_t lily_got_notify(lily_conn_t *c) {
 				if (lily_chat->ismember != 0) {
 					firetalk_connection_t *conn;
 
-					if ((conn = firetalk_find_handle(c)) != NULL)
+					if ((conn = firetalk_find_conn(c)) != NULL)
 						firetalk_chat_internal_add_member(conn, lily_chat->name, source);
 					firetalk_callback_chat_getmessage(c, lily_chat->name, source, 0, value);
 				}
@@ -1035,24 +1013,36 @@ static fte_t lily_got_notify(lily_conn_t *c) {
 					firetalk_callback_chat_getaction(c, lily_chat->name, source, 0, _value+1);
 			}
 		} else if (strcasecmp(event, "away") == 0) {
+#ifdef DEBUG_ECHO
+			lily_echof(c, "got_notify", "away %s", source);
+#endif
 			lily_user_source->state = AWAY;
 			firetalk_callback_im_buddyaway(c, source, 1);
 		} else if (strcasecmp(event, "here") == 0) {
+#ifdef DEBUG_ECHO
+			lily_echof(c, "got_notify", "here %s", source);
+#endif
 			lily_user_source->state = HERE;
 			firetalk_callback_im_buddyaway(c, source, 0);
 		} else if (strcasecmp(event, "detach") == 0) {
+#ifdef DEBUG_ECHO
+			lily_echof(c, "got_notify", "detach %s", source);
+#endif
 			lily_user_source->state = AWAY;
 			firetalk_callback_im_buddyaway(c, source, 1);
 		} else if (strcasecmp(event, "attach") == 0) {
+#ifdef DEBUG_ECHO
+			lily_echof(c, "got_notify", "attach %s", source);
+#endif
 			lily_user_source->state = HERE;
 			firetalk_callback_im_buddyaway(c, source, 0);
 		} else if (strcasecmp(event, "blurb") == 0) {
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_notify", "blurb %s = \"%s\"", source, _value);
+			lily_echof(c, "got_notify", "blurb %s = \"%s\" (ignored)", source, _value);
 #endif
 		} else if (strcasecmp(event, "unidle") == 0) {
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_notify", "unidle %s", source);
+			lily_echof(c, "got_notify", "unidle %s (ignored)", source);
 #endif
 		} else if (strcasecmp(event, "rename") == 0) {
 			const char	*newname = lily_normalize_user_name(_value);
@@ -1061,27 +1051,25 @@ static fte_t lily_got_notify(lily_conn_t *c) {
 			lily_echof(c, "got_notify", "rename %s -> %s", source, _value);
 #endif
 			if (lily_compare_nicks(c->nickname, source) == 0) {
-				free(c->nickname);
-				c->nickname = strdup(_value);
-				if (c->nickname == NULL)
-					abort();
+				STRREPLACE(c->nickname, _value);
 				firetalk_callback_newnick(c, c->nickname);
 			}
 			firetalk_callback_user_nickchanged(c, source, newname);
-			free(lily_user_source->name);
-			source = lily_user_source->name = strdup(newname);
+			STRREPLACE(lily_user_source->name, newname);
+			source = lily_user_source->name;
 		} else if (strcasecmp(event, "retitle") == 0) {
 			assert(lily_chat != NULL);
-
+#ifdef DEBUG_ECHO
+			lily_echof(c, "got_notify", "retitle %s %s -> %s", source, lily_chat->name, _value);
+#endif
 			firetalk_callback_chat_gottopic(c, lily_chat->name, _value, source);
 		} else if (strcasecmp(event, "drename") == 0) {
-			const char	*newname = lily_normalize_user_name(_value);
+			const char *newname = lily_normalize_user_name(_value);
 
 #ifdef DEBUG_ECHO
 			lily_echof(c, "got_notify", "rename %s -> %s", lily_chat->name, _value);
 #endif
-			free(lily_chat->name);
-			lily_chat->name = strdup(newname);
+			STRREPLACE(lily_chat->name, newname);
 		} else if (strcasecmp(event, "disconnect") == 0) {
 			lily_user_source->state = OFFLINE;
 			firetalk_callback_im_buddyonline(c, source, 0);
@@ -1308,8 +1296,7 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 			} else if (strncasecmp(blockwhat, "/FINGER ", sizeof("/FINGER ")-1) == 0) {
 				if (infolen == 0) {
 					infolen = strlen(sp)+1;
-					info = calloc(1, infolen+1);
-					if (info == NULL)
+					if ((info = malloc(infolen+1)) == NULL)
 						abort();
 					*info = ' ';
 					strcpy(info+1, sp);
@@ -1324,8 +1311,7 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 			} else if (strncasecmp(blockwhat, "/WHAT ", sizeof("/WHAT ")-1) == 0) {
 				if (infolen == 0) {
 					infolen = strlen(sp)+3;
-					info = calloc(1, infolen+1);
-					if (info == NULL)
+					if ((info = malloc(infolen+1)) == NULL)
 						abort();
 					strcpy(info, " * ");
 					strcpy(info+3, sp);
@@ -1426,8 +1412,7 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 		if (sp != NULL) {
 			*sp++ = 0;
 			blocknum = atoi(str+1);
-			free(blockwhat);
-			blockwhat = strdup(sp);
+			STRREPLACE(blockwhat, sp);
 #ifdef DEBUG_ECHO
 			lily_echof(c, "got_cmd", "beginning [%s]\n", blockwhat);
 #endif
@@ -1450,8 +1435,7 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 			else if (strcasecmp(blockwhat, "/INFO") == 0) {
 				firetalk_callback_gotinfo(c, who, info, 0, 0, 0, 0);
 				infolen = 0;
-				free(info);
-				info = NULL;
+				FREESTR(info);
 			}
 		}
 
@@ -1459,8 +1443,7 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 		lily_echof(c, "got_cmd", "ending [%s]\n", blockwhat);
 #endif
 		blocknum = -1;
-		free(blockwhat);
-		blockwhat = NULL;
+		FREESTR(blockwhat);
 	} else if BMATCH("pong") {
 		if (strncmp(str, "!LC! ", sizeof("!LC! ")-1) == 0)
 			firetalk_callback_subcode_request(c, c->nickname, "LC", str+sizeof("!LC! ")-1);
@@ -1488,19 +1471,24 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 	return(FE_SUCCESS);
 }
 
-static fte_t lily_got_data(lily_conn_t *c, unsigned char *_buffer, uint16_t *bufferpos) {
-	char	*buffer = (char *)_buffer, *str;
+static fte_t lily_got_data(lily_conn_t *c, firetalk_buffer_t *buffer) {
+	char	*str;
 
-	while ((str = lily_recv_line(c, buffer, bufferpos)) != NULL)
+	assert(firetalk_buffer_valid(buffer));
+	while ((str = lily_recv_line(c, buffer->buffer, &(buffer->pos))) != NULL) {
+		assert(firetalk_buffer_valid(buffer));
 		lily_got_cmd(c, str);
+	}
 
 	return(FE_SUCCESS);
 }
 
-static fte_t lily_got_data_connecting(lily_conn_t *c, unsigned char *_buffer, uint16_t *bufferpos) {
-	char	*buffer = (char *)_buffer, *str;
+static fte_t lily_got_data_connecting(lily_conn_t *c, firetalk_buffer_t *buffer) {
+	char	*str;
 
-	while ((str = lily_recv_line(c, buffer, bufferpos)) != NULL) {
+	assert(firetalk_buffer_valid(buffer));
+	while ((str = lily_recv_line(c, buffer->buffer, &(buffer->pos))) != NULL) {
+		assert(firetalk_buffer_valid(buffer));
 		if (strncmp(str, "%whoami ", sizeof("%whoami ")-1) == 0) {
 			char	*s = strstr(str, " name="),
 				buf[1024];
@@ -1512,10 +1500,7 @@ static fte_t lily_got_data_connecting(lily_conn_t *c, unsigned char *_buffer, ui
 			s = strchr(s, '=');
 			strncpy(buf, s+1, len);
 			buf[len] = 0;
-			free(c->nickname);
-			c->nickname = strdup(buf);
-			if (c->nickname == NULL)
-				abort();
+			STRREPLACE(c->nickname, buf);
 		} else if (strncmp(str, "%connected ", sizeof("%connected ")-1) == 0) {
 			firetalk_callback_doinit(c, c->nickname);
 			firetalk_callback_connected(c);
@@ -1660,7 +1645,7 @@ static fte_t lily_subcode_send_reply(lily_conn_t *c, const char *const to, const
 
 static fte_t lily_im_send_message(lily_conn_t *c, const char *const dest, const char *const message, const int auto_flag) {
 	if (*message == 0) {
-		firetalk_connection_t *fchandle = firetalk_find_handle(c);
+		firetalk_connection_t *fchandle = firetalk_find_conn(c);
 		char	*data;
 
 		if (auto_flag)
@@ -1851,6 +1836,6 @@ const firetalk_driver_t firetalk_protocol_slcp = {
 	set_privacy:		lily_set_privacy,
 	subcode_encode:		lily_ctcp_encode,
 	room_normalize:		lily_normalize_room_name,
-	create_handle:		lily_create_handle,
-	destroy_handle:		lily_destroy_handle,
+	create_conn:		lily_create_conn,
+	destroy_conn:		lily_destroy_conn,
 };

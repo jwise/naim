@@ -1,19 +1,19 @@
-/*
-firetalk.h - FireTalk wrapper declarations
-Copyright (C) 2000 Ian Gulliver
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of version 2 of the GNU General Public License as
-published by the Free Software Foundation.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+/* firetalk.h - FireTalk wrapper declarations
+** Copyright (C) 2000 Ian Gulliver
+** Copyright 2002-2006 Daniel Reed <n@ml.org>
+** 
+** This program is free software; you can redistribute it and/or modify
+** it under the terms of version 2 of the GNU General Public License as
+** published by the Free Software Foundation.
+** 
+** This program is distributed in the hope that it will be useful,
+** but WITHOUT ANY WARRANTY; without even the implied warranty of
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** GNU General Public License for more details.
+** 
+** You should have received a copy of the GNU General Public License
+** along with this program; if not, write to the Free Software
+** Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 #ifndef _FIRETALK_H
 #define _FIRETALK_H
@@ -138,8 +138,8 @@ struct firetalk_useragent_transfer_t;
 int	firetalk_find_protocol(const char *strprotocol);
 const char *firetalk_strprotocol(const int p);
 const char *firetalk_strerror(const fte_t	e);
-struct firetalk_connection_t *firetalk_create_handle(const int protocol, struct firetalk_useragent_connection_t *clientstruct);
-void	firetalk_destroy_handle(struct firetalk_connection_t *conn);
+struct firetalk_connection_t *firetalk_create_conn(const int protocol, struct firetalk_useragent_connection_t *clientstruct);
+void	firetalk_destroy_conn(struct firetalk_connection_t *conn);
 int	firetalk_get_protocol(struct firetalk_connection_t *conn);
 
 fte_t	firetalk_disconnect(struct firetalk_connection_t *conn);

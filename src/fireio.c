@@ -120,15 +120,11 @@ nFIRE_HANDLER(naim_nickchange) {
 	newnick = va_arg(msg, const char *);
 	va_end(msg);
 
-	if (buddy != NULL)
-		do {
-			if (firetalk_compare_nicks(conn->conn, buddy->_account, oldnick) == FE_SUCCESS) {
-				STRREPLACE(buddy->_account, newnick);
-				break;
-			}
-		} while ((buddy = buddy->next) != NULL);
+	if ((buddy = rgetlist(conn, oldnick)) == NULL)
+		return;
+	STRREPLACE(buddy->_account, newnick);
 
-	if ((bwin = bgetwin(conn, oldnick, BUDDY)) != NULL) {
+	if ((bwin = bgetbuddywin(conn, buddy)) != NULL) {
 		window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now known as <font color=\"#00FFFF\">%s</font>.\n",
 			oldnick, newnick);
 		STRREPLACE(bwin->winname, newnick);
@@ -323,6 +319,14 @@ nFIRE_HANDLER(naim_buddy_caps) {
 	if ((blist = rgetlist(conn, who)) != NULL) {
 		int	i, j, strtolower = 1;
 
+		if ((blist->caps != NULL) && (blist->caps[0] != 0)) {
+			buddywin_t *bwin;
+
+			if ((bwin = bgetbuddywin(conn, blist)) != NULL)
+				window_echof(bwin, "Client capabilities for <font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> have changed, possibly meaning %s has signed onto or off with multiple clients.\n",
+					user_name(NULL, 0, conn, blist), USER_GROUP(blist), USER_NAME(blist));
+		}
+
 		blist->caps = realloc(blist->caps, 2*strlen(caps)+1);
 
 		for (i = 0; (caps[i] != 0) && (caps[i] != ' '); i++)
@@ -429,12 +433,14 @@ nFIRE_HANDLER(naim_buddyremoved) {
 	va_end(msg);
 
 	if ((bwin = bgetwin(conn, screenname, BUDDY)) != NULL) {
+		blist = bwin->e.buddy;
 		status_echof(conn, "Closed window <font color=\"#00FFFF\">%s</font> due to buddy removal.\n",
 			bwin->winname);
 		bclose(conn, bwin, 0);
-	}
+	} else
+		blist = rgetlist(conn, screenname);
 
-	if ((blist = rgetlist(conn, screenname)) != NULL) {
+	if (blist != NULL) {
 		status_echof(conn, "Removed <font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> from your buddy list.\n",
 			user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 		rdelbuddy(conn, screenname);
@@ -579,19 +585,19 @@ static int recvfrom_autobuddy(conn_t *conn, char **name, char **dest,
 	if (*dest == NULL) {
 		buddylist_t *blist = rgetlist(conn, *name);
 
-		if ((getvar_int(conn, "autobuddy") == 1)
-			&& (bgetwin(conn, *name, BUDDY) == NULL)) {
+		if (getvar_int(conn, "autobuddy")) {
 			if (blist == NULL) {
+				assert(bgetwin(conn, *name, BUDDY) == NULL);
 				status_echof(conn, "Adding <font color=\"#00FFFF\">%s</font> to your buddy list due to autobuddy.\n", *name);
 				blist = raddbuddy(conn, *name, DEFAULT_GROUP, NULL);
 				assert(blist->offline == 1);
 				bnewwin(conn, *name, BUDDY);
 				firetalk_im_add_buddy(conn->conn, *name, USER_GROUP(blist), NULL);
-			} else {
-				buddywin_t	*bwin;
+			} else if (bgetbuddywin(conn, blist) == NULL) {
+				buddywin_t *bwin;
 
 				bnewwin(conn, *name, BUDDY);
-				bwin = bgetwin(conn, *name, BUDDY);
+				bwin = bgetbuddywin(conn, blist);
 				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> is still online...\n",
 					user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 			}
@@ -609,7 +615,7 @@ static int recvfrom_display_user(conn_t *conn, char **name, char **dest,
 		return(HOOK_CONTINUE);
 
 	blist = rgetlist(conn, *name);
-	bwin = bgetwin(conn, *name, BUDDY);
+	bwin = bgetbuddywin(conn, blist);
 
 	if (bwin == NULL) {
 		const char *format;
@@ -2070,7 +2076,7 @@ conn_t	*naim_newconn(int proto) {
 	naim_lastupdate(conn);
 
 	{
-		conn->conn = firetalk_create_handle(proto, conn);
+		conn->conn = firetalk_create_conn(proto, conn);
 
 		firetalk_register_callback(conn->conn, FC_DOINIT,			naim_doinit);
 		firetalk_register_callback(conn->conn, FC_POSTSELECT,			naim_postselect);
