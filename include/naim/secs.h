@@ -56,7 +56,7 @@ int secs_block_var_add (secs_block_t *block, secs_var_t *var ) G_GNUC_INTERNAL;
 
 /* From `liaison.c': */
 secs_block_t *secs_block_getroot (void) G_GNUC_INTERNAL;
-int	secs_init(void);
+void	secs_init(void);
 void	secs_handle(char *line) G_GNUC_INTERNAL;
 int	secs_makevar(const char *name, const char *value, const char type);
 int	secs_makevar_int(const char *name, long value, const char type, long *buf_num);
@@ -64,6 +64,7 @@ int	secs_setvar(const char *name, const char *val);
 char	*secs_getvar(const char *name);
 long	secs_getvar_int(const char *name);
 char	*secs_listvars(int i, size_t *length, void **_var);
+char	*secs_expand(const char *instr);
 
 /* From `mem.c': */
 void secs_mem_init (void) G_GNUC_INTERNAL;

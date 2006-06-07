@@ -13,12 +13,13 @@ EXTRA_DIST = \
 	gencmds.sh \
 	gencmd2.sh \
 	genkeys.sh \
-	snapshot.h \
-	main_stub.c
+	main_stub.c \
+	snapshot.h
 
 bin_PROGRAMS = naim
 
 NAIM_CORE = \
+	alias.c \
 	buddy.c \
 	conio.c \
 	echof.c \
@@ -34,12 +35,16 @@ NAIM_CORE = \
 	main.c \
 	modutil.c \
 	naim-int.h \
-	naimrc_sample.h \
 	rc.c \
 	rodents.c \
-	script.c \
 	set.c \
 	win.c
+
+if LUA
+LUALIB = ../lua/liblua.la
+else
+LUALIB =
+endif
 
 if CYGWIN
 NAIM_SOURCES = main_stub.c
@@ -49,7 +54,7 @@ lib_LTLIBRARIES = libnaim_core.la
 libnaim_core_la_SOURCES = ${NAIM_CORE}
 libnaim_core_la_CFLAGS = ${AM_CFLAGS} -DDLSEARCHPATH='"${pkgmoddir}"'
 libnaim_core_la_LIBADD = \
-	@LIBLTDL@ \
+	@LIBLTDL@ ${LUALIB} \
 	@CURSESLIB@ @NETLIB@
 libnaim_core_la_LDFLAGS = -export-dynamic -no-undefined \
 	-Wl,--whole-archive -Wl,../libfiretalk/libfiretalk.a -Wl,../secs/libsecs.a -Wl,--no-whole-archive
@@ -58,7 +63,7 @@ NAIM_SOURCES = ${NAIM_CORE}
 NAIM_LDADD = \
 	../libfiretalk/libfiretalk.a \
 	@LIBLTDL@ \
-	../secs/libsecs.a \
+	../secs/libsecs.a ${LUALIB} \
 	@CURSESLIB@ @NETLIB@
 endif
 

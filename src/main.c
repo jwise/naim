@@ -11,7 +11,6 @@
 #include <sys/wait.h>
 
 #include "naim-int.h"
-#include "naimrc_sample.h"
 #include "snapshot.h"
 #include "help.h"
 
@@ -250,7 +249,7 @@ int	main_stub(int argc, char **args) {
 
 	changetime = nowf = now = startuptime = time(NULL);
 
-	secs_init();
+	script_init();
 
 	initscr();
 	wsetup_called = 2;
@@ -319,18 +318,6 @@ int	main_stub(int argc, char **args) {
 			want_aim = 1;
 		}
 
-		secs_makevar_int("want_aim", want_aim, 'B', NULL);
-		secs_makevar_int("want_irc", want_irc, 'B', NULL);
-		secs_makevar_int("want_icq", want_icq, 'B', NULL);
-		secs_makevar_int("want_lily", want_lily, 'B', NULL);
-
-		secs_makevar_int("sys_argc", argc-1, 'I', NULL);
-		secs_makevar("sys_user", getenv("USER"), 'S');
-		if (argc > 1)
-			secs_makevar("sys_arg1", args[1], 'S');
-		if (argc > 2)
-			secs_makevar("sys_arg2", args[2], 'S');
-
 		if (getenv("NAIMRC") != NULL) {
 			strncpy(naimrcfilename, getenv("NAIMRC"),
 				sizeof(naimrcfilename)-1);
@@ -340,12 +327,7 @@ int	main_stub(int argc, char **args) {
 				home, invocation);
 
 		echof(curconn, NULL, "Attempting to load %s\n", naimrcfilename);
-		if (naim_read_config(naimrcfilename) == 0) {
-			int	i;
-
-			for (i = 0; i < sizeof(naimrc_sample)/sizeof(*naimrc_sample); i++)
-				conio_handlecmd(naimrc_sample[i]);
-		} else {
+		if (naim_read_config(naimrcfilename)) {
 			conn_t	*conn = curconn;
 
 			do {
@@ -353,16 +335,28 @@ int	main_stub(int argc, char **args) {
 					conn->winname, home, invocation);
 				conio_handlecmd(buf);
 			} while ((conn = conn->next) != curconn);
-		}
+		} else {
+			if (want_aim)
+				conio_handlecmd("/newconn AIM TOC2");
+			else if (want_irc)
+				conio_handlecmd("/newconn EFnet IRC");
+			else if (want_icq)
+				conio_handlecmd("/newconn ICQ IRC");
+			else if (want_lily)
+				conio_handlecmd("/newconn Lily SLCP");
+			echof(curconn, NULL, "You do not have a %s file, so I am using defaults. You can use the <font color=\"#00FF00\">/save</font> command to create a new %s file.",
+				naim_basename(naimrcfilename), naim_basename(naimrcfilename));
+			if (want_aim || want_icq)
+				conio_handlecmd("/addbuddy \"naim help\" \"naim author\" Dan Reed");
+			else if (want_irc || want_lily)
+				conio_handlecmd("/addbuddy n \"naim author\" Dan Reed");
+			if (want_irc) {
+				extern void conio_connect(conn_t *, int, char **);
 
-		secs_setvar("want_aim", "");
-		secs_setvar("want_irc", "");
-		secs_setvar("want_icq", "");
-		secs_setvar("want_lily", "");
-		secs_setvar("sys_arg2", "");
-		secs_setvar("sys_arg1", "");
-		secs_setvar("sys_argc", "");
-		secs_setvar("sys_user", "");
+				conio_handlecmd("/join " IRC_SUPPORT_CHANNEL);
+				conio_connect(curconn, argc-1, args+1);
+			}
+		}
 	}
 
 	if (curconn == NULL)
@@ -391,7 +385,7 @@ int	main_stub(int argc, char **args) {
 		int	i, autohide, maxfd = STDIN_FILENO;
 
 		now = time(NULL);
-		autohide = secs_getvar_int("autohide");
+		autohide = script_getvar_int("autohide");
 		if (((nowf - changetime) > autohide) 
 			&& ((nowf - curconn->lastupdate) > autohide)) {
 			timeout.tv_sec = 60 - (now%60);

@@ -71,11 +71,12 @@ const char *set_tabcomplete(conn_t *const conn, const char *start, const char *b
 			}
 	}
 
+#if 0
 	{
 		void	*_listvarsarg;
 
-		secs_listvars(0, NULL, &_listvarsarg);
-		while ((var = secs_listvars(1, NULL, &_listvarsarg)) != NULL)
+		script_listvars(0, NULL, &_listvarsarg);
+		while ((var = script_listvars(1, NULL, &_listvarsarg)) != NULL)
 			if (strncasecmp(start, var, stublen) == 0) {
 				if (match != NULL)
 					*match = bufloc - (start-buf);
@@ -84,6 +85,7 @@ const char *set_tabcomplete(conn_t *const conn, const char *start, const char *b
 				return(var);
 			}
 	}
+#endif
 	return(NULL);
 }
 
@@ -140,12 +142,13 @@ void	set_echof(const char *const format, ...) {
 
 void	set_setvar(const char *var, const char *val) {
 	if (var == NULL) {
+#if 0
 		void	*_listvarsarg;
 
-		secs_listvars(0, NULL, &_listvarsarg);
+		script_listvars(0, NULL, &_listvarsarg);
 		set_echof(" %-16.16s %-30s[type] Description\n", "Variable name", "Value");
-		while ((var = secs_listvars(1, NULL, &_listvarsarg)) != NULL) {
-			val = secs_getvar(var);
+		while ((var = script_listvars(1, NULL, &_listvarsarg)) != NULL) {
+			val = script_getvar(var);
 			if ((val != NULL) && (*val != 0)) {
 				char	*prot;
 
@@ -178,6 +181,7 @@ void	set_setvar(const char *var, const char *val) {
 				}
 			}
 		}
+#endif
 		return;
 	}
 
@@ -185,9 +189,9 @@ void	set_setvar(const char *var, const char *val) {
 		var++;
 
 	if (val == NULL)
-		echof(curconn, NULL, "$%s is \"%s\"\n", var, secs_getvar(var));
-	else if (secs_setvar(var, val) == 0)
+		echof(curconn, NULL, "$%s is \"%s\"\n", var, script_getvar(var));
+	else if (script_setvar(var, val) == 0)
 		echof(curconn, NULL, "\"%s\" is an invalid input for $%s\n", val, var);
 	else
-		echof(curconn, NULL, "$%s is now \"%s\"\n", var, secs_getvar(var));
+		echof(curconn, NULL, "$%s is now \"%s\"\n", var, script_getvar(var));
 }

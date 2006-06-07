@@ -216,6 +216,7 @@ static inline void firetalk_sock_t_dtor(firetalk_sock_t *this) {
 	if (this->fd != -1)
 		close(this->fd);
 	memset(this, 0, sizeof(*this));
+	this->fd = -1;
 }
 TYPE_DELETE(firetalk_sock_t);
 
@@ -484,6 +485,8 @@ void	firetalk_callback_subcode_request(struct firetalk_driver_connection_t *c, c
 void	firetalk_callback_subcode_reply(struct firetalk_driver_connection_t *c, const char *const from, const char *const command, const char *const args);
 void	firetalk_callback_file_offer(struct firetalk_driver_connection_t *c, const char *const from, const char *const filename, const long size, const char *const ipstring, const char *const ip6string, const uint16_t port, const int type);
 void	firetalk_callback_needpass(struct firetalk_driver_connection_t *c, char *pass, const int size);
+
+firetalk_buddy_t *firetalk_im_find_buddy(firetalk_connection_t *conn, const char *const name);
 
 void	firetalk_enqueue(firetalk_queue_t *queue, const char *const key, void *data);
 const void *firetalk_peek(firetalk_queue_t *queue, const char *const key);

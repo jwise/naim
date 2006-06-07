@@ -23,16 +23,16 @@ extern double	nowf;
 extern faimconf_t faimconf;
 
 void	updateidletime(void) {
-	if ((awaytime > 0) && (secs_getvar_int("autounaway") != 0))
+	if ((awaytime > 0) && (script_getvar_int("autounaway") != 0))
 		unsetaway();
-	if (secs_getvar_int("autounidle") > 0)
-		secs_setvar("idletime", "0");
+	if (script_getvar_int("autounidle") > 0)
+		script_setvar("idletime", "0");
 	bupdate();
 }
 
 HOOK_DECLARE(periodic);
 void	event_handle(time_t now) {
-	long	idletime = secs_getvar_int("idletime");
+	long	idletime = script_getvar_int("idletime");
 	int	tprint, logtprint, autoaway, lagcheck, dailycol, regularcol;
 	conn_t	*conn;
 	struct tm *tmptr;
@@ -40,30 +40,30 @@ void	event_handle(time_t now) {
 
 	whidecursor();
 
-	tprint = secs_getvar_int("tprint");
-	logtprint = secs_getvar_int("logtprint");
-	lagcheck = secs_getvar_int("lagcheck");
+	tprint = script_getvar_int("tprint");
+	logtprint = script_getvar_int("logtprint");
+	lagcheck = script_getvar_int("lagcheck");
 
-	if (secs_getvar_int("autoidle") > 0) {
+	if (script_getvar_int("autoidle") > 0) {
 		char	buf[1024];
 
 		idletime++;
 		snprintf(buf, sizeof(buf), "%lu", idletime);
-		secs_setvar("idletime", buf);
+		script_setvar("idletime", buf);
 	}
 
 	if (awaytime > 0)
 		autoaway = 0;
 	else
-		autoaway = secs_getvar_int("autoaway");
+		autoaway = script_getvar_int("autoaway");
 
 	if ((autoaway > 0) && (idletime >= autoaway)) {
-		char	*autoawaymsg = secs_getvar("autoawaymsg");
+		char	*autoawaymsg = script_getvar("autoawaymsg");
 
 		echof(curconn, "TIMER", "You have been idle for more than %i minutes, so I'm going to mark you away. If you don't want me to do this in the future, just type ``/set autoaway 0'' (you can put that in your .naimrc).\n",
 			autoaway);
 		if (autoawaymsg != NULL)
-			secs_setvar("awaymsg", autoawaymsg);
+			script_setvar("awaymsg", autoawaymsg);
 		setaway(1);
 	}
 
@@ -160,7 +160,7 @@ void	event_handle(time_t now) {
 
 #ifdef ENABLE_DNSUPDATE
 	{
-		int	updatecheck = secs_getvar_int("updatecheck");
+		int	updatecheck = script_getvar_int("updatecheck");
 
 		if ((updatecheck > 0) && (((now-startuptime)/60)%updatecheck == 0)) {
 			struct hostent *ent;

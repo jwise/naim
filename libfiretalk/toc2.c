@@ -311,7 +311,7 @@ static fte_t toc_send_printf(toc_conn_t *c, const char *const format, ...) {
 	va_end(ap);
 
 #ifdef DEBUG_ECHO
-	toc_echof(c, "send_printf", "frame=%X, sequence=out:%i, length=%i, value=[%.*s]\n",
+	toc_echof(c, __FUNCTION__, "frame=%X, sequence=out:%i, length=%i, value=[%.*s]\n",
 		SFLAP_FRAME_DATA, c->local_sequence+1,
 		datai-TOC_HEADER_LENGTH, datai-TOC_HEADER_LENGTH, data+TOC_HEADER_LENGTH);
 #endif
@@ -374,7 +374,7 @@ static fte_t toc_find_packet(toc_conn_t *c, unsigned char *buffer, uint16_t *buf
 
 #ifdef DEBUG_ECHO
 	if (ft != 5)
-		toc_echof(c, "find_packet", "frame=%X, sequence=in:%i, length=%i, value=[%s]\n",
+		toc_echof(c, __FUNCTION__, "frame=%X, sequence=in:%i, length=%i, value=[%s]\n",
 			ft, sequence, length, outbuffer);
 #endif
 
@@ -678,7 +678,7 @@ static void toc_infoget_parse_dir(toc_conn_t *c, toc_infoget_t *inf) {
 
 static void toc_infoget_parse(toc_conn_t *c, toc_infoget_t *inf) {
 	if (inf->buffer.pos == inf->buffer.size)
-		inf->buffer.pos = inf->buffer.size-1;
+		inf->buffer.pos--;
 	inf->buffer.buffer[inf->buffer.pos] = 0;
 
 	if (strstr(inf->buffer.buffer, "Not found.") != NULL)
@@ -689,6 +689,7 @@ static void toc_infoget_parse(toc_conn_t *c, toc_infoget_t *inf) {
 #endif
 	else
 		toc_infoget_parse_userinfo(c, inf);
+	inf->buffer.pos = 0;
 }
 
 static void toc_infoget_remove(toc_conn_t *c, toc_infoget_t *inf, char *error) {
@@ -735,19 +736,22 @@ static fte_t toc_postselect(toc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 
 	for (i = c->infoget_head; i != NULL; i = i2) {
 		fte_t	e;
+#ifdef DEBUG_ECHO
+		int	fd = i->sock.fd;
+#endif
 
 		i2 = i->next;
 
 		e = firetalk_sock_postselect(&(i->sock), read, write, except, &(i->buffer));
 #ifdef DEBUG_ECHO
-		toc_echof(c, "postselect", "postselecting on fd %i got %s (bufferpos=%i, readdata=%i, state=%i)",
-			i->sock.fd, firetalk_strerror(e), i->buffer.pos, i->buffer.readdata, i->sock.state);
+		toc_echof(c, __FUNCTION__, "postselecting on fd %i got %s (bufferpos=%i, readdata=%i, state=%i)",
+			fd, firetalk_strerror(e), i->buffer.pos, i->buffer.readdata, i->sock.state);
 #endif
 
 		if (e == FE_SUCCESS) {
 			if (i->sock.state == FCS_SEND_SIGNON) {
 #ifdef DEBUG_ECHO
-				toc_echof(c, "postselect", "sock_send(%i, [%s], %i)", i->sock.fd, i->buffer.buffer, strlen(i->buffer.buffer));
+				toc_echof(c, __FUNCTION__, "sock_send(%i, [%s], %i)", i->sock.fd, i->buffer.buffer, strlen(i->buffer.buffer));
 #endif
 				firetalk_sock_send(&(i->sock), i->buffer.buffer, strlen(i->buffer.buffer));
 				i->sock.state = FCS_ACTIVE;
@@ -1003,7 +1007,7 @@ static fte_t toc_signon(toc_conn_t *c, const char *const username) {
 	/* send the signon string to indicate that we're speaking FLAP here */
 
 #ifdef DEBUG_ECHO
-	toc_echof(c, "signon", "frame=0, length=%i, value=[%s]\n", strlen(SIGNON_STRING), SIGNON_STRING);
+	toc_echof(c, __FUNCTION__, "frame=0, length=%i, value=[%s]\n", strlen(SIGNON_STRING), SIGNON_STRING);
 #endif
 	firetalk_internal_send_data(conn, SIGNON_STRING, sizeof(SIGNON_STRING)-1);
 
@@ -1133,7 +1137,7 @@ static fte_t toc_internal_send_message(toc_conn_t *c, const char *const dest, co
 	firetalk_queue_append(buf, sizeof(buf), queue, dest);
 
 #ifdef DEBUG_ECHO
-	toc_echof(c, "internal_send_message", "dest=[%s] message=[%s] len=%i", dest, message, len);
+	toc_echof(c, __FUNCTION__, "dest=[%s] message=[%s] len=%i", dest, message, len);
 #endif
 
 	return(toc_send_printf(c, "toc2_send_im %s %s%S", dest, buf, isauto?" auto":""));
@@ -1882,11 +1886,11 @@ static fte_t toc_got_data(toc_conn_t *c, firetalk_buffer_t *buffer) {
 
 			for (j = 0; j < sizeof(toc_barts)/sizeof(*toc_barts); j++)
 				if (toc_barts[j].val == type) {
-					toc_echof(c, "got_data", "BART %i %i (%s): %s [%s]\n", flag, type, toc_barts[j].name, barts[i+2], firetalk_printable(firetalk_debase64(args[i+2])));
+					toc_echof(c, __FUNCTION__, "BART %i %i (%s): %s [%s]\n", flag, type, toc_barts[j].name, barts[i+2], firetalk_printable(firetalk_debase64(args[i+2])));
 					break;
 				}
 			if (j == sizeof(toc_barts)/sizeof(*toc_barts))
-				toc_echof(c, "got_data", "BART %i %i (%s): %s [%s]\n", flag, type, "undocumented", barts[i+2], firetalk_printable(firetalk_debase64(args[i+2])));
+				toc_echof(c, __FUNCTION__, "BART %i %i (%s): %s [%s]\n", flag, type, "undocumented", barts[i+2], firetalk_printable(firetalk_debase64(args[i+2])));
 		}
 #endif
 	} else if (strcmp(arg0, "NICK") == 0) {
@@ -2086,52 +2090,109 @@ static fte_t toc_got_data(toc_conn_t *c, firetalk_buffer_t *buffer) {
 	} else if (strcmp(arg0, "UPDATED2") == 0) {
 		/* UPDATED2:a:19033926:Buddy */
 		/* UPDATED2:b:nmlorg:groupname:Dan */
+		char	*type;
+
 		args = toc_parse_args(data, 255, ':');
 		assert(strcmp(arg0, args[0]) == 0);
 
-		if ((args[1] != NULL) && (args[2] != NULL) && (args[3] != NULL) && (strcmp(args[1], "b") == 0)) {
+		type = args[1];
+
+		if ((type != NULL) && (args[2] != NULL) && (args[3] != NULL) && (strcmp(type, "b") == 0)) {
 			char	*name = args[2],
 				*group = args[3],
 				*friendly = args[4];
 
 			if ((friendly != NULL) && (*friendly == 0))
 				friendly = NULL;
+#ifdef DEBUG_ECHO
+			toc_echof(c, __FUNCTION__, "UPDATED BUDDY (%s), name=\"%s\", group=\"%s\", friendly=\"%s\"\n", type, name, group, friendly);
+#endif
 			firetalk_callback_buddyadded(c, name, group, friendly);
+		} else {
+#ifdef DEBUG_ECHO
+			int	i;
+
+			toc_echof(c, __FUNCTION__, "UPDATED unknown (%s)\n", type);
+			for (i = 2; args[i] != NULL; i++)
+				toc_echof(c, __FUNCTION__, "UPDATED -- args[%i]=\"%s\"\n", i, args[i]);
+#endif
 		}
 	} else if (strcmp(arg0, "INSERTED2") == 0) {
 		/* INSERTED2:25:76: */
 		/* INSERTED2:b::yankeegurl680997:Recent Buddies */
 		/* INSERTED2:d:bb8 */
+		char	*type;
+
 		args = toc_parse_args(data, 255, ':');
 		assert(strcmp(arg0, args[0]) == 0);
 
-		if ((args[1] != NULL) && (args[2] != NULL) && (args[3] != NULL) && (args[4] != NULL) && (strcmp(args[1], "b") == 0)) {
+		type = args[1];
+
+		if ((type != NULL) && (args[2] != NULL) && (args[3] != NULL) && (args[4] != NULL) && (strcmp(type, "b") == 0)) {
 			char	*name = args[3],
 				*group = args[4],
 				*friendly = args[5];
 
 			if ((friendly != NULL) && (*friendly == 0))
 				friendly = NULL;
+#ifdef DEBUG_ECHO
+			toc_echof(c, __FUNCTION__, "INSERTED BUDDY (%s), name=\"%s\", group=\"%s\", friendly=\"%s\"\n", type, name, group, friendly);
+#endif
 			firetalk_callback_buddyadded(c, name, group, friendly);
-		} else if ((args[1] != NULL) && (args[2] != NULL) && (strcmp(args[1], "d") == 0))
-			firetalk_callback_denyadded(c, args[2]);
+		} else if ((type != NULL) && (args[2] != NULL) && (strcmp(type, "d") == 0)) {
+			char	*name = args[2];
+
+#ifdef DEBUG_ECHO
+			toc_echof(c, __FUNCTION__, "INSERTED DENY (%s), name=\"%s\"\n", type, name);
+#endif
+			firetalk_callback_denyadded(c, name);
+		} else {
+#ifdef DEBUG_ECHO
+			int	i;
+
+			toc_echof(c, __FUNCTION__, "INSERTED unknown (%s)\n", type);
+			for (i = 2; args[i] != NULL; i++)
+				toc_echof(c, __FUNCTION__, "INSERTED -- args[%i]=\"%s\"\n", i, args[i]);
+#endif
+		}
 	} else if (strcmp(arg0, "DELETED2") == 0) {
 		/* DELETED2:b:yankeegurl680997: */
 		/* DELETED2:b:yankeegurl680997:Recent Buddies */
 		/* DELETED2:M-^@T*80®ÿ¿M-^BGM-^Ayankeegurl680997: */
 		/* DELETED2:d:aa 2: */
+		char	*type;
+
 		args = toc_parse_args(data, 255, ':');
 		assert(strcmp(arg0, args[0]) == 0);
 
-		if ((args[1] != NULL) && (args[2] != NULL) && (args[3] != NULL) && (strcmp(args[1], "b") == 0)) {
+		type = args[1];
+
+		if ((type != NULL) && (args[2] != NULL) && (args[3] != NULL) && (strcmp(type, "b") == 0)) {
 			char	*name = args[2],
-				*group = args[4];
+				*group = args[3];
 
 			if ((group != NULL) && (*group == 0))
 				group = NULL;
+#ifdef DEBUG_ECHO
+			toc_echof(c, __FUNCTION__, "DELETED BUDDY (%s), name=\"%s\", group=\"%s\"\n", type, name, group);
+#endif
 			firetalk_callback_buddyremoved(c, name, group);
-		} else if ((args[1] != NULL) && (args[2] != NULL) && (strcmp(args[1], "d") == 0))
-			firetalk_callback_denyremoved(c, args[2]);
+		} else if ((type != NULL) && (args[2] != NULL) && (strcmp(type, "d") == 0)) {
+			char	*name = args[2];
+
+#ifdef DEBUG_ECHO
+			toc_echof(c, __FUNCTION__, "DELETED DENY (%s), name=\"%s\"\n", type, name);
+#endif
+			firetalk_callback_denyremoved(c, name);
+		} else {
+#ifdef DEBUG_ECHO
+			int	i;
+
+			toc_echof(c, __FUNCTION__, "DELETED unknown (%s)\n", type);
+			for (i = 2; args[i] != NULL; i++)
+				toc_echof(c, __FUNCTION__, "DELETED -- args[%i]=\"%s\"\n", i, args[i]);
+#endif
+		}
 	} else if (strcmp(arg0, "DIR_STATUS") == 0) {
 		/* DIR_STATUS:<Return Code>:<Optional args>
 		**    <Return Code> is always 0 for success status.
@@ -2202,10 +2263,10 @@ static fte_t toc_got_data(toc_conn_t *c, firetalk_buffer_t *buffer) {
 		{
 			int	i;
 
-			toc_echof(c, "got_data", "RVOUS_PROPOSE\n1user=[%s]\n2uuid=%s\n3cookie=[%s]\n4seq=%s\n5rendezvous_ip=%s\n6proposer_ip=%s\n7verified_ip=%s\n8port=%s\n",
+			toc_echof(c, __FUNCTION__, "RVOUS_PROPOSE\n1user=[%s]\n2uuid=%s\n3cookie=[%s]\n4seq=%s\n5rendezvous_ip=%s\n6proposer_ip=%s\n7verified_ip=%s\n8port=%s\n",
 				args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
 			for (i = 9; args[i] && args[i+1]; i += 2)
-				toc_echof(c, "got_data", "RVOUS_PROPOSE\n%itype=%s\n%ivalue=%s [%s]\n", i, args[i], i+1, args[i+1], firetalk_debase64(args[i+1]));
+				toc_echof(c, __FUNCTION__, "RVOUS_PROPOSE\n%itype=%s\n%ivalue=%s [%s]\n", i, args[i], i+1, args[i+1], firetalk_debase64(args[i+1]));
 		}
 #endif
 		toc_uuid(args[2], &A1, &A2, &B, &C, &D, &E1, &E2, &E3);
@@ -2402,13 +2463,13 @@ got_data_connecting_start:
 			char	*nl, *curgroup = strdup("Saved buddy");
 
 			args = toc_parse_args(data, 2, ':');
-			if (!args[1]) {
+			if (args[1] == NULL) {
 				firetalk_callback_connectfailed(c, FE_INVALIDFORMAT, "CONFIG2");
 				return(FE_INVALIDFORMAT);
 			}
 			tempchr1 = args[1];
 			c->permit_mode = 0;
-			while ((nl = strchr(tempchr1, '\n'))) {
+			while ((nl = strchr(tempchr1, '\n')) != NULL) {
 				*nl = 0;
 
 				if (tempchr1[1] == ':') {
@@ -2422,14 +2483,19 @@ got_data_connecting_start:
 						break;
 					  case 'b':	/* A Buddy */
 					  case 'a': {	/* another kind of buddy */
-							char	*friendly = NULL;
+							char	*name = args[1], *friendly = NULL;
 
 							if ((args[2] != NULL) && (args[2][0] != 0))
 								friendly = args[2];
 							else
 								friendly = NULL;
-							if (strcmp(curgroup, "Mobile Device") != 0)
-								firetalk_callback_buddyadded(c, args[1], curgroup, friendly);
+							if (strcmp(curgroup, "Mobile Device") != 0) {
+								firetalk_buddy_t *buddy;
+
+								if (((buddy = firetalk_im_find_buddy(fchandle, name)) != NULL) && buddy->uploaded)
+									toc_im_remove_buddy(c, buddy->nickname, buddy->group);
+								firetalk_callback_buddyadded(c, name, curgroup, friendly);
+							}
 						}
 						break;
 					  case 'p':	/* Person on permit list */

@@ -1,4 +1,4 @@
-SUBDIRS = libfiretalk libltdl secs src CYGWIN-PATCHES
+SUBDIRS = libfiretalk libltdl lua secs src CYGWIN-PATCHES
 
 man_MANS = doc/naim.1 doc/nicq.1 doc/nirc.1 doc/nlily.1
 pkgdoc_DATA = FAQ README

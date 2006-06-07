@@ -81,6 +81,7 @@ static const char
 	"BUDDY_OFFLINE",
 	"BUDDY_QUEUED",
 	"BUDDY_TAGGED",
+	"BUDDY_FAKEAWAY",
 };
 
 static const char
@@ -395,12 +396,12 @@ CONIOAREQ(string,message)
 CONIOFUNC(addbuddy) {
 CONIOALIA(add)
 CONIOALIA(friend)
-CONIOALIA(groupbuddy)
 CONIODESC(Add someone to your buddy list or change their group membership)
 CONIOAREQ(account,account)
 CONIOAOPT(string,group)
 CONIOAOPT(string,realname)
 	const char *group = "Buddy", *name = NULL;
+	fte_t	ret;
 
 	switch (argc) {
 	  default:
@@ -411,12 +412,8 @@ CONIOAOPT(string,realname)
 		break;
 	}
 
-	{
-		fte_t	ret;
-
-		if ((ret = firetalk_im_add_buddy(conn->conn, args[0], group, name)) != FE_SUCCESS)
-			echof(conn, "ADDBUDDY", "Unable to add buddy: %s.\n", firetalk_strerror(ret));
-	}
+	if ((ret = firetalk_im_add_buddy(conn->conn, args[0], group, name)) != FE_SUCCESS)
+		echof(conn, "ADDBUDDY", "Unable to add buddy: %s.\n", firetalk_strerror(ret));
 }
 
 static void do_delconn(conn_t *conn) {
@@ -466,7 +463,7 @@ CONIOALIA(quit)
 CONIODESC(Disconnect and exit naim)
 	conn_t	*c;
 
-	if (secs_getvar_int("autosave"))
+	if (script_getvar_int("autosave"))
 		conio_save(conn, 0, NULL);
 
 	c = conn;
@@ -548,7 +545,7 @@ CONIOAOPT(string,filename)
 
 	for (i = 0; i < rc_var_s_c; i++) {
 		const char
-			*glob = secs_getvar(rc_var_s_ar[i].var),
+			*glob = script_getvar(rc_var_s_ar[i].var),
 			*def = rc_var_s_ar[i].val,
 			*use, *cm, *q;
 
@@ -577,7 +574,7 @@ CONIOAOPT(string,filename)
 
 	for (i = 0; i < rc_var_i_c; i++) {
 		const char
-			*glob = secs_getvar(rc_var_i_ar[i].var),
+			*glob = script_getvar(rc_var_i_ar[i].var),
 			*cm;
 		const int
 			globi = atoi(glob),
@@ -604,7 +601,7 @@ CONIOAOPT(string,filename)
 
 	for (i = 0; i < rc_var_b_c; i++) {
 		const char
-			*glob = secs_getvar(rc_var_b_ar[i].var),
+			*glob = script_getvar(rc_var_b_ar[i].var),
 			*cm;
 		const int
 			globi = atoi(glob),
@@ -692,16 +689,14 @@ CONIOAOPT(string,filename)
 		fprintf(file, "# You were away when you /saved.\nAWAY\n\n");
 
 	{
-		extern script_t
-			*scriptar;
-		extern int
-			scriptc;
+		extern alias_t *aliasar;
+		extern int aliasc;
 		int	i;
 
-		if (scriptc > 0) {
+		if (aliasc > 0) {
 			fprintf(file, "# Aliases.\n");
-			for (i = 0; i < scriptc; i++)
-				fprintf(file, "ALIAS %s %s\n", scriptar[i].name, scriptar[i].script);
+			for (i = 0; i < aliasc; i++)
+				fprintf(file, "ALIAS %s %s\n", aliasar[i].name, aliasar[i].script);
 			fprintf(file, "\n");
 		}
 	}
@@ -832,7 +827,7 @@ CONIOAOPT(string,filename)
 		for (i = 0; i < rc_var_s_c; i++) {
 			const char
 				*loc = getvar(c, rc_var_s_ar[i].var),
-				*glob = secs_getvar(rc_var_s_ar[i].var),
+				*glob = script_getvar(rc_var_s_ar[i].var),
 				*q;
 
 			if (loc != glob) {
@@ -852,7 +847,7 @@ CONIOAOPT(string,filename)
 		for (i = 0; i < rc_var_i_c; i++) {
 			const char
 				*loc = getvar(c, rc_var_i_ar[i].var),
-				*glob = secs_getvar(rc_var_i_ar[i].var);
+				*glob = script_getvar(rc_var_i_ar[i].var);
 
 			if (loc != glob) {
 				if (rc_var_i_ar[i].desc != NULL)
@@ -869,7 +864,7 @@ CONIOAOPT(string,filename)
 		for (i = 0; i < rc_var_b_c; i++) {
 			const char
 				*loc = getvar(c, rc_var_b_ar[i].var),
-				*glob = secs_getvar(rc_var_b_ar[i].var);
+				*glob = script_getvar(rc_var_b_ar[i].var);
 
 			if (loc != glob) {
 				if (rc_var_b_ar[i].desc != NULL)
@@ -1072,7 +1067,7 @@ CONIOAOPT(entity,name)
 CONIOFUNC(eval) {
 CONIODESC(Evaluate a command with $-variable substitution)
 CONIOAREQ(string,script)
-	secs_script_parse(args[0]);
+	script_script_parse(args[0]);
 }
 
 CONIOFUNC(say) {
@@ -1269,7 +1264,7 @@ CONIOAOPT(string,message)
 		else
 			setaway(0);
 	} else {
-		secs_setvar("awaymsg", secs_script_expand(NULL, args[0]));
+		script_setvar("awaymsg", script_expand(args[0]));
 		setaway(0);
 	}
 }
@@ -1463,11 +1458,23 @@ CONIOAOPT(string,realname)
 	if (argc == 1)
 		conio_addbuddy(conn, 1, args);
 	else {
-		const char	*_args[3];
+		buddylist_t *blist = rgetlist(conn, args[0]);
+		const char *_args[] = { args[0], (blist == NULL)?"Buddy":USER_GROUP(blist), args[1] };
 
-		_args[0] = args[0];
-		_args[1] = "Buddy";
-		_args[2] = args[1];
+		conio_addbuddy(conn, 3, _args);
+	}
+}
+
+CONIOFUNC(groupbuddy) {
+CONIODESC(Change the group membership for a buddy)
+CONIOAREQ(account,account)
+CONIOAOPT(string,group)
+	if (argc == 1)
+		conio_addbuddy(conn, 1, args);
+	else {
+		buddylist_t *blist = rgetlist(conn, args[0]);
+		const char *_args[] = { args[0], args[1], (blist == NULL)?NULL:USER_NAME(blist) };
+
 		conio_addbuddy(conn, 3, _args);
 	}
 }
@@ -1894,7 +1901,7 @@ CONIOAREQ(string,name)
 CONIOFUNC(echo) {
 CONIODESC(Display something on the screen with $-variable expansion)
 CONIOAREQ(string,script)
-	echof(conn, NULL, "%s\n", secs_script_expand(NULL, args[0]));
+	echof(conn, NULL, "%s\n", script_expand(args[0]));
 }
 
 CONIOFUNC(readprofile) {
@@ -2190,7 +2197,7 @@ CONIOFUNC(alias) {
 CONIODESC(Create a new command alias)
 CONIOAREQ(string,commandname)
 CONIOAREQ(string,script)
-	script_makealias(args[0], args[1]);
+	alias_makealias(args[0], args[1]);
 	echof(conn, NULL, "Aliased <font color=\"#00FF00\">/%s</font> to: %s\n", args[0], args[1]);
 }
 
@@ -2654,7 +2661,7 @@ CONIOAOPT(int,height)
 	int	scrollback;
 
 	if (argc == 0)
-		scrollback = secs_getvar_int("scrollback");
+		scrollback = script_getvar_int("scrollback");
 	else
 		scrollback = atoi(args[0]);
 
@@ -2667,7 +2674,7 @@ CONIOAOPT(int,height)
 	}
 
 	snprintf(buf, sizeof(buf), "%i", scrollback);
-	secs_setvar("scrollback", buf);
+	script_setvar("scrollback", buf);
 
 	faimconf.wstatus.pady = scrollback;
 	win_resize();
@@ -2833,7 +2840,7 @@ void	conio_handlecmd(const char *buf) {
 	} else
 		c = curconn;
 
-	if (script_doalias(cmd, arg) == 1)
+	if (alias_doalias(cmd, arg) == 1)
 		return;
 
 	for (i = 0; i < cmdc; i++)
@@ -2889,7 +2896,7 @@ void	conio_handlecmd(const char *buf) {
 	cmdar[i].func(c, a, args);
 }
 
-void	(*secs_client_cmdhandler)(const char *) = conio_handlecmd;
+void	(*script_client_cmdhandler)(const char *) = conio_handlecmd;
 
 void	conio_handleline(const char *line) {
 	if (*line == '/')
@@ -3114,13 +3121,10 @@ const char *conio_tabcomplete(const char *buf, const int bufloc, int *const matc
 	assert(*buf == '/');
 
 	if (sp == NULL) {
-		extern script_t
-			*scriptar;
-		extern int
-			scriptc;
+		extern alias_t *aliasar;
+		extern int aliasc;
 		conn_t	*conn;
-		const char
-			*co = memchr(buf, ':', bufloc);
+		const char *co = memchr(buf, ':', bufloc);
 		int	i;
 
 		if (co == NULL)
@@ -3128,13 +3132,13 @@ const char *conio_tabcomplete(const char *buf, const int bufloc, int *const matc
 		else
 			co++;
 
-		for (i = 0; i < scriptc; i++)
-			if (strncasecmp(scriptar[i].name, co, bufloc-(co-buf)) == 0) {
+		for (i = 0; i < aliasc; i++)
+			if (strncasecmp(aliasar[i].name, co, bufloc-(co-buf)) == 0) {
 				if (match != NULL)
 					*match = bufloc-(co-buf);
 				if (desc != NULL)
-					*desc = scriptar[i].script;
-				return(scriptar[i].name);
+					*desc = aliasar[i].script;
+				return(aliasar[i].name);
 			}
 
 		for (i = 0; i < cmdc; i++)
@@ -3282,12 +3286,12 @@ static void gotkey_real(int c) {
 			char	buf[256];
 
 			snprintf(buf, sizeof(buf), "KEY_MAX plus %s", keyname(k));
-			secs_setvar("lastkey", buf);
+			script_setvar("lastkey", buf);
 			c = KEY_MAX + k;
 		} else
-			secs_setvar("lastkey", keyname(c));
+			script_setvar("lastkey", keyname(c));
 	} else
-		secs_setvar("lastkey", keyname(c));
+		script_setvar("lastkey", keyname(c));
 
 	binding = conio_bind_get(c);
 	bindfunc = conio_bind_func(c);
@@ -3625,7 +3629,7 @@ static void gotkey_real(int c) {
 				break;
 			  case CONIO_KEY_STATUS_DISPLAY: /* Display or hide the status console */
 				if (consolescroll == -1) {
-					if (secs_getvar_int("quakestyle") == 1) {
+					if (script_getvar_int("quakestyle") == 1) {
 						quakeoff = 2;
 						nw_mvwin(&win_info, faimconf.wstatus.starty+2*faimconf.wstatus.widthy/3+1,
 							faimconf.winfo.startx);
@@ -3634,7 +3638,7 @@ static void gotkey_real(int c) {
 					}
 					consolescroll = 0;
 				} else {
-					if (secs_getvar_int("quakestyle") == 1) {
+					if (script_getvar_int("quakestyle") == 1) {
 						nw_mvwin(&win_info, faimconf.winfo.starty,
 							faimconf.winfo.startx);
 						nw_mvwin(&win_input, faimconf.winput.starty,
@@ -3685,7 +3689,7 @@ static void gotkey_real(int c) {
 				break;
 			}
 		} else if (binding != NULL)
-			secs_script_parse(binding);
+			script_script_parse(binding);
 		if (bindfunc != NULL)
 			bindfunc(buf, &bufloc);
 	} else if (naimisprint(c)) {

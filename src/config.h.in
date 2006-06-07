@@ -22,6 +22,9 @@
 /* Define to enable experimental CTCP magic support */
 #undef ENABLE_FT_LILY_CTCPMAGIC
 
+/* Define to enable experimental Lua scripting support */
+#undef ENABLE_LUA
+
 /* Define to enable a workaround on Windows for module loading */
 #undef FAKE_MAIN_STUB
 
@@ -295,9 +298,6 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
-
-/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
-#undef TIME_WITH_SYS_TIME
 
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 #undef TM_IN_SYS_TIME

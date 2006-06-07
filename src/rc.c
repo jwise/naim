@@ -337,7 +337,7 @@ int	rc_resize(faimconf_t *conf) {
 	conf->wstatus.startx = 0;
 	conf->wstatus.widthy = LINES-2;
 	conf->wstatus.starty = 0;
-	conf->wstatus.pady = secs_getvar_int("scrollback");
+	conf->wstatus.pady = script_getvar_int("scrollback");
 
 	conf->winput.widthx = COLS;
 	conf->winput.startx = 0;
@@ -498,24 +498,24 @@ void	rc_initdefs(faimconf_t *conf) {
 		}
 #endif
 
-	if (secs_getvar("lag") == NULL)
-		secs_setvar("lag", "0s");
-	if (secs_getvar("SN") == NULL)
-		secs_setvar("SN", "- Type /connect \"screen name\" (include the quotes)");
-	if (secs_getvar("lag") == NULL)
-		secs_setvar("online", "(offline)");
+	if (script_getvar("lag") == NULL)
+		script_setvar("lag", "0s");
+	if (script_getvar("SN") == NULL)
+		script_setvar("SN", "- Type /connect \"screen name\" (include the quotes)");
+	if (script_getvar("lag") == NULL)
+		script_setvar("online", "(offline)");
 
 	for (i = 0; i < rc_var_s_c; i++)
-		if (secs_getvar(rc_var_s_ar[i].var) == NULL)
-			secs_setvar(rc_var_s_ar[i].var, rc_var_s_ar[i].val);
+		if (script_getvar(rc_var_s_ar[i].var) == NULL)
+			script_setvar(rc_var_s_ar[i].var, rc_var_s_ar[i].val);
 
 	for (i = 0; i < rc_var_i_c; i++)
-		if (secs_getvar(rc_var_i_ar[i].var) == NULL)
-			secs_makevar_int(rc_var_i_ar[i].var, rc_var_i_ar[i].val, 'I', NULL);
+		if (script_getvar(rc_var_i_ar[i].var) == NULL)
+			script_setvar_int(rc_var_i_ar[i].var, rc_var_i_ar[i].val);
 
 	for (i = 0; i < rc_var_b_c; i++)
-		if (secs_getvar(rc_var_b_ar[i].var) == NULL)
-			secs_makevar_int(rc_var_b_ar[i].var, rc_var_b_ar[i].val, 'B', NULL);
+		if (script_getvar(rc_var_b_ar[i].var) == NULL)
+			script_setvar_int(rc_var_b_ar[i].var, rc_var_b_ar[i].val);
 
 	conf->f[cEVENT] = 3;
 	conf->f[cEVENT_ALT] = 2;
@@ -529,6 +529,7 @@ void	rc_initdefs(faimconf_t *conf) {
 	conf->f[cBUDDY_OFFLINE] = 1;
 	conf->f[cBUDDY_QUEUED] = 5;
 	conf->f[cBUDDY_TAGGED] = 4;
+	conf->f[cBUDDY_FAKEAWAY] = conf->f[cBUDDY_AWAY];
 
 	conf->b[cINPUT] = 0;
 	conf->b[cWINLIST] = 6;

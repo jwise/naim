@@ -29,6 +29,7 @@ enum {
 	cBUDDY_OFFLINE,
 	cBUDDY_QUEUED,
 	cBUDDY_TAGGED,
+	cBUDDY_FAKEAWAY,
 	NUMEVENTS
 };
 
@@ -145,15 +146,13 @@ typedef enum {
 	TRANSFER,
 } et_t;
 
-#ifndef WIN_T
 typedef struct {
-	void	*_win;
+	void	*win;
 	FILE	*logfile;
 	int	height;
 	unsigned char dirty:1,
 		small:1;
 } win_t;
-#endif
 
 typedef struct buddywin_t {
 	char	*winname,
@@ -210,16 +209,16 @@ typedef struct firetalk_useragent_connection_t {
 	struct firetalk_connection_t *conn;
 	FILE	*logfile;
 	win_t	nwin;
-	buddylist_t	*buddyar;
-	ignorelist_t	*idiotar;
-	buddywin_t	*curbwin;
+	buddylist_t *buddyar;
+	ignorelist_t *idiotar;
+	buddywin_t *curbwin;
 	struct firetalk_useragent_connection_t *next;
 } conn_t;
 
 typedef struct {
 	char	*name,
 		*script;
-} script_t;
+} alias_t;
 
 typedef struct {
 	const char *var,
@@ -251,105 +250,6 @@ typedef struct {
 
 
 
-static inline char *user_name(char *buf, int buflen, conn_t *conn, buddylist_t *user) {
-	static char _buf[256];
-
-	if (buf == NULL) {
-		buf = _buf;
-		buflen = sizeof(_buf);
-	}
-
-	secs_setvar("user_name_name", USER_NAME(user));
-	if (user->warnval > 0) {
-		snprintf(_buf, sizeof(_buf), "%li", user->warnval);
-		secs_setvar("warnval", _buf);
-		secs_setvar("user_name_ifwarn",
-			secs_script_expand(NULL, secs_getvar("statusbar_warn")));
-	} else
-		secs_setvar("user_name_ifwarn", "");
-
-	if (firetalk_compare_nicks(conn->conn, USER_ACCOUNT(user), USER_NAME(user)) == FE_SUCCESS) {
-		secs_setvar("user_name_account", USER_NAME(user));
-		snprintf(buf, buflen, "%s", secs_script_expand(NULL, secs_getvar("nameformat")));
-	} else {
-		secs_setvar("user_name_account", USER_ACCOUNT(user));
-		snprintf(buf, buflen, "%s", secs_script_expand(NULL, secs_getvar("nameformat_named")));
-	}
-	secs_setvar("user_name_account", "");
-	secs_setvar("user_name_name", "");
-	return(buf);
-}
-
-static inline const char *naim_basename(const char *name) {
-	const char *slash = strrchr(name, '/');
-
-	if (slash != NULL)
-		return(slash+1);
-	return(name);
-}
-
-static inline int naim_strtocol(const char *str) {
-	int	i, srccol = 0;
-
-	for (i = 0; str[i] != 0; i++)
-		srccol += str[i] << (8*(i%3));
-	return(srccol%0xFFFFFF);
-}
-
-#define STRREPLACE(target, source) do { \
-	assert((source) != NULL); \
-	assert((source) != (target)); \
-	if (((target) = realloc((target), strlen(source)+1)) == NULL) { \
-		echof(curconn, NULL, "Fatal error %i in strdup(%s): %s\n", errno, \
-			(source), strerror(errno)); \
-		statrefresh(); \
-		sleep(5); \
-		abort(); \
-	} \
-	strcpy((target), (source)); \
-} while (0)
-
-#define FREESTR(x) do { \
-	if ((x) != NULL) { \
-		free(x); \
-		(x) = NULL; \
-	} \
-} while (0)
-
-#define WINTIME_NOTNOW(win, cpre, t) do { \
-	struct tm	*tptr = localtime(&t); \
-	unsigned char	buf[64]; \
-	char		*format; \
-	\
-	if ((format = secs_getvar("timeformat")) == NULL) \
-		format = "[%H:%M:%S]&nbsp;"; \
-	strftime(buf, sizeof(buf), format, tptr); \
-	hwprintf(win, C(cpre,EVENT), "</B>%s", buf); \
-} while (0)
-
-#define WINTIME(win, cpre)	WINTIME_NOTNOW(win, cpre, now)
-
-#define WINTIMENOLOG(win, cpre) do { \
-	struct tm *tptr = localtime(&now); \
-	unsigned char buf[64]; \
-	char	*format; \
-	\
-	if ((format = secs_getvar("timeformat")) == NULL) \
-		format = "[%H:%M:%S]&nbsp;"; \
-	strftime(buf, sizeof(buf), format, tptr); \
-	hwprintf(win, -C(cpre,EVENT)-1, "</B>%s", buf); \
-} while (0)
-
-extern int consolescroll;
-#define inconsole	(consolescroll != -1)
-#define inconn_real	((curconn != NULL) && (curconn->curbwin != NULL))
-#define inconn		(!inconsole && inconn_real)
-
-#define hexdigit(c) \
-	(isdigit(c)?(c - '0'):((c >= 'A') && (c <= 'F'))?(c - 'A' + 10):((c >= 'a') && (c <= 'f'))?(c - 'a' + 10):(0))
-static inline int naimisprint(int c) {
-	return((c >= 0) && (c <= 255) && (isprint(c) || (c >= 160)));
-}
 
 /* buddy.c */
 const unsigned char *naim_normalize(const unsigned char *const name) G_GNUC_INTERNAL;
@@ -440,8 +340,8 @@ void	htmlstrip(char *bb);
 void	htmlreplace(char *bb, char what);
 
 /* script.c */
-void	script_makealias(const char *, const char *);
-int	script_doalias(const char *, const char *);
+void	alias_makealias(const char *, const char *);
+int	alias_doalias(const char *, const char *);
 
 /* set.c */
 const char *set_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
@@ -479,6 +379,6 @@ int	nw_getcol(win_t *win) G_GNUC_INTERNAL;
 int	nw_getrow(win_t *win) G_GNUC_INTERNAL;
 void	nw_getline(win_t *win, char *buf, int buflen) G_GNUC_INTERNAL;
 int	nw_getch(void) G_GNUC_INTERNAL;
-void	nw_getpass(win_t *win, char *pass, int len) G_GNUC_INTERNAL;
+extern void	nw_getpass(win_t *win, char *pass, int len) G_GNUC_INTERNAL;
 
 #endif /* naim_h */

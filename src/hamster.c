@@ -274,7 +274,7 @@ void	sendaway(conn_t *conn, const char *SN) {
 	if (awaytime == 0)
 		return;
 	snprintf(buf, sizeof(buf), "[Away for %s] %s", 
-		dtime(now-awaytime), secs_getvar("awaymsg"));
+		dtime(now-awaytime), script_getvar("awaymsg"));
 	naim_send_im_away(conn, SN, buf, 0);
 }
 
@@ -282,9 +282,9 @@ void	sendaway(conn_t *conn, const char *SN) {
 
 void	setaway(const int auto_flag) {
 	conn_t	*conn = curconn;
-	char	*awaymsg = secs_getvar("awaymsg");
+	char	*awaymsg = script_getvar("awaymsg");
 
-	awaytime = now - 60*secs_getvar_int("idletime");
+	awaytime = now - 60*script_getvar_int("idletime");
 	do {
 		status_echof(conn, "You are now away--hurry back!\n");
 		firetalk_set_away(conn->conn, awaymsg, auto_flag);
@@ -310,16 +310,16 @@ int	getvar_int(conn_t *conn, const char *str) {
 	char	buf[1024], *ptr;
 
 	snprintf(buf, sizeof(buf), "%s:%s", conn->winname, str);
-	if ((ptr = secs_getvar(buf)) != NULL)
+	if ((ptr = script_getvar(buf)) != NULL)
 		return(atoi(ptr));
-	return(secs_getvar_int(str));
+	return(script_getvar_int(str));
 }
 
 char	*getvar(conn_t *conn, const char *str) {
 	char	buf[1024], *val;
 
 	snprintf(buf, sizeof(buf), "%s:%s", conn->winname, str);
-	if ((val = secs_getvar(buf)) != NULL)
+	if ((val = script_getvar(buf)) != NULL)
 		return(val);
-	return(secs_getvar(str));
+	return(script_getvar(str));
 }

@@ -375,7 +375,7 @@ static void firetalk_im_delete_buddy(firetalk_connection_t *conn, const char *co
 	iter = NULL;
 }
 
-static firetalk_buddy_t *firetalk_im_find_buddy(firetalk_connection_t *conn, const char *const name) {
+firetalk_buddy_t *firetalk_im_find_buddy(firetalk_connection_t *conn, const char *const name) {
 	firetalk_buddy_t *iter;
 
 	for (iter = conn->buddy_head; iter != NULL; iter = iter->next) {
@@ -620,9 +620,10 @@ void	firetalk_callback_buddyadded(struct firetalk_driver_connection_t *c, const 
 	firetalk_connection_t *conn = firetalk_find_conn(c);
 	firetalk_buddy_t *iter;
 
-	if ((iter = firetalk_im_find_buddy(conn, name)) != NULL)
+	if ((iter = firetalk_im_find_buddy(conn, name)) != NULL) {
+		iter->uploaded = 0;
 		firetalk_im_replace_buddy(conn, iter, name, group, friendly);
-	else
+	} else
 		iter = firetalk_im_insert_buddy(conn, name, group, friendly);
 	iter->uploaded = 1;
 }
@@ -2037,33 +2038,37 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 			continue;
 
 		for (fileiter = conn->file_head; fileiter != NULL; fileiter = fileiter->next) {
-			if (fileiter->state == FF_STATE_TRANSFERRING) {
-				if (fileiter->sock.fd >= n)
-					n = fileiter->sock.fd + 1;
+			if (fileiter->sock.fd >= 0)
+				FD_SET(fileiter->sock.fd, my_except);
+			switch (fileiter->state) {
+			  case FF_STATE_TRANSFERRING:
 				switch (fileiter->direction) {
 				  case FF_DIRECTION_SENDING:
 					assert(fileiter->sock.fd >= 0);
+					if (fileiter->sock.fd >= n)
+						n = fileiter->sock.fd + 1;
 					FD_SET(fileiter->sock.fd, my_write);
-					FD_SET(fileiter->sock.fd, my_except);
 					break;
 				  case FF_DIRECTION_RECEIVING:
 					assert(fileiter->sock.fd >= 0);
+					if (fileiter->sock.fd >= n)
+						n = fileiter->sock.fd + 1;
 					FD_SET(fileiter->sock.fd, my_read);
-					FD_SET(fileiter->sock.fd, my_except);
 					break;
 				}
-			} else if (fileiter->state == FF_STATE_WAITREMOTE) {
+				break;
+			  case FF_STATE_WAITREMOTE:
 				assert(fileiter->sock.fd >= 0);
 				if (fileiter->sock.fd >= n)
 					n = fileiter->sock.fd + 1;
 				FD_SET(fileiter->sock.fd, my_read);
-				FD_SET(fileiter->sock.fd, my_except);
-			} else if (fileiter->state == FF_STATE_WAITSYNACK) {
+				break;
+			  case FF_STATE_WAITSYNACK:
 				assert(fileiter->sock.fd >= 0);
 				if (fileiter->sock.fd >= n)
 					n = fileiter->sock.fd + 1;
 				FD_SET(fileiter->sock.fd, my_write);
-				FD_SET(fileiter->sock.fd, my_except);
+				break;
 			}
 		}
 
@@ -2130,18 +2135,21 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 
 		for (fileiter = conn->file_head; fileiter != NULL; fileiter = filenext) {
 			filenext = fileiter->next;
-			if (fileiter->state == FF_STATE_TRANSFERRING) {
+			if ((fileiter->sock.fd >= 0) && FD_ISSET(fileiter->sock.fd, my_except)) {
+				if (conn->callbacks[FC_FILE_ERROR])
+					conn->callbacks[FC_FILE_ERROR](conn, conn->clientstruct, fileiter, fileiter->clientfilestruct, FE_IOERROR);
+				firetalk_file_cancel(conn, fileiter);
+				continue;
+			}
+			switch (fileiter->state) {
+			  case FF_STATE_TRANSFERRING:
 				assert(fileiter->sock.fd >= 0);
 				if (FD_ISSET(fileiter->sock.fd, my_write))
 					firetalk_handle_send(conn, fileiter);
-				if ((fileiter->sock.fd != -1) && FD_ISSET(fileiter->sock.fd, my_read))
+				else if (FD_ISSET(fileiter->sock.fd, my_read))
 					firetalk_handle_receive(conn, fileiter);
-				if ((fileiter->sock.fd != -1) && FD_ISSET(fileiter->sock.fd, my_except)) {
-					if (conn->callbacks[FC_FILE_ERROR])
-						conn->callbacks[FC_FILE_ERROR](conn, conn->clientstruct, fileiter, fileiter->clientfilestruct, FE_IOERROR);
-					firetalk_file_cancel(conn, fileiter);
-				}
-			} else if (fileiter->state == FF_STATE_WAITREMOTE) {
+				break;
+			  case FF_STATE_WAITREMOTE:
 				assert(fileiter->sock.fd >= 0);
 				if (FD_ISSET(fileiter->sock.fd, my_read)) {
 					struct sockaddr_in addr;
@@ -2161,17 +2169,13 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 						if (conn->callbacks[FC_FILE_START])
 							conn->callbacks[FC_FILE_START](conn, conn->clientstruct, fileiter, fileiter->clientfilestruct);
 					}
-				} else if (FD_ISSET(fileiter->sock.fd, my_except)) {
-					if (conn->callbacks[FC_FILE_ERROR])
-						conn->callbacks[FC_FILE_ERROR](conn, conn->clientstruct, fileiter, fileiter->clientfilestruct, FE_IOERROR);
-					firetalk_file_cancel(conn, fileiter);
 				}
-			} else if (fileiter->state == FF_STATE_WAITSYNACK) {
+				break;
+			  case FF_STATE_WAITSYNACK:
 				assert(fileiter->sock.fd >= 0);
 				if (FD_ISSET(fileiter->sock.fd, my_write))
 					firetalk_handle_file_synack(conn, fileiter);
-				if (FD_ISSET(fileiter->sock.fd, my_except))
-					firetalk_file_cancel(conn, fileiter);
+				break;
 			}
 		}
 

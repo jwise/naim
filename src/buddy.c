@@ -27,7 +27,7 @@ int	buddyc = -1,
 
 static void iupdate(void) {
 	time_t	t;
-	long	idletime = secs_getvar_int("idletime");
+	long	idletime = script_getvar_int("idletime");
 	struct tm *tmptr;
 	char	buf[1024];
 
@@ -40,118 +40,118 @@ static void iupdate(void) {
 
 	if (curconn->online > 0) {
 		t = now - curconn->online;
-		secs_setvar("online", dtime(t));
+		script_setvar("online", dtime(t));
 	} else
-		secs_setvar("online", "(not connected)");
+		script_setvar("online", "(not connected)");
 
-	secs_setvar("SN", curconn->sn);
-	secs_setvar("conn", curconn->winname);
+	script_setvar("SN", curconn->sn);
+	script_setvar("conn", curconn->winname);
 
 	if (inconn) {
-		secs_setvar("cur", curconn->curbwin->winname);
+		script_setvar("cur", curconn->curbwin->winname);
 		if ((curconn->curbwin->et == BUDDY) && (curconn->curbwin->e.buddy->tag != NULL)) {
 			snprintf(buf, sizeof(buf), " !%.*s!",
 				(int)(sizeof(buf)-4),
 				curconn->curbwin->e.buddy->tag);
 			htmlstrip(buf);
-			secs_setvar("iftopic", buf);
+			script_setvar("iftopic", buf);
 		} else if (curconn->curbwin->blurb != NULL) {
 			snprintf(buf, sizeof(buf), " (%.*s)",
 				(int)(sizeof(buf)-4),
 				curconn->curbwin->blurb);
 			htmlstrip(buf);
-			secs_setvar("iftopic", buf);
+			script_setvar("iftopic", buf);
 		} else
-			secs_setvar("iftopic", "");
+			script_setvar("iftopic", "");
 
 		if ((curconn->curbwin->et != BUDDY) || (curconn->curbwin->e.buddy->typing == 0))
-			secs_setvar("iftyping", "");
+			script_setvar("iftyping", "");
 		else
-			secs_setvar("iftyping", secs_script_expand(NULL, getvar(curconn, "statusbar_typing")));
+			script_setvar("iftyping", script_expand(getvar(curconn, "statusbar_typing")));
 
 		switch (curconn->curbwin->et) {
 		  case BUDDY:
 			if (curconn->curbwin->e.buddy->crypt != NULL)
-				secs_setvar("ifcrypt", getvar(curconn, "statusbar_crypt"));
+				script_setvar("ifcrypt", getvar(curconn, "statusbar_crypt"));
 			else
-				secs_setvar("ifcrypt", "");
+				script_setvar("ifcrypt", "");
 			if (curconn->curbwin->e.buddy->tzname != NULL) {
-				secs_setvar("tzname", curconn->curbwin->e.buddy->tzname);
-				secs_setvar("iftzname", secs_script_expand(NULL, getvar(curconn, "statusbar_tzname")));
+				script_setvar("tzname", curconn->curbwin->e.buddy->tzname);
+				script_setvar("iftzname", script_expand(getvar(curconn, "statusbar_tzname")));
 			} else {
-				secs_setvar("tzname", "");
-				secs_setvar("iftzname", "");
+				script_setvar("tzname", "");
+				script_setvar("iftzname", "");
 			}
-			secs_setvar("ifoper", "");
-			secs_setvar("ifquery",
-				secs_script_expand(NULL, getvar(curconn, "statusbar_query")));
-			secs_setvar("ifchat", "");
+			script_setvar("ifoper", "");
+			script_setvar("ifquery",
+				script_expand(getvar(curconn, "statusbar_query")));
+			script_setvar("ifchat", "");
 			break;
 		  case CHAT:
 			if (curconn->curbwin->e.chat->isoper)
-				secs_setvar("ifoper",
-					secs_script_expand(NULL, getvar(curconn, "statusbar_oper")));
+				script_setvar("ifoper",
+					script_expand(getvar(curconn, "statusbar_oper")));
 			else
-				secs_setvar("ifoper", "");
-			secs_setvar("ifquery", "");
-			secs_setvar("ifchat",
-				secs_script_expand(NULL, getvar(curconn, "statusbar_chat")));
+				script_setvar("ifoper", "");
+			script_setvar("ifquery", "");
+			script_setvar("ifchat",
+				script_expand(getvar(curconn, "statusbar_chat")));
 			break;
 		  case TRANSFER:
-			secs_setvar("ifoper", "");
-			secs_setvar("ifquery", "");
-			secs_setvar("ifchat", "");
+			script_setvar("ifoper", "");
+			script_setvar("ifquery", "");
+			script_setvar("ifchat", "");
 			break;
 		}
 	} else {
-		secs_setvar("cur", "");
-		secs_setvar("ifoper", "");
-		secs_setvar("ifquery", "");
-		secs_setvar("iftyping", "");
-		secs_setvar("ifchat", "");
+		script_setvar("cur", "");
+		script_setvar("ifoper", "");
+		script_setvar("ifquery", "");
+		script_setvar("iftyping", "");
+		script_setvar("ifchat", "");
 	}
 
-	secs_setvar("iftransfer", "");
+	script_setvar("iftransfer", "");
 
 	if (awaytime > 0)
-		secs_setvar("ifaway",
-			secs_script_expand(NULL, getvar(curconn, "statusbar_away")));
+		script_setvar("ifaway",
+			script_expand(getvar(curconn, "statusbar_away")));
 	else
-		secs_setvar("ifaway", "");
+		script_setvar("ifaway", "");
 
 	if (idletime > 10) {
-		secs_setvar("idle", dtime(60*idletime));
-		secs_setvar("ifidle",
-			secs_script_expand(NULL, getvar(curconn, "statusbar_idle")));
+		script_setvar("idle", dtime(60*idletime));
+		script_setvar("ifidle",
+			script_expand(getvar(curconn, "statusbar_idle")));
 	} else {
-		secs_setvar("idle", "");
-		secs_setvar("ifidle", "");
+		script_setvar("idle", "");
+		script_setvar("ifidle", "");
 	}
 
 	if (curconn->lag > 0.1) {
-		secs_setvar("lag", dtime(curconn->lag));
-		secs_setvar("iflag",
-			secs_script_expand(NULL, getvar(curconn, "statusbar_lag")));
+		script_setvar("lag", dtime(curconn->lag));
+		script_setvar("iflag",
+			script_expand(getvar(curconn, "statusbar_lag")));
 	} else {
-		secs_setvar("lag", "0");
-		secs_setvar("iflag", "");
+		script_setvar("lag", "0");
+		script_setvar("iflag", "");
 	}
 
 	if (curconn->warnval > 0) {
 		snprintf(buf, sizeof(buf), "%li", curconn->warnval);
-		secs_setvar("warnval", buf);
-		secs_setvar("ifwarn",
-			secs_script_expand(NULL, getvar(curconn, "statusbar_warn")));
+		script_setvar("warnval", buf);
+		script_setvar("ifwarn",
+			script_expand(getvar(curconn, "statusbar_warn")));
 	} else {
-		secs_setvar("warnval", "0");
-		secs_setvar("ifwarn", "");
+		script_setvar("warnval", "0");
+		script_setvar("ifwarn", "");
 	}
 
 	if (strftime(buf, sizeof(buf), getvar(curconn, "statusbar"), tmptr) > 0) {
 		char	*left, *right;
 
 		assert(*buf != 0);
-		right = secs_script_expand(NULL, buf);
+		right = script_expand(buf);
 		assert(right != NULL);
 		left = strdup(right);
 		assert(left != NULL);
@@ -272,15 +272,15 @@ static void bsort(conn_t *conn) {
 void	bupdate(void) {
 	static win_t *lwin = NULL;
 	int	waiting,
-		widthx = secs_getvar_int("winlistchars"),
+		widthx = script_getvar_int("winlistchars"),
 		M = widthx,
 #ifdef ENABLE_FORCEASCII
-		fascii = secs_getvar_int("forceascii"),
+		fascii = script_getvar_int("forceascii"),
 #endif
 		bb, line = 0;
 	conn_t	*conn = curconn;
 
-	wbuddy_widthy = secs_getvar_int("winlistheight")*faimconf.wstatus.widthy/100;
+	wbuddy_widthy = script_getvar_int("winlistheight")*faimconf.wstatus.widthy/100;
 	if (wbuddy_widthy > faimconf.wstatus.widthy)
 		wbuddy_widthy = faimconf.wstatus.widthy;
 
@@ -401,7 +401,7 @@ void	bupdate(void) {
 					else
 						snprintf(tmp, sizeof(tmp),
 							" [Ctrl-N to %s:%s]", conn->winname, buf);
-					secs_setvar("ifpending", tmp);
+					script_setvar("ifpending", tmp);
 					waiting = 1;
 				}
 				if (printtitle && bwin->waiting && (waiting < 2) && ((bwin->et == BUDDY) || ((bwin->et == CHAT) && bwin->e.chat->isaddressed))) {
@@ -434,8 +434,10 @@ void	bupdate(void) {
 							col = CI(WINLIST,BUDDY_TAGGED);
 						else if (bwin->e.buddy->offline)
 							col = C(WINLIST,BUDDY_OFFLINE);
-						else if (bwin->e.buddy->isaway)
+						else if (bwin->e.buddy->isaway && bwin->e.buddy->isidle)
 							col = C(WINLIST,BUDDY_AWAY);
+						else if (bwin->e.buddy->isaway)
+							col = C(WINLIST,BUDDY_FAKEAWAY);
 						else if (bwin->e.buddy->isidle)
 							col = C(WINLIST,BUDDY_IDLE);
 						else
@@ -503,7 +505,7 @@ void	bupdate(void) {
 	if (waiting)
 		buddyc = -buddyc;
 	else
-		secs_setvar("ifpending", "");
+		script_setvar("ifpending", "");
 
 	if (inconn)
 		assert(curconn->curbwin != NULL);
@@ -742,10 +744,10 @@ static FILE *playback_fopen(conn_t *const conn, buddywin_t *const bwin, const ch
 	char	*n, *nhtml, *ptr,
 		buf[256];
 
-	secs_setvar("conn", conn->winname);
-	secs_setvar("cur", naim_normalize(bwin->winname));
+	script_setvar("conn", conn->winname);
+	script_setvar("cur", naim_normalize(bwin->winname));
 
-	n = secs_script_expand(NULL, secs_getvar("logdir"));
+	n = script_expand(script_getvar("logdir"));
 	snprintf(buf, sizeof(buf), "%s", n);
 	if ((ptr = strrchr(buf, '/')) != NULL) {
 		*ptr = 0;
@@ -810,7 +812,7 @@ void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 		assert(playbackstart >= 0);
 		pos = 0;
 		playbacklen = filesize-playbackstart;
-		if (secs_getvar_int("color"))
+		if (script_getvar_int("color"))
 			colormode = COLOR_FORCE_ON;
 		else
 			colormode = COLOR_FORCE_OFF;
@@ -978,14 +980,9 @@ void	bgoing(conn_t *conn, const char *buddy) {
 			echof(conn, NULL, "Strangeness while marking %s offline: no autopeer negotiated, but autocrypt set!\n",
 				buddy);
 		blist->peer = 0;
-		if (blist->crypt != NULL) {
-			free(blist->crypt);
-			blist->crypt = NULL;
-		}
-		if (blist->tzname != NULL) {
-			free(blist->tzname);
-			blist->tzname = NULL;
-		}
+		FREESTR(blist->crypt);
+		FREESTR(blist->tzname);
+		FREESTR(blist->caps);
 
 		status_echof(conn, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> has just logged off :(\n", 
 			user_name(NULL, 0, conn, blist), USER_GROUP(blist));
@@ -1122,15 +1119,10 @@ static void bclearall_bwin(conn_t *conn, buddywin_t *bwin, int force) {
 }
 
 static void bclearall_buddy(buddylist_t *buddy) {
-	if (buddy->crypt != NULL) {
-		free(buddy->crypt);
-		buddy->crypt = NULL;
-	}
-	if (buddy->tzname != NULL) {
-		free(buddy->tzname);
-		buddy->tzname = NULL;
-	}
-	buddy->peer = 0;
+	FREESTR(buddy->crypt);
+	FREESTR(buddy->tzname);
+	FREESTR(buddy->caps);
+	buddy->warnval = buddy->typing = buddy->peer = buddy->isaway = buddy->isidle = 0;
 	buddy->offline = 1;
 }
 
@@ -1175,7 +1167,7 @@ void	bclearall(conn_t *conn, int force) {
 }
 
 void	naim_changetime(void) {
-	int	autohide = secs_getvar_int("autohide");
+	int	autohide = script_getvar_int("autohide");
 
 	if (changetime > 0) {
 		if (buddyc < 0)

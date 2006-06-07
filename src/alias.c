@@ -9,27 +9,27 @@
 
 extern conn_t *curconn;
 
-extern script_t *scriptar G_GNUC_INTERNAL;
-extern int scriptc G_GNUC_INTERNAL;
-script_t *scriptar = NULL;
-int	scriptc = 0;
+extern alias_t *aliasar G_GNUC_INTERNAL;
+extern int aliasc G_GNUC_INTERNAL;
+alias_t *aliasar = NULL;
+int	aliasc = 0;
 
-void	script_makealias(const char *alias, const char *script) {
+void	alias_makealias(const char *alias, const char *script) {
 	int	i;
 
-	for (i = 0; i < scriptc; i++)
-		if (strcasecmp(scriptar[i].name, alias) == 0)
+	for (i = 0; i < aliasc; i++)
+		if (strcasecmp(aliasar[i].name, alias) == 0)
 			break;
-	if (i == scriptc) {
-		scriptc++;
-		scriptar = realloc(scriptar, scriptc*sizeof(*scriptar));
-		scriptar[i].name = scriptar[i].script = NULL;
-		STRREPLACE(scriptar[i].name, alias);
+	if (i == aliasc) {
+		aliasc++;
+		aliasar = realloc(aliasar, aliasc*sizeof(*aliasar));
+		aliasar[i].name = aliasar[i].script = NULL;
+		STRREPLACE(aliasar[i].name, alias);
 	}
-	STRREPLACE(scriptar[i].script, script);
+	STRREPLACE(aliasar[i].script, script);
 }
 
-int	script_parse(const char *script, const char *_arg) {
+int	alias_parse(const char *script, const char *_arg) {
 	char	*arg = NULL;
 	int	a, b;
 
@@ -43,29 +43,29 @@ int	script_parse(const char *script, const char *_arg) {
 
 		tmp = atom(arg);
 		snprintf(buf, sizeof(buf), "args%i*", a+1);
-		secs_setvar(buf, tmp);
+		script_setvar(buf, tmp);
 		arg = firstwhite(arg);
 		snprintf(buf, sizeof(buf), "arg%i", a+1);
-		secs_setvar(buf, tmp);
+		script_setvar(buf, tmp);
         }
 	for (b = a; b < 50; b++) {
 		char	buf[1024];
 
 		snprintf(buf, sizeof(buf), "args%i*", b+1);
-		secs_setvar(buf, "");
+		script_setvar(buf, "");
 		snprintf(buf, sizeof(buf), "arg%i", b+1);
-		secs_setvar(buf, "");
+		script_setvar(buf, "");
 	}
 
-	secs_script_parse(script);
+	script_script_parse(script);
 
 	while (a > 0) {
 		char	buf[1024];
 
 		snprintf(buf, sizeof(buf), "arg%i", a);
-		secs_setvar(buf, "");
+		script_setvar(buf, "");
 		snprintf(buf, sizeof(buf), "args%i*", a);
-		secs_setvar(buf, "");
+		script_setvar(buf, "");
 		a--;
 	}
 
@@ -74,12 +74,12 @@ int	script_parse(const char *script, const char *_arg) {
 	return(1);
 }
 
-int	script_doalias(const char *alias, const char *args) {
+int	alias_doalias(const char *alias, const char *args) {
 	int	i;
 
-	for (i = 0; i < scriptc; i++)
-		if (strcasecmp(alias, scriptar[i].name) == 0)
-			if (script_parse(scriptar[i].script, args) == 1)
+	for (i = 0; i < aliasc; i++)
+		if (strcasecmp(alias, aliasar[i].name) == 0)
+			if (alias_parse(aliasar[i].script, args) == 1)
 				return(1);
 	return(0);
 }

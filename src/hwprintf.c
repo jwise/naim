@@ -21,12 +21,12 @@ typedef struct {
 			secondwhite;
 		char	buf[1024];
 	} addch;
+	int	pair;
 	unsigned char
 		white:1,
 		inbold:1,
 		initalic:1,
 		inunderline:1;
-	int	pair;
 } h_t;
 
 static void h_zero(h_t *h, win_t *win) {
@@ -37,7 +37,7 @@ static void h_zero(h_t *h, win_t *win) {
 		max = h->addch.len = nw_getcol(win);
 		if (max >= sizeof(h->addch.buf))
 			max = sizeof(h->addch.buf)-1;
-		memset(h->addch.buf, 0, sizeof(h->addch.buf));
+//		memset(h->addch.buf, 0, sizeof(h->addch.buf));
 		nw_getline(h->win, h->addch.buf, sizeof(h->addch.buf));
 		assert(strlen(h->addch.buf) == h->addch.len);
 		h->addch.lastwhite = -1;
@@ -57,11 +57,8 @@ static void h_zero(h_t *h, win_t *win) {
 			if (isspace(h->addch.buf[i]))
 				h->addch.lastwhite = i;
 	}
-	h->white = 0;
-	h->inbold = 0;
-	h->initalic = 0;
-	h->inunderline = 0;
 	h->pair = 0;
+	h->white = h->inbold = h->initalic = h->inunderline = 0;
 }
 
 HOOK_DECLARE(notify);
@@ -92,7 +89,7 @@ static void nw_wrap_addch(h_t *h, unsigned char c) {
 
 		h->addch.len += h->addch.secondwhite+1;
 		h->addch.lastwhite = -1;
-		memset(h->addch.buf, 0, sizeof(h->addch.buf));
+//		memset(h->addch.buf, 0, sizeof(h->addch.buf));
 	}
 
 	nw_addch(h->win, c);
@@ -100,7 +97,7 @@ static void nw_wrap_addch(h_t *h, unsigned char c) {
 	if (c == '\n') {
 		h->addch.lastwhite = h->addch.firstwhite = h->addch.secondwhite = -1;
 		h->addch.len = 0;
-		memset(h->addch.buf, 0, sizeof(h->addch.buf));
+//		memset(h->addch.buf, 0, sizeof(h->addch.buf));
 	} else if (c == '\b') {
 		if (h->addch.len > 0)
 			h->addch.len--;
@@ -117,8 +114,7 @@ static void nw_wrap_addch(h_t *h, unsigned char c) {
 			else
 				h->addch.lastwhite = h->addch.len;
 		}
-		h->addch.buf[h->addch.len] = c;
-		h->addch.len++;
+		h->addch.buf[h->addch.len++] = c;
 	}
 }
 
@@ -306,7 +302,7 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 						}
 					}
 					refbuf[i] = 0;
-					secs_setvar("lasturl", refbuf);
+					script_setvar("lasturl", refbuf);
 					last_inunderline = h->inunderline;
 					h->inunderline = 1;
 					found = 1;
@@ -333,7 +329,7 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 				}
 			}
 		} else {
-			char	*lasturl = secs_getvar("lasturl");
+			char	*lasturl = script_getvar("lasturl");
 
 			h->inunderline = last_inunderline;
 			if ((lasturl != NULL) && (strncmp(textsave-backup, lasturl, strlen(lasturl)) != 0)) {
@@ -352,7 +348,7 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 	} else if CHECKTAG("HR") {
 		nw_wrap_addstr(h, "----------------\n");
 	} else if CHECKTAG("FONT") {
-		if ((colormode == COLOR_FORCE_ON) || ((colormode == COLOR_HONOR_USER) && secs_getvar_int("color"))) {
+		if ((colormode == COLOR_FORCE_ON) || ((colormode == COLOR_HONOR_USER) && script_getvar_int("color"))) {
 		    if (*tagbuf != '/') {
 			char	*t = argbuf;
 			int	found = 0;
@@ -439,7 +435,7 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 	} else if CHECKTAG("PRE") {
 	} else if CHECKTAG("P") {
 	} else if (CHECKTAG("HTML") || CHECKTAG("BODY") || CHECKTAG("DIV") || CHECKTAG("SPAN")) {
-		if ((colormode == COLOR_FORCE_ON) || ((colormode == COLOR_HONOR_USER) && secs_getvar_int("color"))) {
+		if ((colormode == COLOR_FORCE_ON) || ((colormode == COLOR_HONOR_USER) && script_getvar_int("color"))) {
 		    if (*tagbuf != '/') {
 			char	*t = argbuf;
 			int	found = 0;
@@ -572,7 +568,7 @@ static unsigned long parsehtml(h_t *h, char *str, int backup) {
 }
 
 int	vhwprintf(win_t *win, int _pair, const unsigned char *format, va_list msg) {
-	static unsigned char buf[20*1024];
+	/*static*/ unsigned char buf[20*1024];
 	size_t	len = 0;
 	int	pos = -1, lines = 0;
 	h_t	h;
@@ -581,8 +577,6 @@ int	vhwprintf(win_t *win, int _pair, const unsigned char *format, va_list msg) {
 	assert(format != NULL);
 
 	h_zero(&h, win);
-
-	memset(buf, 0, sizeof(buf));
 
 	len = vsnprintf(buf, sizeof(buf), format, msg);
 

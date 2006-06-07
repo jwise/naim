@@ -5,7 +5,7 @@
 */
 #include <naim/secs.h>
 
-extern int	(*secs_client_cmdhandler)(const char *);
+extern int	(*script_client_cmdhandler)(const char *);
 
 static secs_block_t *secs_root = NULL;
 
@@ -13,7 +13,7 @@ secs_block_t	*secs_block_getroot(void) {
 	return(secs_root);
 }
 
-int	secs_init(void) {
+void	secs_init(void) {
 	secs_mem_init();
 	secs_var_init();
 	secs_block_init();
@@ -21,11 +21,10 @@ int	secs_init(void) {
 	if (secs_root == NULL)
 		secs_root = secs_block_create(NULL, "root");
 	assert(secs_root != NULL);
-	return(1);
 }
 
 void	secs_handle(char *line) {
-	(*secs_client_cmdhandler)(line);
+	(*script_client_cmdhandler)(line);
 }
 
 int	secs_makevar(const char *const name, const char *const value, const char type) {
@@ -84,6 +83,18 @@ int	secs_setvar(const char *name, const char *val) {
 	return(secs_var_set(var, val));
 }
 
+int	secs_setvar_int(const char *name, const long val) {
+	secs_var_t	*var = NULL;
+	char	tmp[11];
+
+	if (name == NULL)
+		return(0);
+	if ((var = secs_var_find(NULL, name)) == NULL)
+		return(secs_makevar_int(name, val, 'I', NULL));
+	snprintf(tmp, sizeof(tmp), "%li", val);
+	return(secs_var_set(var, tmp));
+}
+
 char	*secs_getvar(const char *name) {
 	secs_var_t	*var = NULL;
 
@@ -115,4 +126,8 @@ char	*secs_listvars(int i, size_t *length, void **_var) {
 		*length = var->length;
 	var = var->next;
 	return(tmp);
+}
+
+char	*secs_expand(const char *instr) {
+	return(secs_script_expand(NULL, instr));
 }

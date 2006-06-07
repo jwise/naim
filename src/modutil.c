@@ -3,6 +3,7 @@
 ** | | | | (_| || || |\/| | Copyright 1998-2003 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
+#include <naim/naim.h>
 #include "naim-int.h"
 #include <naim/modutil.h>
 
