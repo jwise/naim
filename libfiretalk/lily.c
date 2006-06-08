@@ -272,7 +272,7 @@ static void lily_chat_joined(lily_conn_t *const c, lily_chat_t *const lily_chat)
 	assert(lily_chat != NULL);
 
 #ifdef DEBUG_ECHO
-	lily_echof(c, "chat_joined", "joined %s\n", lily_chat->name);
+	lily_echof(c, __FUNCTION__, "joined %s\n", lily_chat->name);
 #endif
 
 	lily_chat->ismember = 1;
@@ -282,7 +282,7 @@ static void lily_chat_parted(lily_conn_t *const c, lily_chat_t *const lily_chat)
 	assert(lily_chat != NULL);
 
 #ifdef DEBUG_ECHO
-	lily_echof(c, "chat_parted", "parted %s\n", lily_chat->name);
+	lily_echof(c, __FUNCTION__, "parted %s\n", lily_chat->name);
 #endif
 
 	lily_chat->ismember = 0;
@@ -517,7 +517,7 @@ static fte_t lily_send_printf(lily_conn_t *c, const char *const format, ...) {
 	va_end(ap);
 
 #ifdef DEBUG_ECHO
-	lily_echof(c, "send_printf", "%.*s\n", datai, data);
+	lily_echof(c, __FUNCTION__, "%.*s\n", datai, data);
 #endif
 
 	strcpy(data+datai, "\r\n");
@@ -1014,41 +1014,41 @@ static fte_t lily_got_notify(lily_conn_t *c) {
 			}
 		} else if (strcasecmp(event, "away") == 0) {
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_notify", "away %s", source);
+			lily_echof(c, __FUNCTION__, "away %s", source);
 #endif
 			lily_user_source->state = AWAY;
 			firetalk_callback_im_buddyaway(c, source, 1);
 		} else if (strcasecmp(event, "here") == 0) {
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_notify", "here %s", source);
+			lily_echof(c, __FUNCTION__, "here %s", source);
 #endif
 			lily_user_source->state = HERE;
 			firetalk_callback_im_buddyaway(c, source, 0);
 		} else if (strcasecmp(event, "detach") == 0) {
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_notify", "detach %s", source);
+			lily_echof(c, __FUNCTION__, "detach %s", source);
 #endif
 			lily_user_source->state = AWAY;
 			firetalk_callback_im_buddyaway(c, source, 1);
 		} else if (strcasecmp(event, "attach") == 0) {
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_notify", "attach %s", source);
+			lily_echof(c, __FUNCTION__, "attach %s", source);
 #endif
 			lily_user_source->state = HERE;
 			firetalk_callback_im_buddyaway(c, source, 0);
 		} else if (strcasecmp(event, "blurb") == 0) {
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_notify", "blurb %s = \"%s\" (ignored)", source, _value);
+			lily_echof(c, __FUNCTION__, "blurb %s = \"%s\" (ignored)", source, _value);
 #endif
 		} else if (strcasecmp(event, "unidle") == 0) {
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_notify", "unidle %s (ignored)", source);
+			lily_echof(c, __FUNCTION__, "unidle %s (ignored)", source);
 #endif
 		} else if (strcasecmp(event, "rename") == 0) {
 			const char	*newname = lily_normalize_user_name(_value);
 
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_notify", "rename %s -> %s", source, _value);
+			lily_echof(c, __FUNCTION__, "rename %s -> %s", source, _value);
 #endif
 			if (lily_compare_nicks(c->nickname, source) == 0) {
 				STRREPLACE(c->nickname, _value);
@@ -1060,14 +1060,14 @@ static fte_t lily_got_notify(lily_conn_t *c) {
 		} else if (strcasecmp(event, "retitle") == 0) {
 			assert(lily_chat != NULL);
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_notify", "retitle %s %s -> %s", source, lily_chat->name, _value);
+			lily_echof(c, __FUNCTION__, "retitle %s %s -> %s", source, lily_chat->name, _value);
 #endif
 			firetalk_callback_chat_gottopic(c, lily_chat->name, _value, source);
 		} else if (strcasecmp(event, "drename") == 0) {
 			const char *newname = lily_normalize_user_name(_value);
 
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_notify", "rename %s -> %s", lily_chat->name, _value);
+			lily_echof(c, __FUNCTION__, "rename %s -> %s", lily_chat->name, _value);
 #endif
 			STRREPLACE(lily_chat->name, newname);
 		} else if (strcasecmp(event, "disconnect") == 0) {
@@ -1091,7 +1091,7 @@ static fte_t lily_got_notify(lily_conn_t *c) {
 				if (strcasecmp(source, c->nickname) == 0) {
 					lily_chat_joined(c, lily_chat);
 #ifdef DEBUG_ECHO
-					lily_echof(c, "join", "#$# what #%i", lily_chat->handle);
+					lily_echof(c, __FUNCTION__, "#$# what #%i", lily_chat->handle);
 #endif
 					lily_send_printf(c, "#$# what #%i", lily_chat->handle);
 				} else
@@ -1182,7 +1182,7 @@ static fte_t lily_got_DATA(lily_conn_t *c) {
 
 			if (lily_user == NULL) {
 #ifdef DEBUG_ECHO
-				lily_echof(c, "got_DATA", "for %s, lily_user_find_hand(c=%#p, handle=%i) = NULL\n", lily_chat_source->name, c, handle);
+				lily_echof(c, __FUNCTION__, "for %s, lily_user_find_hand(c=%#p, handle=%i) = NULL\n", lily_chat_source->name, c, handle);
 #endif
 			} else {
 #ifdef ENABLE_FT_LILY_CTCPMAGIC
@@ -1216,13 +1216,13 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 			&& (str += sizeof(x)+1))
 	if BMATCH("NOTIFY") {
 #ifdef DEBUG_ECHO
-		lily_echof(c, "got_cmd", "NOTIFY [%s]\n", str);
+		lily_echof(c, __FUNCTION__, "NOTIFY [%s]\n", str);
 #endif
 		lily_recv_parse(c, str);
 		return(lily_got_notify(c));
 	} else if BMATCH("DATA") {
 #ifdef DEBUG_ECHO
-		lily_echof(c, "got_cmd", "DATA [%s]\n", str);
+		lily_echof(c, __FUNCTION__, "DATA [%s]\n", str);
 #endif
 		lily_recv_parse(c, str);
 		return(lily_got_DATA(c));
@@ -1414,7 +1414,7 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 			blocknum = atoi(str+1);
 			STRREPLACE(blockwhat, sp);
 #ifdef DEBUG_ECHO
-			lily_echof(c, "got_cmd", "beginning [%s]\n", blockwhat);
+			lily_echof(c, __FUNCTION__, "beginning [%s]\n", blockwhat);
 #endif
 		}
 	} else if BMATCH("end") {
@@ -1440,7 +1440,7 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 		}
 
 #ifdef DEBUG_ECHO
-		lily_echof(c, "got_cmd", "ending [%s]\n", blockwhat);
+		lily_echof(c, __FUNCTION__, "ending [%s]\n", blockwhat);
 #endif
 		blocknum = -1;
 		FREESTR(blockwhat);
@@ -1454,11 +1454,11 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 			return(FE_PACKET);
 	} else if BMATCH("options") {
 #ifdef DEBUG_ECHO
-		lily_echof(c, "got_cmd", "options [%s]\n", str);
+		lily_echof(c, __FUNCTION__, "options [%s]\n", str);
 #endif
 	} else if BMATCH("connected") {
 #ifdef DEBUG_ECHO
-		lily_echof(c, "got_cmd", "connected [%s]\n", str);
+		lily_echof(c, __FUNCTION__, "connected [%s]\n", str);
 #endif
 	} else if BMATCH("whoami") {
 		lily_recv_parse(c, str);
@@ -1613,7 +1613,7 @@ static fte_t lily_subcode_send_reply(lily_conn_t *c, const char *const to, const
 		return(FE_SUCCESS);
 
 #ifdef DEBUG_ECHO
-	lily_echof(c, "subcode_send_reply", "c=%#p, to=%#p \"%s\", command=%#p \"%s\", args=%#p \"%s\"", c, to, to, command, 
+	lily_echof(c, __FUNCTION__, "c=%#p, to=%#p \"%s\", command=%#p \"%s\", args=%#p \"%s\"", c, to, to, command, 
 		command, args, args);
 #endif
 

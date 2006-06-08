@@ -80,36 +80,46 @@ extern long int timezone;
 # include <sys/stat.h>
 #endif
 
+#include <string.h>
+
+
 #define SLIDETIME	.3
 
 #ifdef ENABLE_LUA
 # define script_init		nlua_init
+# define script_shutdown	nlua_shutdown
 # define script_getvar		nlua_getvar
 # define script_getvar_int	nlua_getvar_int
+# define script_getvar_copy	nlua_getvar_safe
 # define script_setvar		nlua_setvar
 # define script_setvar_int	nlua_setvar_int
 # define script_expand		nlua_expand
 # define script_script_parse	nlua_script_parse
-# define script_listvars	nlua_listvars
+# define script_cmd		nlua_luacmd
+# define script_listvars_start	nlua_listvars_start
+# define script_listvars_next	nlua_listvars_next
+# define script_listvars_stop	nlua_listvars_stop
+# define script_hook_newconn	nlua_hook_newconn
+# define script_hook_delconn	nlua_hook_delconn
 #else
-# define script_init		secs_init
-# define script_getvar		secs_getvar
-# define script_getvar_int	secs_getvar_int
-# define script_setvar		secs_setvar
-# define script_setvar_int	secs_setvar_int
-# define script_expand		secs_expand
-# define script_script_parse	secs_script_parse
-# define script_listvars	secs_listvars
+# error No scripting engine set
 #endif
 
 void	script_init(void);
+void	script_shutdown(void);
 char	*script_getvar(const char *name);
 long	script_getvar_int(const char *name);
+char	*script_getvar_copy(const char *name, char **buf);
 int	script_setvar(const char *name, const char *val);
 int	script_setvar_int(const char *name, const long val);
 char	*script_expand(const char *instr);
 int	script_script_parse(const char *line);
-char	*script_listvars(int i, size_t *length, void **_var);
+int	script_cmd(char *cmd, char *arg, conn_t *conn);
+void	script_listvars_start(void);
+char	*script_listvars_next(void);
+void	script_listvars_stop(void);
+void	script_hook_newconn(conn_t *conn);
+void	nlua_hook_delconn(conn_t *conn);
 
 static inline char *user_name(char *buf, int buflen, conn_t *conn, buddylist_t *user) {
 	static char _buf[256];

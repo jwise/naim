@@ -6,9 +6,8 @@
 */
 
 #include <naim/naim.h>
+#include <naim/modutil.h>
 #include "naim-int.h"
-
-#ifdef ENABLE_LUA
 
 #include "lua.h"
 #include "lualib.h"
@@ -29,38 +28,6 @@ extern conn_t *curconn;
  */
 
 extern void (*script_client_cmdhandler)(const char *);
-
-static void _loadfunctions();
-static void _getmaintable();
-static void _getvarstable();
-static void _getconnstable();
-
-void nlua_init()
-{
-	lua = luaL_newstate();
-	
-	/* XXX: Do we need to set a panic function here? */
-	lua_gc(lua, LUA_GCSTOP, 0);	/* Paul says we should stop the garbage collector while we bring in libraries. */
-		luaL_openlibs(lua);
-		_loadfunctions();		/* this creates global "naim" for default.lua */
-	lua_gc(lua, LUA_GCRESTART, 0);
-	
-	if (luaL_loadstring(lua, default_lua) != 0)
-	{
-		printf("default.lua load error: %s\n", lua_tostring(lua, -1));
-		abort();
-	}
-	if (lua_pcall(lua, 0, 0, 0) != 0)
-	{
-		printf("default.lua run error: %s\n", lua_tostring(lua, -1));
-		abort();
-	}
-}
-
-void nlua_shutdown()
-{
-	lua_close(lua);
-}
 
 static void _getmaintable()
 {
@@ -107,7 +74,7 @@ static void _getconnstable()
 int nlua_setvar_int(const char *name, const long value)
 {
 	if (name == NULL)
-		return;
+		return(0);
 	
 	_getvarstable();
 	lua_pushstring(lua, name);
@@ -287,7 +254,7 @@ static void _remove_conn(conn_t *conn)
 	for (i=0; i<connidmapsize; i++)
 		if (connidmaps[i].conn == conn)
 		{
-			memcpy(&connidmaps[i], &connidmaps[i+1], (connidmapsize - i - 1) * sizeof(struct conn_id_map));
+			memmove(&connidmaps[i], &connidmaps[i+1], (connidmapsize - i - 1) * sizeof(struct conn_id_map));
 			connidmapsize--;
 			return;
 		}
@@ -337,7 +304,7 @@ void nlua_hook_delconn(conn_t *conn)
 }
 
 #define CONN_STRING_GET(accessor, varname) \
-	int l___conn_get_##accessor (lua_State *L)\
+	static int l___conn_get_##accessor (lua_State *L)\
 	{\
 		int id = lua_tonumber(L, 1);\
 		conn_t *conn = _lookup_conn_id(id);\
@@ -399,7 +366,7 @@ int nlua_luacmd(char *cmd, char *arg, conn_t *conn)
 	return 1;			//
 }
 
-int l_status_echof(lua_State *L)
+static int l_status_echof(lua_State *L)
 {
 	/* lua_pushlightuserdata(L, void *p) */
 	conn_t *conn = _get_conn_t(L, 1);
@@ -414,14 +381,14 @@ int l_status_echof(lua_State *L)
 	return 0;
 }
 
-int l_debug(lua_State *L)
+static int l_debug(lua_State *L)
 {
 	const char *s = lua_tostring(L, 1);
 	status_echof(curconn, "%s", s);
 	return 0;
 }
 
-int l_conio(lua_State *L)
+static int l_conio(lua_State *L)
 {
 	/* lua_pushlightuserdata(L, void *p) */
 	const char *s = lua_tostring(L, 1);
@@ -435,7 +402,7 @@ int l_conio(lua_State *L)
 	return 0;
 }
 
-int l_curconn(lua_State *L)
+static int l_curconn(lua_State *L)
 {
 	_push_conn_t(L, curconn);
 	return 1;
@@ -459,4 +426,55 @@ static void _loadfunctions()
 	luaL_register(lua, "naim", naimlib);
 }
 
-#endif
+typedef struct {
+	char	*script;
+} _client_hook_t;
+
+static int _nlua_recvfrom(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
+	const char *script = ((_client_hook_t *)userdata)->script;
+
+	nlua_script_parse(script);
+
+	return(HOOK_CONTINUE);
+}
+
+static void _client_hook_recvfrom(const char *script, const int weight) {
+	void	*mod = NULL;
+	_client_hook_t *hook;
+
+	if ((hook = calloc(1, sizeof(*hook))) == NULL)
+		abort();
+	if ((hook->script = strdup(script)) == NULL)
+		abort();
+	HOOK_ADD(recvfrom, mod, _nlua_recvfrom, weight, hook);
+}
+
+void nlua_init()
+{
+	lua = luaL_newstate();
+	
+	/* XXX: Do we need to set a panic function here? */
+	lua_gc(lua, LUA_GCSTOP, 0);	/* Paul says we should stop the garbage collector while we bring in libraries. */
+		luaL_openlibs(lua);
+		_loadfunctions();		/* this creates global "naim" for default.lua */
+	lua_gc(lua, LUA_GCRESTART, 0);
+	
+	if (luaL_loadstring(lua, default_lua) != 0)
+	{
+		printf("default.lua load error: %s\n", lua_tostring(lua, -1));
+		abort();
+	}
+	if (lua_pcall(lua, 0, 0, 0) != 0)
+	{
+		printf("default.lua run error: %s\n", lua_tostring(lua, -1));
+		abort();
+	}
+
+//	_client_hook_recvfrom("naim.conio(\"echo test 1\")", 100);
+//	_client_hook_recvfrom("naim.conio(\"echo test 2\")", 100);
+}
+
+void nlua_shutdown()
+{
+	lua_close(lua);
+}

@@ -15,8 +15,6 @@
 #include "help.h"
 
 extern int wsetup_called;
-extern mod_fd_list_t *mod_fd_listar;
-extern int mod_fd_listc;
 
 extern faimconf_t faimconf G_GNUC_INTERNAL;
 extern int stayconnected G_GNUC_INTERNAL,
@@ -108,6 +106,10 @@ static void childexit(int sig) {
 #ifdef HAVE_GETOPT_LONG
 # include <getopt.h>
 #endif
+
+HOOK_DECLARE(preselect);
+HOOK_DECLARE(postselect);
+HOOK_DECLARE(periodic);
 
 #ifndef FAKE_MAIN_STUB
 int	main(int argc, char **args) {
@@ -294,8 +296,7 @@ int	main_stub(int argc, char **args) {
 	}
 
 	{
-		char	buf[256];
-		long	want_aim = 0,
+		int	want_aim = 0,
 			want_irc = 0,
 			want_icq = 0,
 			want_lily = 0;
@@ -331,6 +332,8 @@ int	main_stub(int argc, char **args) {
 			conn_t	*conn = curconn;
 
 			do {
+				char	buf[256];
+
 				snprintf(buf, sizeof(buf), "%s:READPROFILE %s/.n%sprofile",
 					conn->winname, home, invocation);
 				conio_handlecmd(buf);
@@ -375,14 +378,15 @@ int	main_stub(int argc, char **args) {
 	stayconnected = 1;
 
 	conio_hook_init();
+	events_hook_init();
 	fireio_hook_init();
 	hamster_hook_init();
 
 	while (stayconnected) {
-		fd_set	rfd, wfd;
+		fd_set	rfd, wfd, efd;
 		struct timeval	timeout;
 		time_t	now60;
-		int	i, autohide, maxfd = STDIN_FILENO;
+		int	autohide, maxfd = 0;
 
 		now = time(NULL);
 		autohide = script_getvar_int("autohide");
@@ -407,17 +411,11 @@ int	main_stub(int argc, char **args) {
 
 		FD_ZERO(&rfd);
 		FD_ZERO(&wfd);
-		FD_SET(STDIN_FILENO, &rfd);
-		for (i = 0; i < mod_fd_listc; i++) {
-			if (mod_fd_listar[i].type & (O_RDONLY+1))
-				FD_SET(mod_fd_listar[i].fd, &rfd);
-			if (mod_fd_listar[i].type & (O_WRONLY+1))
-				FD_SET(mod_fd_listar[i].fd, &wfd);
-			if (mod_fd_listar[i].fd > maxfd)
-				maxfd = mod_fd_listar[i].fd;
-		}
-		if (firetalk_select_custom(maxfd+1,
-			&rfd, &wfd, NULL, &timeout) != FE_SUCCESS) {
+		FD_ZERO(&efd);
+
+		HOOK_CALL(preselect, &rfd, &wfd, &efd, &maxfd);
+
+		if (firetalk_select_custom(maxfd, &rfd, &wfd, &efd, &timeout) != FE_SUCCESS) {
 			if (errno == EINTR) { // SIGWINCH
 				statrefresh();
 				if (rc_resize(&faimconf))
@@ -435,43 +433,14 @@ int	main_stub(int argc, char **args) {
 		}
 
 		now60 = now-(now%60);
-		if ((now60 - lastcycle) >= 60)
-			event_handle(lastcycle = now60);
-		else if (lastcycle > now60)
+		if ((now60 - lastcycle) >= 60) {
+			lastcycle = now60;
+			HOOK_CALL(periodic, now, nowf);
+		} else if (lastcycle > now60)
 			lastcycle = now60;
 
-		if (FD_ISSET(STDIN_FILENO, &rfd)) {
-			int	k = nw_getch();
+		HOOK_CALL(postselect, &rfd, &wfd, &efd);
 
-#ifdef KEY_RESIZE
-			if (k == KEY_RESIZE) {
-				statrefresh();
-				if (rc_resize(&faimconf))
-					win_resize();
-				statrefresh();
-			} else
-#endif
-				gotkey(k);
-		}
-		for (i = 0; i < mod_fd_listc; i++) {
-			if (FD_ISSET(mod_fd_listar[i].fd, &rfd)
-				&& (mod_fd_listar[i].type & (O_RDONLY+1)))
-				mod_fd_listar[i].func(i, mod_fd_listar[i].fd,
-					mod_fd_listar[i].buf,
-					mod_fd_listar[i].buflen);
-			else if (FD_ISSET(mod_fd_listar[i].fd, &wfd)
-				&& (mod_fd_listar[i].type & (O_WRONLY+1))) {
-				if (mod_fd_listar[i].type == MOD_FD_CONNECT)
-					mod_fd_listar[i].func(mod_fd_listar[i].fd);
-				else if (mod_fd_listar[i].type == MOD_FD_WRITE)
-					write(mod_fd_listar[i].fd,
-						mod_fd_listar[i].buf,
-						mod_fd_listar[i].buflen);
-
-				mod_fd_unregister(i);
-				break;
-			}
-		}
 		statrefresh();
 	}
 
@@ -479,6 +448,7 @@ int	main_stub(int argc, char **args) {
 	echof(curconn, NULL, "Goodbye.\n");
 	statrefresh();
 	wshutitdown();
+	script_shutdown();
 	lt_dlexit();
 	return(0);
 }

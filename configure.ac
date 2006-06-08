@@ -49,7 +49,6 @@ Makefile
 libfiretalk/Makefile
 libltdl/Makefile
 lua/Makefile
-secs/Makefile
 src/Makefile
 CYGWIN-PATCHES/Makefile
 ])

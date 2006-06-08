@@ -337,15 +337,8 @@ CONIOALIA(im)
 CONIODESC(Send a message; as in /msg naimhelp naim is cool!)
 CONIOAREQ(window,name)
 CONIOAREQ(string,message)
-	buddywin_t	*bwin;
-	struct tm	*tmptr = NULL;
-	const char	*pre = getvar(conn, "im_prefix"),
-			*post = getvar(conn, "im_suffix");
-
-	if (pre == NULL)
-		pre = "";
-	if (post == NULL)
-		post = "";
+	buddywin_t *bwin;
+	struct tm *tmptr;
 
 	if (args[0] == NULL) {
 		bwin = conn->curbwin;
@@ -357,7 +350,8 @@ CONIOAREQ(string,message)
 	assert(tmptr != NULL);
 
 	if (bwin != NULL) {
-		const char	*format = NULL;
+		const char *format = NULL;
+		char	*pre, *post;
 
 		switch (bwin->et) {
 		  case CHAT:
@@ -375,18 +369,36 @@ CONIOAREQ(string,message)
 			return;
 		}
 
+		if ((pre = getvar(conn, "im_prefix")) != NULL)
+			pre = strdup(pre);
+		if ((post = getvar(conn, "im_suffix")) != NULL)
+			post = strdup(post);
+
 		WINTIME(&(bwin->nwin), IMWIN);
 		hwprintf(&(bwin->nwin), C(IMWIN,SELF),
 			format, (conn->sn != NULL)?conn->sn:"(me)");
 		hwprintf(&(bwin->nwin), C(IMWIN,TEXT),
-			" %s%s%s<br>", pre, args[1], post);
+			" %s%s%s<br>", pre?pre:"", args[1], post?post:"");
+
+		FREESTR(pre);
+		FREESTR(post);
 	}
 	if ((conn != curconn) || (conn->curbwin == NULL)
 		|| (firetalk_compare_nicks(conn->conn, conn->curbwin->winname, args[0]) != FE_SUCCESS)) {
+		char	*pre, *post;
+
+		if ((pre = getvar(conn, "im_prefix")) != NULL)
+			pre = strdup(pre);
+		if ((post = getvar(conn, "im_suffix")) != NULL)
+			post = strdup(post);
+
 		WINTIME(&(conn->nwin), CONN);
 		hwprintf(&(conn->nwin), C(CONN,SELF), "-&gt; *<B>%s</B>*", args[0]);
-		hwprintf(&(conn->nwin), C(CONN,TEXT), " %s%s%s<br>", pre, args[1], post);
+		hwprintf(&(conn->nwin), C(CONN,TEXT), " %s%s%s<br>", pre?pre:"", args[1], post?post:"");
 		naim_lastupdate(conn);
+
+		FREESTR(pre);
+		FREESTR(post);
 	}
 
 	logim(conn, conn->sn, args[0], args[1]);
@@ -418,6 +430,8 @@ CONIOAOPT(string,realname)
 
 static void do_delconn(conn_t *conn) {
 	bclearall(conn, 1);
+
+	script_hook_delconn(conn);
 
 	firetalk_disconnect(conn->conn);
 	firetalk_destroy_conn(conn->conn);
@@ -1688,7 +1702,7 @@ CONIOAOPT(string,chain)
 	int	i;
 
 	if (argc == 0) {
-		const char *chains[] = { "getcmd", "notify", "periodic", "recvfrom", "sendto", "proto_user_onlineval" };
+		const char *chains[] = { "preselect", "postselect", "getcmd", "notify", "periodic", "recvfrom", "sendto", "proto_user_onlineval" };
 
 		for (i = 0; i < sizeof(chains)/sizeof(*chains); i++) {
 			if (i > 0)
@@ -1704,8 +1718,7 @@ CONIOAOPT(string,chain)
 	self = lt_dlopen(NULL);
 #endif
 	if (self == NULL) {
-		echof(conn, "TABLES", "Unable to perform self-symbol lookup: %s.\n",
-			lt_dlerror());
+		echof(conn, "TABLES", "Unable to perform self-symbol lookup: %s.\n", lt_dlerror());
 		return;
 	}
 	snprintf(buf, sizeof(buf), "chain_%s", args[0]);
@@ -1717,17 +1730,15 @@ CONIOAOPT(string,chain)
 	}
 	lt_dlclose(self);
 
-	echof(conn, NULL, "Chain %s, containing %i hook%s.\n",
-		args[0], chain->count, (chain->count==1)?"":"s");
+	echof(conn, NULL, "Chain %s, containing %i %s.\n",
+		args[0], chain->count, (chain->count==1)?"hook":"hooks");
 	for (i = 0; i < chain->count; i++) {
-		const char
-			*modname, *hookname;
+		const char *modname, *hookname;
 
 		if (chain->hooks[i].mod == NULL)
 			modname = "core";
 		else {
-			const lt_dlinfo
-				*dlinfo = lt_dlgetinfo(chain->hooks[i].mod);
+			const lt_dlinfo *dlinfo = lt_dlgetinfo(chain->hooks[i].mod);
 
 			modname = dlinfo->name;
 		}
@@ -1736,8 +1747,8 @@ CONIOAOPT(string,chain)
 			hookname++;
 		if ((strncmp(hookname, modname, strlen(modname)) == 0) && (hookname[strlen(modname)] == '_'))
 			hookname += strlen(modname)+1;
-		echof(conn, NULL, " <font color=\"#808080\">%i: <font color=\"#FF0000\">%s</font>:<font color=\"#00FFFF\">%s</font>() weight <B>%i</B> at <B>%#p</B> (%lu passes, %lu stops)</font>\n",
-			i, modname, hookname, chain->hooks[i].weight, chain->hooks[i].func, chain->hooks[i].passes, chain->hooks[i].hits);
+		echof(conn, NULL, " <font color=\"#808080\">%i: <font color=\"#FF0000\">%s</font>:<font color=\"#00FFFF\">%s</font>(%#p) weight <B>%i</B> at <B>%#p</B> (%lu passes, %lu stops)</font>\n",
+			i, modname, hookname, chain->hooks[i].userdata, chain->hooks[i].weight, chain->hooks[i].func, chain->hooks[i].passes, chain->hooks[i].hits);
 	}
 }
 
@@ -2307,6 +2318,8 @@ CONIOAOPT(string,protocol)
 		echof(newconn, NULL, "You can now <font color=\"#00FF00\">/connect &lt;name&gt; [&lt;server&gt;]</font> to log on.\n");
 	}
 	bupdate();
+
+	script_hook_newconn(newconn);
 }
 
 CONIOFUNC(delconn) {
@@ -2405,9 +2418,9 @@ CONIOAOPT(string,visibility)
 	}
 }
 
+#undef HAVE_WORKING_FORK
 #ifdef HAVE_WORKING_FORK
-static void
-	exec_read(int _i, int fd, void *_buf, int _buflen) {
+static void exec_read(int _i, int fd, void *_buf, int _buflen) {
 	conn_t	*conn = (conn_t *)_buf;
 	char	buf[1024], *ptr, *n;
 	int	i, buflen = sizeof(buf),
@@ -2782,18 +2795,6 @@ CONIOAOPT(string,connection)
 
 
 
-static int
-	cmd_unknown(conn_t *c, const char *cmd, int argc, const char **args) {
-	echof(c, cmd, "Unknown command.\n");
-	return(HOOK_STOP);
-}
-
-void	conio_hook_init(void) {
-	void	*mod = NULL;
-
-	HOOK_ADD(getcmd, mod, cmd_unknown, 1000);
-}
-
 HOOK_DECLARE(getcmd);
 void	conio_handlecmd(const char *buf) {
 	conn_t	*c = NULL;
@@ -2840,6 +2841,9 @@ void	conio_handlecmd(const char *buf) {
 	} else
 		c = curconn;
 
+	if (script_cmd(cmd, arg, c) == 1)
+		return;
+
 	if (alias_doalias(cmd, arg) == 1)
 		return;
 
@@ -2856,7 +2860,7 @@ void	conio_handlecmd(const char *buf) {
 				break;
 		}
 	if (i == cmdc) {
-		HOOK_CALL(getcmd, (c, cmd, a, args));
+		HOOK_CALL(getcmd, c, cmd, a, args);
 		return;
 	}
 	assert(cmdar[i].maxarg <= CONIO_MAXPARMS);
@@ -3689,7 +3693,7 @@ static void gotkey_real(int c) {
 				break;
 			}
 		} else if (binding != NULL)
-			script_script_parse(binding);
+			conio_handlecmd(binding);
 		if (bindfunc != NULL)
 			bindfunc(buf, &bufloc);
 	} else if (naimisprint(c)) {
@@ -3779,4 +3783,34 @@ void	gotkey(int c) {
 	FD_SET(STDIN_FILENO, &rfd);
 	while (select(STDIN_FILENO+1, &rfd, NULL, NULL, &timeout) > 0)
 		gotkey_real(nw_getch());
+}
+
+static int cmd_unknown(void *userdata, conn_t *c, const char *cmd, int argc, const char **args) {
+	echof(c, cmd, "Unknown command.\n");
+	return(HOOK_STOP);
+}
+
+static int conio_preselect(void *userdata, fd_set *rfd, fd_set *wfd, fd_set *efd, int *maxfd) {
+	if (*maxfd <= STDIN_FILENO)
+		*maxfd = STDIN_FILENO+1;
+	FD_SET(STDIN_FILENO, rfd);
+	return(HOOK_CONTINUE);
+}
+
+static int conio_postselect(void *userdata, fd_set *rfd, fd_set *wfd, fd_set *efd) {
+	if (FD_ISSET(STDIN_FILENO, rfd)) {
+		int	k = nw_getch();
+
+		if (k != 0)
+			gotkey(k);
+	}
+	return(HOOK_CONTINUE);
+}
+
+void	conio_hook_init(void) {
+	void	*mod = NULL;
+
+	HOOK_ADD(getcmd, mod, cmd_unknown, 1000, NULL);
+	HOOK_ADD(preselect, mod, conio_preselect, 100, NULL);
+	HOOK_ADD(postselect, mod, conio_postselect, 100, NULL);
 }

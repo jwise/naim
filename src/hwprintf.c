@@ -66,7 +66,7 @@ static void nw_wrap_addch(h_t *h, unsigned char c) {
 	if (h->win->logfile != NULL) {
 		char	buf[2] = { c, 0 };
 
-		HOOK_CALL(notify, (NULL, h->win, buf));
+		HOOK_CALL(notify, NULL, h->win, buf);
 	}
 
 	if (h->addch.len >= (faimconf.wstatus.widthx-1)) {

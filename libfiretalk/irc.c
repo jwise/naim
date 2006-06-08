@@ -545,7 +545,7 @@ static char *irc_irc_to_html(const char *const string) {
 
 static int irc_internal_disconnect(irc_conn_t *c, const fte_t error) {
 #ifdef DEBUG_ECHO
-	irc_echof(c, "irc_internal_disconnect", "c=%#p, error=%i\n", c, error);
+	irc_echof(c, __FUNCTION__, "c=%#p, error=%i\n", c, error);
 #endif
 
 	irc_conn_t_dtor(c);
@@ -598,7 +598,7 @@ static int irc_send_printf(irc_conn_t *c, const char *const format, ...) {
 	data[datai] = 0;
 
 #ifdef DEBUG_ECHO
-	irc_echof(c, "send_printf", "%s", data);
+	irc_echof(c, __FUNCTION__, "%s", data);
 #endif
 
 	strcpy(data+datai, "\r\n");
@@ -637,7 +637,7 @@ static char **irc_recv_parse(irc_conn_t *c, unsigned char *buffer, uint16_t *buf
 	memmove(buffer, &buffer[tempchr - data + 1], *bufferpos);
 
 #ifdef DEBUG_ECHO
-	irc_echof(c, "recv_parse", "%s", data);
+	irc_echof(c, __FUNCTION__, "%s", data);
 #endif
 
 	curarg = 0;
@@ -691,7 +691,7 @@ static void irc_destroy_conn(irc_conn_t *c) {
 
 static fte_t irc_disconnect(irc_conn_t *c) {
 #ifdef DEBUG_ECHO
-	irc_echof(c, "irc_disconnect", "c=%#p; state=%i\n", c, firetalk_internal_get_connectstate(c));
+	irc_echof(c, __FUNCTION__, "c=%#p; state=%i\n", c, firetalk_internal_get_connectstate(c));
 #endif
 	if (firetalk_internal_get_connectstate(c) != FCS_NOTCONNECTED)
 		irc_send_printf(c, "QUIT :User disconnected");
@@ -700,7 +700,7 @@ static fte_t irc_disconnect(irc_conn_t *c) {
 
 static fte_t irc_disconnected(irc_conn_t *c, const fte_t reason) {
 #ifdef DEBUG_ECHO
-	irc_echof(c, "irc_disconnected", "c=%#p, reason=%i; state=%i\n", c, reason, firetalk_internal_get_connectstate(c));
+	irc_echof(c, __FUNCTION__, "c=%#p, reason=%i; state=%i\n", c, reason, firetalk_internal_get_connectstate(c));
 #endif
 	assert(firetalk_internal_get_connectstate(c) == FCS_NOTCONNECTED);
 	return(irc_internal_disconnect(c, reason));
@@ -1363,7 +1363,7 @@ static fte_t irc_chat_send_message(irc_conn_t *c, const char *const room, const 
 		return(irc_send_printf(c, "%s", message));
 
 #ifdef DEBUG_ECHO
-	irc_echof(c, "chat_send_message", "c=%#p, room=%#p \"%s\", message=%#p \"%s\", auto_flag=%i\n", c, room, room, message, message, auto_flag);
+	irc_echof(c, __FUNCTION__, "c=%#p, room=%#p \"%s\", message=%#p \"%s\", auto_flag=%i\n", c, room, room, message, message, auto_flag);
 #endif
 
 	if (auto_flag)

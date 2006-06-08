@@ -11,7 +11,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#include <naim/secs.h>
 #include <firetalk.h>
 
 #define CONIO_MAXPARMS	10
@@ -251,6 +250,15 @@ typedef struct {
 
 
 
+/* alias.c */
+void	alias_makealias(const char *, const char *);
+int	alias_doalias(const char *, const char *);
+
+/* atomizer.c */
+char	*firstatom(char *string, char *bounds) G_GNUC_INTERNAL;
+char	*firstwhite(char *string) G_GNUC_INTERNAL;
+char	*atom(char *string) G_GNUC_INTERNAL;
+
 /* buddy.c */
 const unsigned char *naim_normalize(const unsigned char *const name) G_GNUC_INTERNAL;
 void	playback(conn_t *const conn, buddywin_t *const, const int) G_GNUC_INTERNAL;
@@ -281,7 +289,7 @@ void	echof(conn_t *conn, const unsigned char *where, const unsigned char *format
 
 /* events.c */
 void	updateidletime(void) G_GNUC_INTERNAL;
-void	event_handle(time_t) G_GNUC_INTERNAL;
+void	events_hook_init(void) G_GNUC_INTERNAL;
 
 /* fireio.c */
 void	chat_flush(buddywin_t *bwin) G_GNUC_INTERNAL;
@@ -339,10 +347,6 @@ const char *dsize(double b) G_GNUC_INTERNAL;
 void	htmlstrip(char *bb);
 void	htmlreplace(char *bb, char what);
 
-/* script.c */
-void	alias_makealias(const char *, const char *);
-int	alias_doalias(const char *, const char *);
-
 /* set.c */
 const char *set_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
 void	set_echof(const char *const format, ...);
@@ -379,6 +383,6 @@ int	nw_getcol(win_t *win) G_GNUC_INTERNAL;
 int	nw_getrow(win_t *win) G_GNUC_INTERNAL;
 void	nw_getline(win_t *win, char *buf, int buflen) G_GNUC_INTERNAL;
 int	nw_getch(void) G_GNUC_INTERNAL;
-extern void	nw_getpass(win_t *win, char *pass, int len) G_GNUC_INTERNAL;
+void	nw_getpass(win_t *win, char *pass, int len) G_GNUC_INTERNAL;
 
 #endif /* naim_h */

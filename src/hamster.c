@@ -94,14 +94,13 @@ static void naim_sendto(conn_t *conn,
 
 	memmove(message, _message, len);
 	message[len] = 0;
-	HOOK_CALL(sendto, (conn, &name, &dest, &message, &len, &flags));
+	HOOK_CALL(sendto, conn, &name, &dest, &message, &len, &flags);
 	free(name);
 	free(dest);
 	free(message);
 }
 
-static int sendto_encrypt(conn_t *conn, char **name, char **dest,
-		unsigned char **message, int *len, int *flags) {
+static int sendto_encrypt(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	if (!(*flags & RF_CHAT) && !(*flags & RF_ACTION)) {
 		buddylist_t	*blist = rgetlist(conn, *dest);
 
@@ -126,8 +125,7 @@ static int sendto_encrypt(conn_t *conn, char **name, char **dest,
 	return(HOOK_CONTINUE);
 }
 
-static int sendto_send(conn_t *conn, char **name, char **dest,
-		unsigned char **message, int *len, int *flags) {
+static int sendto_send(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	int	ret;
 
 	if (*flags & RF_ENCRYPTED) {
@@ -174,9 +172,9 @@ static int sendto_send(conn_t *conn, char **name, char **dest,
 void	hamster_hook_init(void) {
 	void	*mod = NULL;
 
-//	HOOK_ADD(sendto, mod, sendto_log, 20);
-	HOOK_ADD(sendto, mod, sendto_encrypt, 50);
-	HOOK_ADD(sendto, mod, sendto_send, 100);
+//	HOOK_ADD(sendto, mod, sendto_log, 20, NULL);
+	HOOK_ADD(sendto, mod, sendto_encrypt, 50, NULL);
+	HOOK_ADD(sendto, mod, sendto_send, 100, NULL);
 }
 
 static void naim_send_message(conn_t *const conn, const char *const dest, const unsigned char *const message, const int ischat, const int isauto, const int isaction) {
@@ -194,21 +192,27 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 	buddywin_t *bwin = bgetwin(conn, SN, BUDDY);
 	int	ischat = (bgetwin(conn, SN, CHAT) == NULL)?0:1;
 	unsigned char buf[2048];
-	const char *pre = getvar(conn, "im_prefix"),
-		*post = getvar(conn, "im_suffix");
 
 	assert((bwin == NULL) || (bwin->et == BUDDY));
 	if ((bwin == NULL)					// if the target is not queueable (let the protocol layer handle errors)
 		|| (	   (conn->online > 0)			// or if you are online
 			&& (bwin->e.buddy->offline == 0))) {	//  and the target is also tracked online
+		char	*pre, *post;
+
+		if ((pre = getvar(conn, "im_prefix")) != NULL)
+			pre = strdup(pre);
+		if ((post = getvar(conn, "im_suffix")) != NULL)
+			post = strdup(post);
+
 		if (_auto == 0)
 			updateidletime();
 		if ((pre != NULL) || (post != NULL)) {
 			snprintf(buf, sizeof(buf), "%s%s%s", pre?pre:"", msg, post?post:"");
 			msg = buf;
 		}
-		naim_send_message(conn, SN, msg, ischat, 0, 0);
-								// send the message through the protocol layer
+		naim_send_message(conn, SN, msg, ischat, 0, 0);	// send the message through the protocol layer
+		FREESTR(pre);
+		FREESTR(post);
 	} else {
 		struct tm *tmptr = NULL;
 
@@ -232,11 +236,10 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 }
 
 void	naim_send_im_away(conn_t *conn, const char *SN, const char *msg, int force) {
-	struct tm	*tmptr;
-	buddywin_t	*bwin;
-	static time_t	lastauto = 0;
-	const char	*pre,
-			*post;
+	struct tm *tmptr;
+	buddywin_t *bwin;
+	static time_t lastauto = 0;
+	char	*pre, *post;
 
 	if (force || (lastauto < now-1))
 		lastauto = now;
@@ -245,14 +248,18 @@ void	naim_send_im_away(conn_t *conn, const char *SN, const char *msg, int force)
 		return;
 	}
 
-	pre = getvar(conn, "im_prefix"),
-	post = getvar(conn, "im_suffix");
+	if ((pre = getvar(conn, "im_prefix")) != NULL)
+		pre = strdup(pre);
+	if ((post = getvar(conn, "im_suffix")) != NULL)
+		post = strdup(post);
 	if ((pre != NULL) || (post != NULL)) {
 		static unsigned char buf[2048];
 
 		snprintf(buf, sizeof(buf), "%s%s%s", pre?pre:"", msg, post?post:"");
 		msg = buf;
 	}
+	FREESTR(pre);
+	FREESTR(post);
 
 	tmptr = localtime(&now);
 	assert(tmptr != NULL);
@@ -282,8 +289,9 @@ void	sendaway(conn_t *conn, const char *SN) {
 
 void	setaway(const int auto_flag) {
 	conn_t	*conn = curconn;
-	char	*awaymsg = script_getvar("awaymsg");
+	char	*awaymsg;
 
+	script_getvar_copy("awaymsg", &awaymsg);
 	awaytime = now - 60*script_getvar_int("idletime");
 	do {
 		status_echof(conn, "You are now away--hurry back!\n");
@@ -291,6 +299,7 @@ void	setaway(const int auto_flag) {
 		if (conn->online > 0)
 			naim_set_info(conn, conn->profile);
 	} while ((conn = conn->next) != curconn);
+	FREESTR(awaymsg);
 }
 
 void	unsetaway(void) {

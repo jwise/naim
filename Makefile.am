@@ -1,4 +1,4 @@
-SUBDIRS = libfiretalk libltdl lua secs src CYGWIN-PATCHES
+SUBDIRS = libfiretalk libltdl lua src CYGWIN-PATCHES
 
 man_MANS = doc/naim.1 doc/nicq.1 doc/nirc.1 doc/nlily.1
 pkgdoc_DATA = FAQ README
@@ -16,7 +16,7 @@ EXTRA_DIST = \
 bin_SCRIPTS = \
 	contrib/extractbuddy.sh
 
-pkginclude_HEADERS = include/naim/naim.h include/naim/modutil.h include/naim/secs.h
+pkginclude_HEADERS = include/naim/naim.h include/naim/modutil.h
 
 snapshottime = `date +%Y-%m-%d-%H%M`
 snap: README

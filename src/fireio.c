@@ -500,7 +500,7 @@ nFIRE_HANDLER(naim_buddy_coming) {
 	va_end(msg);
 
 	bcoming(conn, who);
-	HOOK_CALL(proto_user_onlineval, (sess, conn, who, NULL, NULL, 1));
+	HOOK_CALL(proto_user_onlineval, sess, conn, who, NULL, NULL, 1);
 }
 
 nFIRE_HANDLER(naim_buddy_going) {
@@ -512,7 +512,7 @@ nFIRE_HANDLER(naim_buddy_going) {
 	va_end(msg);
 
 	bgoing(conn, who);
-	HOOK_CALL(proto_user_onlineval, (sess, conn, who, NULL, NULL, 0));
+	HOOK_CALL(proto_user_onlineval, sess, conn, who, NULL, NULL, 0);
 }
 
 
@@ -533,14 +533,13 @@ static void naim_recvfrom(conn_t *const conn,
 
 	memmove(message, _message, len);
 	message[len] = 0;
-	HOOK_CALL(recvfrom, (conn, &name, &dest, &message, &len, &flags));
+	HOOK_CALL(recvfrom, conn, &name, &dest, &message, &len, &flags);
 	free(name);
 	free(dest);
 	free(message);
 }
 
-static int recvfrom_ignorelist(conn_t *conn, char **name, char **dest, 
-		unsigned char **message, int *len, int *flags) {
+static int recvfrom_ignorelist(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	ignorelist_t *ig;
 
 	if ((*dest != NULL) && (strcmp(*dest, ":RAW") == 0) && (getvar_int(conn, "showraw") == 0))
@@ -555,8 +554,7 @@ static int recvfrom_ignorelist(conn_t *conn, char **name, char **dest,
 	return(HOOK_CONTINUE);
 }
 
-static int recvfrom_decrypt(conn_t *conn, char **name, char **dest,
-		unsigned char **message, int *len, int *flags) {
+static int recvfrom_decrypt(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	if ((*dest == NULL) && !(*flags & RF_ACTION)) {
 		buddylist_t *blist = rgetlist(conn, *name);
 
@@ -578,15 +576,13 @@ static int recvfrom_decrypt(conn_t *conn, char **name, char **dest,
 	return(HOOK_CONTINUE);
 }
 
-static int recvfrom_log(conn_t *conn, char **name, char **dest,
-		unsigned char **message, int *len, int *flags) {
+static int recvfrom_log(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	if (!(*flags & RF_NOLOG))
 		logim(conn, *name, *dest, *message);
 	return(HOOK_CONTINUE);
 }
 
-static int recvfrom_beep(conn_t *conn, char **name, char **dest,
-		unsigned char **message, int *len, int *flags) {
+static int recvfrom_beep(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	if (*dest == NULL) {
 		int	beeponim = getvar_int(conn, "beeponim");
 
@@ -596,8 +592,7 @@ static int recvfrom_beep(conn_t *conn, char **name, char **dest,
 	return(HOOK_CONTINUE);
 }
 
-static int recvfrom_autobuddy(conn_t *conn, char **name, char **dest,
-		unsigned char **message, int *len, int *flags) {
+static int recvfrom_autobuddy(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	if (*dest == NULL) {
 		buddylist_t *blist = rgetlist(conn, *name);
 
@@ -622,8 +617,7 @@ static int recvfrom_autobuddy(conn_t *conn, char **name, char **dest,
 	return(HOOK_CONTINUE);
 }
 
-static int recvfrom_display_user(conn_t *conn, char **name, char **dest,
-		unsigned char **message, int *len, int *flags) {
+static int recvfrom_display_user(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	buddylist_t *blist;
 	buddywin_t *bwin;
 
@@ -713,7 +707,7 @@ static int recvfrom_display_user(conn_t *conn, char **name, char **dest,
 	return(HOOK_CONTINUE);
 }
 
-static void recvfrom_display_chat_print(buddywin_t *bwin, const int flags, const int istome, const char *name, const char *prefix, const unsigned char *message) {
+static void recvfrom_display_chat_print(void *userdata, buddywin_t *bwin, const int flags, const int istome, const char *name, const char *prefix, const unsigned char *message) {
 	const char *format;
 
 	if (prefix == NULL)
@@ -739,7 +733,7 @@ void	chat_flush(buddywin_t *bwin) {
 		if (bwin->e.chat->last.reps == 1) {
 			assert(bwin->e.chat->last.lasttime != 0);
 			WINTIME_NOTNOW(&(bwin->nwin), IMWIN, bwin->e.chat->last.lasttime);
-			recvfrom_display_chat_print(bwin, bwin->e.chat->last.flags, bwin->e.chat->last.istome, bwin->e.chat->last.name, NULL, bwin->e.chat->last.line);
+			recvfrom_display_chat_print(NULL, bwin, bwin->e.chat->last.flags, bwin->e.chat->last.istome, bwin->e.chat->last.name, NULL, bwin->e.chat->last.line);
 		} else {
 			assert(bwin->e.chat->last.lasttime != 0);
 			WINTIME_NOTNOW(&(bwin->nwin), IMWIN, bwin->e.chat->last.lasttime);
@@ -751,8 +745,7 @@ void	chat_flush(buddywin_t *bwin) {
 	FREESTR(bwin->e.chat->last.name);
 }
 
-static int recvfrom_display_chat(conn_t *conn, char **name, char **dest,
-		unsigned char **message, int *len, int *flags) {
+static int recvfrom_display_chat(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	buddywin_t *bwin;
 	int	istome;
 	char	*prefix = NULL;
@@ -833,7 +826,7 @@ static int recvfrom_display_chat(conn_t *conn, char **name, char **dest,
 	}
 
 	WINTIME(&(bwin->nwin), IMWIN);
-	recvfrom_display_chat_print(bwin, *flags, istome, *name, prefix, *message);
+	recvfrom_display_chat_print(NULL, bwin, *flags, istome, *name, prefix, *message);
 
 	free(bwin->e.chat->last.line);
 	bwin->e.chat->last.line = message_save;
@@ -850,13 +843,13 @@ static int recvfrom_display_chat(conn_t *conn, char **name, char **dest,
 void	fireio_hook_init(void) {
 	void	*mod = NULL;
 
-	HOOK_ADD(recvfrom, mod, recvfrom_ignorelist, 10);
-	HOOK_ADD(recvfrom, mod, recvfrom_decrypt, 20);
-	HOOK_ADD(recvfrom, mod, recvfrom_log, 50);
-	HOOK_ADD(recvfrom, mod, recvfrom_beep, 50);
-	HOOK_ADD(recvfrom, mod, recvfrom_autobuddy, 50);
-	HOOK_ADD(recvfrom, mod, recvfrom_display_user, 100);
-	HOOK_ADD(recvfrom, mod, recvfrom_display_chat, 150);
+	HOOK_ADD(recvfrom, mod, recvfrom_ignorelist, 10, NULL);
+	HOOK_ADD(recvfrom, mod, recvfrom_decrypt, 20, NULL);
+	HOOK_ADD(recvfrom, mod, recvfrom_log, 50, NULL);
+	HOOK_ADD(recvfrom, mod, recvfrom_beep, 50, NULL);
+	HOOK_ADD(recvfrom, mod, recvfrom_autobuddy, 50, NULL);
+	HOOK_ADD(recvfrom, mod, recvfrom_display_user, 100, NULL);
+	HOOK_ADD(recvfrom, mod, recvfrom_display_chat, 150, NULL);
 }
 
 

@@ -3,7 +3,8 @@
 ** \__ \  __/ (__\__ \ Copyright 1998-2003 Daniel Reed <n@ml.org>
 ** |___/\___|\___|___/ Simple Embedded Client Scripting
 */
-#include <naim/secs.h>
+#include <naim/naim.h>
+#include "naim-int.h"
 
 char	*firstatom(char *string, char *bounds) {
 	assert(string != NULL);

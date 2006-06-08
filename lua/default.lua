@@ -5,7 +5,9 @@ naim.connections = {}
 setmetatable(naim.connections, { __newindex = function (t,k,v) error("only naim can update the connections table",2) end })
 
 function naim.__expandString(s)
-	return string.gsub(s, "$([a-zA-Z0-9:_]+)", function (n) return tostring(naim.variables[n]) end)
+	s = string.gsub(s, "$\{([a-zA-Z0-9:_]+)\}", function (n) return tostring(naim.variables[n]) end)
+	s = string.gsub(s, "$([a-zA-Z0-9:_]+)", function (n) return tostring(naim.variables[n]) end)
+	return s
 end
 
 function naim.__newConn(id)

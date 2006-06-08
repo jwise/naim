@@ -22,7 +22,7 @@
 /* Define to enable experimental CTCP magic support */
 #undef ENABLE_FT_LILY_CTCPMAGIC
 
-/* Define to enable experimental Lua scripting support */
+/* Define to enable Lua scripting support */
 #undef ENABLE_LUA
 
 /* Define to enable a workaround on Windows for module loading */

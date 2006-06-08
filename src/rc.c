@@ -380,7 +380,7 @@ rc_var_s_t rc_var_s_ar[] = {
 	{ "statusbar_crypt",	"ENCRYPTED ",			"display if the current window is a query, and query is automatically encrypted" },
 	{ "statusbar_typing",	" TYPING",			"if the current window is a query, and the other person is typing to you" },
 	{ "statusbar_tzname",	" <$tzname>",			"display if the current window is a query, and you know the buddy's time zone" },
-	{ "statusbar_query",	" [$ifcryptQuery: $cur$iftopic$iftzname]$iftyping",
+	{ "statusbar_query",	" [${ifcrypt}Query: $cur$iftopic$iftzname]$iftyping",
 								"display if the current window is a query" },
 	{ "timeformat",		"[%H:%M:%S]&nbsp;",		"strftime format prepended to all messages" },
 	{ "im_prefix",		"",				"string added to the beginning of every IM sent" },

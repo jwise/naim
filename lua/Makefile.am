@@ -1,4 +1,3 @@
-if LUA
 DISTCLEANFILES = \
 	default_lua.h
 
@@ -26,5 +25,3 @@ default_lua.h: ${srcdir}/default.lua
 moon.lo: ${srcdir}/moon.c default_lua.h
 	@echo $(LTCOMPILE) -I${top_srcdir}/include -I${top_srcdir}/src -I${top_srcdir}/libfiretalk -c -o $@ `test -f 'moon.c' || echo '$(srcdir)/'`moon.c
 	@$(LTCOMPILE) -I${top_srcdir}/include -I${top_srcdir}/src -I${top_srcdir}/libfiretalk -c -o $@ `test -f 'moon.c' || echo '$(srcdir)/'`moon.c
-
-endif

@@ -13,7 +13,6 @@ Build procedure:
 Packaging procedure:
   To create a Slackware pkgtool-compatible tarball, simply run:
   ./configure \
-	'--enable-lua' \
 	'CFLAGS=-Wall -O0' \
 	'CPPFLAGS=-D_FORTIFY_SOURCE=2' \
 	'--enable-debug' \

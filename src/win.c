@@ -543,6 +543,15 @@ int	nw_getch(void) {
 
 	if (k == ERR)
 		return(0);
+#ifdef KEY_RESIZE
+	else if (k == KEY_RESIZE) {
+		statrefresh();
+		if (rc_resize(&faimconf))
+			win_resize();
+		statrefresh();
+		return(0);
+	}
+#endif
 	return(k);
 }
 

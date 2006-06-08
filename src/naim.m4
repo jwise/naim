@@ -61,23 +61,24 @@ AC_DEFUN([AC_PROG_NAIM],
 		]
 	)
 
-	AC_MSG_CHECKING(whether to enable experimental Lua scripting support)
-	AC_ARG_ENABLE(lua,
-		AC_HELP_STRING([--enable-lua], [Compile experimental Lua scripting support]),
-		[
-			if test "x${enable_lua}" = xyes; then
-				AC_MSG_RESULT([yes])
-				AC_DEFINE(ENABLE_LUA, 1, [Define to enable experimental Lua scripting support])
-				AM_CONDITIONAL(LUA, true)
-			else
-				AC_MSG_RESULT([no, you explicitly disabled it])
-				AM_CONDITIONAL(LUA, false)
-			fi
-		], [
-			AC_MSG_RESULT([no, re-run ./configure with --enable-lua])
-			AM_CONDITIONAL(LUA, false)
-		]
-	)
+	AC_DEFINE(ENABLE_LUA, 1, [Define to enable Lua scripting support])
+#	AC_MSG_CHECKING(whether to enable experimental Lua scripting support)
+#	AC_ARG_ENABLE(lua,
+#		AC_HELP_STRING([--enable-lua], [Compile experimental Lua scripting support]),
+#		[
+#			if test "x${enable_lua}" = xyes; then
+#				AC_MSG_RESULT([yes])
+#				AM_CONDITIONAL(LUA, true)
+#				AC_DEFINE(ENABLE_LUA, 1, [Define to enable experimental Lua scripting support])
+#			else
+#				AC_MSG_RESULT([no, you explicitly disabled it])
+#				AM_CONDITIONAL(LUA, false)
+#			fi
+#		], [
+#			AC_MSG_RESULT([no, re-run ./configure with --enable-lua])
+#			AM_CONDITIONAL(LUA, false)
+#		]
+#	)
 
 	AC_ARG_ENABLE(forceascii,
 		AC_HELP_STRING([--enable-forceascii], [enable the $forceascii setting to force alternate line drawing characters]),
