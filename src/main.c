@@ -249,6 +249,8 @@ int	main_stub(int argc, char **args) {
 	}
 #endif
 
+	printf("Running " PACKAGE_STRING NAIM_SNAPSHOT ".\n");
+
 	changetime = nowf = now = startuptime = time(NULL);
 
 	script_init();

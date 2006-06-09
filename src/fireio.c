@@ -46,8 +46,7 @@ static void do_replace(unsigned char *dest, const unsigned char *new, int wordle
 }
 
 static void str_replace(const unsigned char *orig, const unsigned char *new, unsigned char *str, int strsize) {
-	int	i,
-		l = strlen(orig);
+	int	i, l = strlen(orig);
 
 	assert(*str != 0);
 
@@ -315,15 +314,6 @@ nFIRE_HANDLER(naim_buddy_caps) {
 	who = va_arg(msg, const char *);
 	caps = va_arg(msg, const char *);
 	va_end(msg);
-
-#ifdef DEBUG_ECHO
-	{
-		buddywin_t *bwin = bgetwin(conn, who, BUDDY);
-
-		if (bwin != NULL)
-			window_echof(bwin, "CAP[%s] = %s\n", who, caps);
-	}
-#endif
 
 	if ((blist = rgetlist(conn, who)) != NULL) {
 		int	i, j, strtolower = 1;

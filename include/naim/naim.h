@@ -277,6 +277,7 @@ void	bclearall(conn_t *conn, int) G_GNUC_INTERNAL;
 void	naim_changetime(void) G_GNUC_INTERNAL;
 
 /* conio.c */
+void	naim_eval(const char *);
 void	conio_handlecmd(const char *);
 void	conio_handleline(const char *line);
 void	gotkey(int) G_GNUC_INTERNAL;

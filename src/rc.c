@@ -283,47 +283,6 @@ const char *idiot_tabcomplete(conn_t *const conn, const char *start, const char 
 	return(NULL);
 }
 
-#if 0
-static int naim_eval(const char *str) {
-	assert(str != NULL);
-	if (*str == 0)
-		return(0);
-	if (strncasecmp(str, "LINES", 5) == 0) {
-		str += 5;
-		while ((*str != 0) && isspace(*str))
-			str++;
-		if (*str == 0)
-			return(LINES);
-		if (*str == '-') {
-			str++;
-			while ((*str != 0) && isspace(*str))
-				str++;
-			return(LINES - atoi(str));
-		}
-		while ((*str != 0) && isspace(*str))
-			str++;
-		return(atoi(str));
-	}
-	if (strncasecmp(str, "COLS", 4) == 0) {
-		str += 4;
-		while ((*str != 0) && isspace(*str))
-			str++;
-		if (*str == 0)
-			return(COLS);
-		if (*str == '-') {
-			str++;
-			while ((*str != 0) && isspace(*str))
-				str++;
-			return(COLS - atoi(str));
-		}
-		while ((*str != 0) && isspace(*str))
-			str++;
-		return(atoi(str));
-	}
-	return(atoi(str));
-}
-#endif
-
 int	rc_resize(faimconf_t *conf) {
 	static int lastCOLS = 0,
 		lastLINES = 0;

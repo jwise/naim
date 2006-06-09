@@ -1078,18 +1078,32 @@ CONIOAOPT(entity,name)
 	}
 }
 
+void	naim_eval(const char *_str) {
+	int	len = strlen(_str);
+	char	*str = malloc(len+2), *p;
+
+	strncpy(str, _str, len+2);
+	while ((p = strrchr(str, ';')) != NULL)
+		*p = 0;
+	for (p = str; *p != 0; p += strlen(p)+1)
+		conio_handlecmd(script_expand(p));
+	free(str);
+}
+
 CONIOFUNC(eval) {
 CONIODESC(Evaluate a command with $-variable substitution)
 CONIOAREQ(string,script)
-	script_script_parse(args[0]);
+	if (args[0][0] == '/')
+		naim_eval(args[0]);
+	else
+		script_script_parse(args[0]);
 }
 
 CONIOFUNC(say) {
 CONIODESC(Send a message to the current window; as in /say I am happy)
 CONIOAREQ(string,message)
 CONIOWHER(NOTSTATUS)
-	const char
-		*newargs[2] = { conn->curbwin->winname, args[0] };
+	const char *newargs[2] = { conn->curbwin->winname, args[0] };
 
 	conio_msg(conn, 2, newargs);
 }
@@ -1873,8 +1887,7 @@ static html_clean_t
 	{ "b4",		"before"	},
 };
 
-static void
-	conio_filter_defaults(void) {
+static void conio_filter_defaults(void) {
 	int	i;
 
 	for (i = 0; i < sizeof(conio_filter_defaultar)/sizeof(*conio_filter_defaultar); i++) {
@@ -2418,19 +2431,30 @@ CONIOAOPT(string,visibility)
 	}
 }
 
-#undef HAVE_WORKING_FORK
 #ifdef HAVE_WORKING_FORK
-static void exec_read(int _i, int fd, void *_buf, int _buflen) {
-	conn_t	*conn = (conn_t *)_buf;
+typedef struct {
+	int	fd, sayit;
+	conn_t	*conn;
+} execstub_t;
+
+static int exec_preselect(void *userdata, fd_set *rfd, fd_set *wfd, fd_set *efd, int *maxfd) {
+	execstub_t *execstub = (execstub_t *)userdata;
+
+	if (*maxfd <= execstub->fd)
+		*maxfd = execstub->fd+1;
+	FD_SET(execstub->fd, rfd);
+	FD_SET(execstub->fd, efd);
+	return(HOOK_CONTINUE);
+}
+
+static int exec_read(int fd, int sayit, conn_t *conn) {
 	char	buf[1024], *ptr, *n;
-	int	i, buflen = sizeof(buf),
-		sayit = _buflen;
+	int	i, buflen = sizeof(buf);
 
 	i = read(fd, buf, buflen-1);
 	if (i == 0) {
 		close(fd);
-		mod_fd_unregister(_i);
-		return;
+		return(-1);
 	}
 	buf[i] = 0;
 	ptr = buf;
@@ -2438,7 +2462,7 @@ static void exec_read(int _i, int fd, void *_buf, int _buflen) {
 		*n = 0;
 		if (*(n-1) == '\r')
 			*(n-1) = 0;
-		if ((sayit == 0) || (conn->curbwin == NULL))
+		if (!sayit || (conn->curbwin == NULL))
 			echof(conn, "_", "%s\n", ptr);
 		else {
 			char	buf2[1024];
@@ -2450,7 +2474,7 @@ static void exec_read(int _i, int fd, void *_buf, int _buflen) {
 		ptr = n+1;
 	}
 	if (*ptr != 0) {
-		if ((sayit == 0) || (conn->curbwin == NULL))
+		if (!sayit || (conn->curbwin == NULL))
 			echof(conn, "_", "%s\n", ptr);
 		else {
 			char	buf2[1024];
@@ -2460,6 +2484,21 @@ static void exec_read(int _i, int fd, void *_buf, int _buflen) {
 			conio_handleline(buf2);
 		}
 	}
+	return(0);
+}
+
+static int exec_postselect(void *userdata, fd_set *rfd, fd_set *wfd, fd_set *efd) {
+	execstub_t *execstub = (execstub_t *)userdata;
+
+	if (FD_ISSET(execstub->fd, rfd))
+		if (exec_read(execstub->fd, execstub->sayit, execstub->conn) != 0) {
+			void	*mod = NULL;
+
+			HOOK_DEL(preselect, mod, exec_preselect, execstub);
+			HOOK_DEL(postselect, mod, exec_postselect, execstub);
+			free(execstub);
+		}
+	return(HOOK_CONTINUE);
 }
 
 CONIOFUNC(exec) {
@@ -2470,19 +2509,25 @@ CONIOAREQ(string,command)
 	pid_t	pid;
 
 	if (pipe(pi) != 0) {
-		echof(conn, "EXEC", "Error creating pipe: %s.\n",
-			strerror(errno));
+		echof(conn, "EXEC", "Error creating pipe: %s.\n", strerror(errno));
 		return;
 	}
 	if ((pid = fork()) == -1) {
-		echof(conn, "EXEC", "Error in fork: %s, closing pipe.\n",
-			strerror(errno));
+		echof(conn, "EXEC", "Error in fork: %s, closing pipe.\n", strerror(errno));
 		close(pi[0]);
 		close(pi[1]);
 	} else if (pid > 0) {
+		void	*mod = NULL;
+		execstub_t *execstub;
+
 		close(pi[1]);
-		mod_fd_register(pi[0], (O_RDONLY+1), (char *)conn, sayit,
-			exec_read);
+		if ((execstub = calloc(1, sizeof(*execstub))) == NULL)
+			abort();
+		execstub->fd = pi[0];
+		execstub->sayit = sayit;
+		execstub->conn = conn;
+		HOOK_ADD(preselect, mod, exec_preselect, 100, execstub);
+		HOOK_ADD(postselect, mod, exec_postselect, 100, execstub);
 	} else {
 		char	*exec_args[] = { "/bin/sh", "-c", NULL, NULL };
 
@@ -2804,7 +2849,7 @@ void	conio_handlecmd(const char *buf) {
 
 	assert(buf != NULL);
 
-	while (*buf == '/')
+	while ((*buf == '/') || isspace(*buf))
 		buf++;
 
 	if (*buf == 0)
@@ -2908,7 +2953,7 @@ void	conio_handleline(const char *line) {
 	else if (!inconn)
 		conio_handlecmd(line);
 	else {
-		const char	*args[] = { NULL, line };
+		const char *args[] = { NULL, line };
 
 		curconn->curbwin->keepafterso = 1;
 		conio_msg(curconn, 2, args);
@@ -3693,7 +3738,7 @@ static void gotkey_real(int c) {
 				break;
 			}
 		} else if (binding != NULL)
-			conio_handlecmd(binding);
+			naim_eval(binding);
 		if (bindfunc != NULL)
 			bindfunc(buf, &bufloc);
 	} else if (naimisprint(c)) {

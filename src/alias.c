@@ -57,7 +57,7 @@ int	alias_parse(const char *script, const char *_arg) {
 		script_setvar(buf, "");
 	}
 
-	script_script_parse(script);
+	naim_eval(script);
 
 	while (a > 0) {
 		char	buf[1024];
