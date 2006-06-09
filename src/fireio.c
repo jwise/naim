@@ -614,10 +614,7 @@ static int recvfrom_display_user(void *userdata, conn_t *conn, char **name, char
 	if (*dest != NULL)
 		return(HOOK_CONTINUE);
 
-	blist = rgetlist(conn, *name);
-	bwin = bgetbuddywin(conn, blist);
-
-	if (bwin == NULL) {
+	if (((blist = rgetlist(conn, *name)) == NULL) || ((bwin = bgetbuddywin(conn, blist)) == NULL)) {
 		const char *format;
 
 		naim_lastupdate(conn);
