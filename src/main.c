@@ -444,6 +444,7 @@ int	main_stub(int argc, char **args) {
 		HOOK_CALL(postselect, &rfd, &wfd, &efd);
 
 		statrefresh();
+		script_clean_garbage();
 	}
 
 	firetalk_select();

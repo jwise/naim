@@ -87,6 +87,7 @@ extern long int timezone;
 
 #ifdef ENABLE_LUA
 # define script_init		nlua_init
+# define script_clean_garbage	nlua_clean_garbage
 # define script_shutdown	nlua_shutdown
 # define script_getvar		nlua_getvar
 # define script_getvar_int	nlua_getvar_int
@@ -106,6 +107,7 @@ extern long int timezone;
 #endif
 
 void	script_init(void);
+void	script_clean_garbage(void);
 void	script_shutdown(void);
 char	*script_getvar(const char *name);
 long	script_getvar_int(const char *name);
@@ -119,7 +121,7 @@ void	script_listvars_start(void);
 char	*script_listvars_next(void);
 void	script_listvars_stop(void);
 void	script_hook_newconn(conn_t *conn);
-void	nlua_hook_delconn(conn_t *conn);
+void	script_hook_delconn(conn_t *conn);
 
 static inline char *user_name(char *buf, int buflen, conn_t *conn, buddylist_t *user) {
 	static char _buf[256];

@@ -278,6 +278,7 @@ void	naim_changetime(void) G_GNUC_INTERNAL;
 
 /* conio.c */
 void	naim_eval(const char *);
+const char *conio_valid(const char *cmd, conn_t *conn, const int argc);
 void	conio_handlecmd(const char *);
 void	conio_handleline(const char *line);
 void	gotkey(int) G_GNUC_INTERNAL;

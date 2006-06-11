@@ -137,17 +137,12 @@ void	set_echof(const char *const format, ...) {
 		hwprintf(&(curconn->nwin), C(CONN,EVENT), "<B>%s</B><br>", buf2);
 }
 
-void	set_setvar(const char *_var, const char *_val) {
-	if (_var == NULL) {
-		char	*var;
-
+void	set_setvar(const char *var, const char *val) {
+	if (var == NULL) {
 		set_echof(" %-16.16s %-30s[type] Description\n", "Variable name", "Value");
 		script_listvars_start();
 		while ((var = script_listvars_next()) != NULL) {
-			char	*val;
-
-			var = strdup(var);
-			val = strdup(script_getvar(var));
+			val = script_getvar(var);
 			if (*val != 0) {
 				char	*prot;
 
@@ -158,8 +153,7 @@ void	set_setvar(const char *_var, const char *_val) {
 
 					if (strchr(val, ' ') != NULL) {
 						snprintf(buf, sizeof(buf), "\"%s\"", val);
-						free(val);
-						val = strdup(buf);
+						val = buf;
 					}
 
 					ret = set_tabcomplete(curconn, var, var, strlen(var), NULL, &desc);
@@ -178,27 +172,18 @@ void	set_setvar(const char *_var, const char *_val) {
 					set_echof("\n");
 				}
 			}
-			free(val);
-			free(var);
 		}
 		script_listvars_stop();
 		return;
 	}
 
-	if (*_var == '$')
-		_var++;
+	if (*var == '$')
+		var++;
 
-	if (_val == NULL) {
-		char	*val = strdup(script_getvar(_var));
-
-		echof(curconn, NULL, "$%s is \"%s\"\n", _var, val);
-		free(val);
-	} else if (script_setvar(_var, _val) == 0)
-		echof(curconn, NULL, "\"%s\" is an invalid input for $%s\n", _val, _var);
-	else {
-		char	*val = strdup(script_getvar(_var));
-
-		echof(curconn, NULL, "$%s is now \"%s\"\n", _var, val);
-		free(val);
-	}
+	if (val == NULL)
+		echof(curconn, NULL, "$%s is \"%s\"\n", var, script_getvar(var));
+	else if (script_setvar(var, val) == 0)
+		echof(curconn, NULL, "\"%s\" is an invalid input for $%s\n", val, var);
+	else
+		echof(curconn, NULL, "$%s is now \"%s\"\n", var, script_getvar(var));
 }

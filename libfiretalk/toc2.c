@@ -753,8 +753,8 @@ static fte_t toc_postselect(toc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 #ifdef DEBUG_ECHO
 				toc_echof(c, __FUNCTION__, "sock_send(%i, [%s], %i)", i->sock.fd, i->buffer.buffer, strlen(i->buffer.buffer));
 #endif
-				firetalk_sock_send(&(i->sock), i->buffer.buffer, strlen(i->buffer.buffer));
-				i->sock.state = FCS_ACTIVE;
+				if (firetalk_sock_send(&(i->sock), i->buffer.buffer, strlen(i->buffer.buffer)) == FE_SUCCESS)
+					i->sock.state = FCS_ACTIVE;
 			}
 		} else if (e == FE_DISCONNECT) {
 			toc_infoget_parse(c, i);

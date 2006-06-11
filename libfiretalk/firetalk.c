@@ -244,9 +244,11 @@ int	firetalk_internal_connect(struct sockaddr_in *inet4_ip
 }
 
 void	firetalk_internal_send_data(firetalk_connection_t *conn, const char *const data, const int length) {
-	if (firetalk_sock_send(&(conn->sock), data, length) != FE_SUCCESS)
+	if (firetalk_sock_send(&(conn->sock), data, length) != FE_SUCCESS) {
 		/* we probably overran the queue, or the other end is gone */
+		assert(conn->sock.state == FCS_NOTCONNECTED);
 		firetalk_protocols[conn->protocol]->disconnected(conn->handle, FE_PACKET);
+	}
 }
 
 struct sockaddr_in *firetalk_callback_remotehost4(struct firetalk_driver_connection_t *c) {
@@ -2200,9 +2202,20 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 				firetalk_protocols[conn->protocol]->got_data(conn->handle, &(conn->buffer));
 			else
 				firetalk_protocols[conn->protocol]->got_data_connecting(conn->handle, &(conn->buffer));
-			if (conn->buffer.pos == conn->buffer.size)
+			if (conn->buffer.pos == conn->buffer.size) {
+				/* We read exactly as much as our buffer can hold, which isn't a problem -- except we
+				** asked the PD to handle what we read and we're *still* at buffer's capacity (the PD
+				** should remove whatever it processed from the buffer, adjusting .pos accordingly).
+				** This is an unrecoverable error; either the buffer is filled with unprocesssable crap
+				** or someone made a mistake in setting the buffer size, but we're going to have to
+				** assume at this point the buffer size was set correctly and the server is just
+				** spewing garbage.
+				*/
+				firetalk_sock_close(&(conn->sock));
 				firetalk_protocols[conn->protocol]->disconnected(conn->handle, FE_PACKETSIZE);
+			}
 		}
+		assert(conn->buffer.pos < conn->buffer.size);
 	}
 
 	/* handle deleted connections */

@@ -178,8 +178,10 @@ fte_t	firetalk_sock_send(firetalk_sock_t *sock, const void *const buffer, const 
 	if (sock->state == FCS_WAITING_SYNACK)
 		return(FE_SUCCESS);
 
-	if (send(sock->fd, buffer, bufferlen, /*MSG_DONTWAIT|*/MSG_NOSIGNAL) != bufferlen)
+	if (send(sock->fd, buffer, bufferlen, /*MSG_DONTWAIT|*/MSG_NOSIGNAL) != bufferlen) {
+		firetalk_sock_close(sock);
 		return(FE_PACKET);
+	}
 
 	return(FE_SUCCESS);
 }

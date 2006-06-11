@@ -14,7 +14,7 @@ liblua_la_SOURCES = \
 	liblua/ldebug.h liblua/lgc.h liblua/lmem.h liblua/lparser.h liblua/ltable.h liblua/luaconf.h liblua/lvm.h liblua/lauxlib.h \
 	liblua/ldo.h liblua/llex.h liblua/lobject.h liblua/lstate.h liblua/ltm.h liblua/lualib.h liblua/lzio.h liblua/lcode.h \
 	liblua/lfunc.h liblua/llimits.h liblua/lopcodes.h liblua/lstring.h liblua/lua.h liblua/lundump.h \
-	moon.c
+	moon.c moon_conn.c moon_strings.c moon-int.h
 liblua_la_LIBADD = -lm
 
 INCLUDES = -I${srcdir}/liblua
@@ -25,3 +25,11 @@ default_lua.h: ${srcdir}/default.lua
 moon.lo: ${srcdir}/moon.c default_lua.h
 	@echo $(LTCOMPILE) -I${top_srcdir}/include -I${top_srcdir}/src -I${top_srcdir}/libfiretalk -c -o $@ `test -f 'moon.c' || echo '$(srcdir)/'`moon.c
 	@$(LTCOMPILE) -I${top_srcdir}/include -I${top_srcdir}/src -I${top_srcdir}/libfiretalk -c -o $@ `test -f 'moon.c' || echo '$(srcdir)/'`moon.c
+
+moon_conn.lo: ${srcdir}/moon_conn.c
+	@echo $(LTCOMPILE) -I${top_srcdir}/include -I${top_srcdir}/src -I${top_srcdir}/libfiretalk -c -o $@ `test -f 'moon_conn.c' || echo '$(srcdir)/'`moon_conn.c
+	@$(LTCOMPILE) -I${top_srcdir}/include -I${top_srcdir}/src -I${top_srcdir}/libfiretalk -c -o $@ `test -f 'moon_conn.c' || echo '$(srcdir)/'`moon_conn.c
+
+moon_strings.lo: ${srcdir}/moon_strings.c
+	@echo $(LTCOMPILE) -I${top_srcdir}/include -I${top_srcdir}/src -I${top_srcdir}/libfiretalk -c -o $@ `test -f 'moon_strings.c' || echo '$(srcdir)/'`moon_strings.c
+	@$(LTCOMPILE) -I${top_srcdir}/include -I${top_srcdir}/src -I${top_srcdir}/libfiretalk -c -o $@ `test -f 'moon_strings.c' || echo '$(srcdir)/'`moon_strings.c

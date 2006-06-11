@@ -1059,7 +1059,7 @@ nFIRE_HANDLER(naim_error_disconnect) {
 
 	if (error == FE_RECONNECTING)
 		echof(conn, NULL, "Please wait...\n");
-	else if ((error != FE_USERDISCONNECT) && (getvar_int(conn, "autoreconnect") != 0)) {
+	else if ((error != FE_USERDISCONNECT) && getvar_int(conn, "autoreconnect")) {
 		echof(conn, NULL, "Attempting to reconnect...\n");
 		conio_connect(conn, 0, NULL);
 	} else
@@ -1194,7 +1194,7 @@ nFIRE_HANDLER(naim_chat_joined) {
 
 	bwin = cgetwin(conn, room);
 	bwin->e.chat->offline = 0;
-	if (getvar_int(conn, "autonames") == 0)
+	if (!getvar_int(conn, "autonames"))
 		window_echof(bwin, "You are now participating in the %s discussion.\n", room);
 	else {
 		const char *args[1] = { bwin->winname };
@@ -1820,7 +1820,7 @@ nFIRE_CTCPHAND(naim_ctcp_AUTOPEER) {
 			status_echof(conn, "Received autopeer message (%s) from non-buddy %s.\n",
 				args, from);
 		if ((strcmp(args, "-AUTOPEER") != 0) && (strcmp(args, "-AUTOCRYPT") != 0)) {
-			if (getvar_int(conn, "autobuddy") != 0) {
+			if (getvar_int(conn, "autobuddy")) {
 				status_echof(conn, "Adding <font color=\"#00FFFF\">%s</font> to your buddy list due to autopeer.\n",
 					from);
 				blist = raddbuddy(conn, from, DEFAULT_GROUP, NULL);
@@ -1912,7 +1912,7 @@ nFIRE_CTCPHAND(naim_ctcp_AUTOPEER) {
 			}
 			blist->peer = 0;
 		} else if (strcasecmp(args, "+AUTOCRYPT") == 0) {
-			if (getvar_int(conn, "autocrypt") == 0)
+			if (!getvar_int(conn, "autocrypt"))
 				firetalk_subcode_send_request(conn->conn, from, "AUTOPEER", "-AUTOCRYPT");
 			else {
 				if (co == NULL) {
