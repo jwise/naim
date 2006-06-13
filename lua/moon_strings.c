@@ -210,8 +210,8 @@ int nlua_luacmd(char *cmd, char *arg, conn_t *conn)
 	_push_conn_t(lua, conn);
 	if (lua_pcall(lua, 2, 0, 0) != 0)
 	{
-		status_echof(conn, "LUA function \"%s\" returned an error: \"%s\"", cmd, lua_tostring(lua, -1));
+		status_echof(conn, "Lua function \"%s\" returned an error: \"%s\"", cmd, lua_tostring(lua, -1));
 		lua_pop(lua, 1);
 	}
-	return 1;			//
+	return 1;
 }

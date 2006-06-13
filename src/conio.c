@@ -82,6 +82,7 @@ static const char
 	"BUDDY_QUEUED",
 	"BUDDY_TAGGED",
 	"BUDDY_FAKEAWAY",
+	"BUDDY_TYPING",
 };
 
 static const char

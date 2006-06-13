@@ -367,7 +367,7 @@ void	bupdate(void) {
 		do {
 			if ((inconn && (conn == curconn)) || bwin->waiting) {
 				char	buf[256], *group;
-				int	col = -1;
+				int	back = -1, fore = -1;
 
 				assert(bwin->winname != NULL);
 				buddyc++;
@@ -417,70 +417,69 @@ void	bupdate(void) {
 					buf[M] = 0;
 				}
 
-				if ((bwin->et == CHAT) && bwin->e.chat->isaddressed) {
-					assert(bwin->waiting);
-					col = C(WINLIST,BUDDY_ADDRESSED);
-				} else if (bwin->waiting)
-					if (bwin->et == BUDDY)
-						col = C(WINLIST,BUDDY_ADDRESSED);
-					else
-						col = C(WINLIST,BUDDY_WAITING);
-				else if (bwin->pouncec > 0)
-					col = C(WINLIST,BUDDY_QUEUED);
-				else
-					switch (bwin->et) {
-					  case BUDDY:
-						if (bwin->e.buddy->tag != NULL)
-							col = CI(WINLIST,BUDDY_TAGGED);
-						else if (bwin->e.buddy->offline)
-							col = C(WINLIST,BUDDY_OFFLINE);
-						else if (bwin->e.buddy->isaway && bwin->e.buddy->isidle)
-							col = C(WINLIST,BUDDY_AWAY);
-						else if (bwin->e.buddy->isaway)
-							col = C(WINLIST,BUDDY_FAKEAWAY);
-						else if (bwin->e.buddy->isidle)
-							col = C(WINLIST,BUDDY_IDLE);
-						else
-							col = C(WINLIST,BUDDY);
-						break;
-					  case CHAT:
-						assert(bwin->e.chat != NULL);
-						if (bwin->e.chat->offline)
-							col = C(WINLIST,BUDDY_OFFLINE);
-						else
-							col = C(WINLIST,BUDDY);
-						break;
-					  case TRANSFER:
-						col = C(WINLIST,BUDDY);
-						break;
-					}
-				assert(col != -1);
-				if (bwin == curconn->curbwin) {
-					int	affect = col/COLOR_PAIRS,
-						back;
+				back = faimconf.b[cWINLIST];
+				switch (bwin->et) {
+				  case BUDDY:
+					assert(bwin->e.buddy != NULL);
+					if (bwin->e.buddy->typing)
+						back = faimconf.f[cBUDDY_TYPING];
+					else if (bwin->e.buddy->tag != NULL)
+						back = faimconf.f[cBUDDY_TAGGED];
 
-#if 0
-					if (faimconf.b[cIMWIN] == faimconf.b[cWINLIST])
-						back = (faimconf.b[cIMWIN]+1)%nw_COLORS;
+					if (bwin->waiting)
+						fore = faimconf.f[cBUDDY_ADDRESSED];
+					else if (bwin->pouncec > 0)
+						fore = faimconf.f[cBUDDY_QUEUED];
+					else if (bwin->e.buddy->offline)
+						fore = faimconf.f[cBUDDY_OFFLINE];
+					else if (bwin->e.buddy->isaway && bwin->e.buddy->isidle)
+						fore = faimconf.f[cBUDDY_AWAY];
+					else if (bwin->e.buddy->isaway)
+						fore = faimconf.f[cBUDDY_FAKEAWAY];
+					else if (bwin->e.buddy->isidle)
+						fore = faimconf.f[cBUDDY_IDLE];
 					else
-						back = faimconf.b[cIMWIN];
-#else
-						back = faimconf.b[cWINLISTHIGHLIGHT];
-#endif
-
-					col %= nw_COLORS;
-					col += nw_COLORS*back;
-					col += affect*COLOR_PAIRS;
+						fore = faimconf.f[cBUDDY];
+					break;
+				  case CHAT:
+					assert(bwin->e.chat != NULL);
+					if (bwin->e.chat->isaddressed) {
+						assert(bwin->waiting);
+						fore = faimconf.f[cBUDDY_ADDRESSED];
+					} else if (bwin->waiting)
+						fore = faimconf.f[cBUDDY_WAITING];
+					else if (bwin->e.chat->offline)
+						fore = faimconf.f[cBUDDY_OFFLINE];
+					else
+						fore = faimconf.f[cBUDDY];
+					break;
+				  case TRANSFER:
+					if (bwin->waiting)
+						fore = faimconf.f[cBUDDY_WAITING];
+					else
+						fore = faimconf.f[cBUDDY];
+					break;
 				}
-				nw_move(&win_buddy, line, 1);
-				if ((col >= 2*COLOR_PAIRS) || (col < COLOR_PAIRS))
-					nw_printf(&win_buddy, col%COLOR_PAIRS, 1, "%*s", M, buf);
-				else
-					nw_printf(&win_buddy, col%COLOR_PAIRS, 0, "%*s", M, buf);
-				if (bwin->waiting) {
-					nw_move(&win_buddy, line, 0);
-					nw_addch(&win_buddy, ACS_LTEE_C   | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
-					nw_addch(&win_buddy, ACS_RARROW_C | A_BOLD | COLOR_PAIR(col%COLOR_PAIRS));
+
+				if (bwin == curconn->curbwin)
+					back = faimconf.b[cWINLISTHIGHLIGHT];
+
+				assert(fore != -1);
+				assert(back != -1);
+
+				{
+					int	col = nw_COLORS*back + fore;
+
+					nw_move(&win_buddy, line, 1);
+					if ((col >= 2*COLOR_PAIRS) || (col < COLOR_PAIRS))
+						nw_printf(&win_buddy, col%COLOR_PAIRS, 1, "%*s", M, buf);
+					else
+						nw_printf(&win_buddy, col%COLOR_PAIRS, 0, "%*s", M, buf);
+					if (bwin->waiting) {
+						nw_move(&win_buddy, line, 0);
+						nw_addch(&win_buddy, ACS_LTEE_C   | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
+						nw_addch(&win_buddy, ACS_RARROW_C | A_BOLD | COLOR_PAIR(col%COLOR_PAIRS));
+					}
 				}
 				line++;
 			}
@@ -630,7 +629,11 @@ void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 	if (bwin == NULL)
 		return;
 
+	assert(bwin->conn == conn);
+
 	verify_winlist_sanity(conn, bwin);
+
+	script_hook_delwin(bwin);
 
 	switch (bwin->et) {
 	  case BUDDY:
@@ -912,6 +915,9 @@ void	bnewwin(conn_t *conn, const char *name, et_t et) {
 			bwin->nwin.dirty = 1;
 		}
 	}
+
+	bwin->conn = conn;
+	script_hook_newwin(bwin);
 }
 
 void	bcoming(conn_t *conn, const char *buddy) {
@@ -922,7 +928,10 @@ void	bcoming(conn_t *conn, const char *buddy) {
 
 	blist = rgetlist(conn, buddy);
 	assert(blist != NULL);
-	STRREPLACE(blist->_account, buddy);
+	if (strcmp(blist->_account, buddy) != 0) {
+		script_hook_changebuddy(blist, buddy);
+		STRREPLACE(blist->_account, buddy);
+	}
 	if ((bwin = bgetbuddywin(conn, blist)) == NULL) {
 		if (getvar_int(conn, "autoquery") != 0) {
 			bnewwin(conn, buddy, BUDDY);

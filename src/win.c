@@ -16,16 +16,20 @@ extern int	wbuddy_widthy;
 extern win_t win_input G_GNUC_INTERNAL,
 	win_buddy G_GNUC_INTERNAL,
 	win_info G_GNUC_INTERNAL,
-	win_away G_GNUC_INTERNAL;
+	win_away G_GNUC_INTERNAL,
+	win_textedit G_GNUC_INTERNAL;
 extern int wsetup_called G_GNUC_INTERNAL,
-	quakeoff G_GNUC_INTERNAL;
+	quakeoff G_GNUC_INTERNAL,
+	intextedit;
 extern char *statusbar_text G_GNUC_INTERNAL;
 win_t	win_input = { 0 },
 	win_buddy = { 0 },
 	win_info = { 0 },
-	win_away = { 0 };
+	win_away = { 0 },
+	win_textedit = { 0 };
 int	wsetup_called = 0,
-	quakeoff = 0;
+	quakeoff = 0,
+	intextedit = 0;
 char	*statusbar_text = NULL;
 
 
@@ -178,6 +182,10 @@ void	statrefresh(void) {
 		nw_touchwin(&win_away);
 		wnoutrefresh(win_away.win);
 	}
+	if (intextedit) {
+		nw_touchwin(&win_textedit);
+		wnoutrefresh(win_textedit.win);
+	}
 	if (doredraw)
 		clearok(curscr, TRUE);
 	doupdate();
@@ -324,6 +332,12 @@ void	wsetup(void) {
 	nw_initwin(&win_away, cWINLIST-1);
 	scrollok(win_away.win, FALSE);
 
+	assert(win_textedit.win == NULL);
+	win_textedit.win = NWIN(wtextedit);
+	assert(win_textedit.win != NULL);
+	nw_initwin(&win_textedit, cWINLIST-1);
+	scrollok(win_textedit.win, FALSE);
+
 	nw_printf(&win_away, CI(INPUT,TEXT), 0, "%44s  ", "");
 	nw_printf(&win_away, C(CONN,BUDDY_AWAY), 1, " You are away. ");
 	nw_printf(&win_away, C(CONN,BUDDY), 1, "Type /away or send an IM ");
@@ -343,6 +357,7 @@ void	wshutitdown(void) {
 	nw_delwin(&win_buddy);
 	nw_delwin(&win_info);
 	nw_delwin(&win_away);
+	nw_delwin(&win_textedit);
 	endwin();
 	wsetup_called = 0;
 }

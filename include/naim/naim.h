@@ -29,6 +29,7 @@ enum {
 	cBUDDY_QUEUED,
 	cBUDDY_TAGGED,
 	cBUDDY_FAKEAWAY,
+	cBUDDY_TYPING,
 	NUMEVENTS
 };
 
@@ -89,7 +90,34 @@ typedef struct {
 		foundmult:1;
 } namescomplete_t;
 
-typedef struct buddylist_ts {
+typedef struct {
+	void	*win;
+	FILE	*logfile;
+	int	height;
+	unsigned char dirty:1,
+		small:1;
+} win_t;
+
+typedef struct firetalk_useragent_connection_t {
+	char	*sn,
+		*password,
+		*winname,
+		*server,
+		*profile;
+	long	warnval;
+	int	port, proto;
+	time_t	online;
+	double	lastupdate, lag;
+	struct firetalk_connection_t *conn;
+	FILE	*logfile;
+	win_t	nwin;
+	struct buddylist_t *buddyar;
+	struct ignorelist_t *idiotar;
+	struct buddywin_t *curbwin;
+	struct firetalk_useragent_connection_t *next;
+} conn_t;
+
+typedef struct buddylist_t {
 	char	*_account,
 		*_group,
 		*_name,
@@ -97,13 +125,14 @@ typedef struct buddylist_ts {
 		*tzname,
 		*tag,
 		*caps;
-	struct buddylist_ts *next;
+	struct buddylist_t *next;
 	long	warnval;
 	int	peer,
 		typing;
-	unsigned char offline:1,
+	unsigned long offline:1,
 		isaway:1,
 		isidle:1;	// is the buddy idle for more than some threshhold?
+	conn_t	*conn;
 } buddylist_t;
 #define DEFAULT_GROUP	"User"
 #define CHAT_GROUP	"Chat"
@@ -137,6 +166,7 @@ typedef struct firetalk_useragent_transfer_t {
 	double	started;
 	time_t	lastupdate;
 	struct buddywin_t *bwin;
+	conn_t	*conn;
 } transfer_t;
 
 typedef enum {
@@ -144,14 +174,6 @@ typedef enum {
 	BUDDY,
 	TRANSFER,
 } et_t;
-
-typedef struct {
-	void	*win;
-	FILE	*logfile;
-	int	height;
-	unsigned char dirty:1,
-		small:1;
-} win_t;
 
 typedef struct buddywin_t {
 	char	*winname,
@@ -173,12 +195,13 @@ typedef struct buddywin_t {
 	} e;
 	et_t	et;
 	struct buddywin_t *next;
+	conn_t	*conn;
 } buddywin_t;
 
-typedef struct ignorelist_ts {
+typedef struct ignorelist_t {
 	char	*screenname,
 		*notes;
-	struct ignorelist_ts *next;
+	struct ignorelist_t *next;
 	time_t	informed;
 } ignorelist_t;
 
@@ -188,31 +211,12 @@ typedef struct {
 	struct {
 		int	startx, starty,
 			widthx, widthy, pady;
-	} wstatus, winput, winfo, waway;
+	} wstatus, winput, winfo, waway, wtextedit;
 } faimconf_t;
 #define nw_COLORS	8
 #define C(back, fore)	(nw_COLORS*faimconf.b[c ## back] +            faimconf.f[c ## fore])
 #define CI(back, fore)	(          faimconf.b[c ## back] + nw_COLORS*(faimconf.f[c ## fore]%COLOR_PAIRS))
 #define CB(back, fore)	(nw_COLORS*faimconf.b[c ## back] +            faimconf.b[c ## fore])
-
-typedef struct firetalk_useragent_connection_t {
-	char	*sn,
-		*password,
-		*winname,
-		*server,
-		*profile;
-	long	warnval;
-	int	port, proto;
-	time_t	online;
-	double	lastupdate, lag;
-	struct firetalk_connection_t *conn;
-	FILE	*logfile;
-	win_t	nwin;
-	buddylist_t *buddyar;
-	ignorelist_t *idiotar;
-	buddywin_t *curbwin;
-	struct firetalk_useragent_connection_t *next;
-} conn_t;
 
 typedef struct {
 	char	*name,

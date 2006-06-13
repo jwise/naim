@@ -1,6 +1,7 @@
 /* toc2.c - FireTalk TOC2 protocol driver
 ** Copyright 2002-2006 Daniel Reed <n@ml.org>
 */
+#include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

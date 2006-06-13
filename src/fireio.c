@@ -121,7 +121,10 @@ nFIRE_HANDLER(naim_nickchange) {
 
 	if ((buddy = rgetlist(conn, oldnick)) == NULL)
 		return;
-	STRREPLACE(buddy->_account, newnick);
+	if (strcmp(buddy->_account, newnick) != 0) {
+		script_hook_changebuddy(buddy, newnick);
+		STRREPLACE(buddy->_account, newnick);
+	}
 
 	if ((bwin = bgetbuddywin(conn, buddy)) != NULL) {
 		window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now known as <font color=\"#00FFFF\">%s</font>.\n",
