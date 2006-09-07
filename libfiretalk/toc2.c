@@ -20,13 +20,13 @@
 
 int	toc_room_t_canary = 0;
 typedef struct toc_room_t {
-	void	*canary;
 	struct toc_room_t *next;
 	int	exchange;
 	char	*name;
 	long	id;
 	uint8_t	invited:1,
 		joined:1;
+	void	*canary;
 } toc_room_t;
 
 static inline void toc_room_t_ctor(toc_room_t *this) {
@@ -45,10 +45,10 @@ LIST_DELETE(toc_room_t);
 
 int	toc_infoget_t_canary = 0;
 typedef struct toc_infoget_t {
-	void	*canary;
 	struct toc_infoget_t *next;
 	firetalk_sock_t sock;
 	firetalk_buffer_t buffer;
+	void	*canary;
 } toc_infoget_t;
 
 static inline void toc_infoget_t_ctor(toc_infoget_t *this) {
@@ -70,7 +70,6 @@ LIST_DELETE(toc_infoget_t);
 
 int	toc_conn_t_canary = 0;
 typedef struct firetalk_driver_connection_t {
-	void	*canary;
 	uint16_t local_sequence;		/* our sequence number */
 	uint16_t remote_sequence;		/* toc's sequence number */
 	char	*nickname,			/* our nickname (correctly spaced) */
@@ -90,6 +89,7 @@ typedef struct firetalk_driver_connection_t {
 	char	*buddybuflastgroup;
 	char	denybuf[1024];
 	int	denybuflen;
+	void	*canary;
 } toc_conn_t;
 
 static inline void toc_conn_t_ctor(toc_conn_t *this) {
@@ -1597,7 +1597,7 @@ static fte_t toc_got_data(toc_conn_t *c, firetalk_buffer_t *buffer) {
 	uint16_t l;
 
   got_data_start:
-	assert(firetalk_buffer_valid(buffer));
+	assert(firetalk_buffer_t_valid(buffer));
 	r = toc_find_packet(c, buffer->buffer, &(buffer->pos), data, sizeof(data), SFLAP_FRAME_DATA, &l);
 	if (r == FE_NOTFOUND)
 		return(FE_SUCCESS);
@@ -2329,7 +2329,7 @@ static fte_t toc_got_data_connecting(toc_conn_t *c, firetalk_buffer_t *buffer) {
 	firetalk_connection_t *fchandle = firetalk_find_conn(c);
 
 got_data_connecting_start:
-	assert(firetalk_buffer_valid(buffer));
+	assert(firetalk_buffer_t_valid(buffer));
 	r = toc_find_packet(c, buffer->buffer, &(buffer->pos), data, sizeof(data), (c->connectstate==0)?SFLAP_FRAME_SIGNON:SFLAP_FRAME_DATA, &length);
 	if (r == FE_NOTFOUND)
 		return(FE_SUCCESS);

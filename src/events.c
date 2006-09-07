@@ -11,7 +11,7 @@
 
 #include "naim-int.h"
 #include "snapshot.h"
-#include "conio_cmds.h"
+#include "cmdar.h"
 
 #ifdef ENABLE_DNSUPDATE
 # include <netdb.h>
@@ -29,7 +29,7 @@ void	updateidletime(void) {
 	bupdate();
 }
 
-static int events_idleaway(void *userdata, time_t now, double nowf) {
+static int events_idleaway(void *userdata, const char *signature, time_t now, double nowf) {
 	long	idletime = script_getvar_int("idletime");
 	int	autoaway;
 
@@ -59,20 +59,20 @@ static int events_idleaway(void *userdata, time_t now, double nowf) {
 	return(HOOK_CONTINUE);
 }
 
-static int events_autoreconnect(void *userdata, time_t now, double nowf) {
+static int events_autoreconnect(void *userdata, const char *signature, time_t now, double nowf) {
 	conn_t	*conn = curconn;
 
 	do {
 		if ((conn->online == -1) && (getvar_int(conn, "autoreconnect") != 0)) {
 			echof(conn, NULL, "Attempting to reconnect...\n");
-			conio_connect(conn, 0, NULL);
+			ua_connect(conn, 0, NULL);
 		}
 	} while ((conn = conn->next) != curconn);
 
 	return(HOOK_CONTINUE);
 }
 
-static int events_lagcheck(void *userdata, time_t now, double nowf) {
+static int events_lagcheck(void *userdata, const char *signature, time_t now, double nowf) {
 	int	lagcheck = script_getvar_int("lagcheck");
 	conn_t	*conn = curconn;
 
@@ -88,7 +88,7 @@ static int events_lagcheck(void *userdata, time_t now, double nowf) {
 	return(HOOK_CONTINUE);
 }
 
-static int events_winlistmaint(void *userdata, time_t now, double nowf) {
+static int events_winlistmaint(void *userdata, const char *signature, time_t now, double nowf) {
 	int	tprint, logtprint, dailycol, regularcol;
 	conn_t	*conn;
 	struct tm *tmptr;
@@ -182,7 +182,7 @@ static int events_winlistmaint(void *userdata, time_t now, double nowf) {
 }
 
 #ifdef ENABLE_DNSUPDATE
-static int events_dnsupdate(void *userdata, time_t now, double nowf) {
+static int events_dnsupdate(void *userdata, const char *signature, time_t now, double nowf) {
 	int	updatecheck = script_getvar_int("updatecheck");
 
 	if ((updatecheck > 0) && (((now-startuptime)/60)%updatecheck == 0)) {

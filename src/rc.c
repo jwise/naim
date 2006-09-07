@@ -546,7 +546,7 @@ int	naim_read_config(const char *faimrcfile) {
 			buf[strlen(buf)-1] = 0;
 		if (*buf == 0)
 			continue;
-		conio_handlecmd(buf);
+		ua_handlecmd(buf);
 	}
 	fclose(faimrc);
 	return(1);

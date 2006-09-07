@@ -37,7 +37,6 @@ static void h_zero(h_t *h, win_t *win) {
 		max = h->addch.len = nw_getcol(win);
 		if (max >= sizeof(h->addch.buf))
 			max = sizeof(h->addch.buf)-1;
-//		memset(h->addch.buf, 0, sizeof(h->addch.buf));
 		nw_getline(h->win, h->addch.buf, sizeof(h->addch.buf));
 		assert(strlen(h->addch.buf) == h->addch.len);
 		h->addch.lastwhite = -1;
@@ -61,43 +60,41 @@ static void h_zero(h_t *h, win_t *win) {
 	h->white = h->inbold = h->initalic = h->inunderline = 0;
 }
 
-HOOK_DECLARE(notify);
+static void nw_decode_addch(win_t *win, unsigned char c) {
+	if (c == '\1')
+		c = ' ';
+
+	nw_addch(win, c);
+}
+
 static void nw_wrap_addch(h_t *h, unsigned char c) {
-	if (h->win->logfile != NULL) {
-		char	buf[2] = { c, 0 };
-
-		HOOK_CALL(notify, NULL, h->win, buf);
-	}
-
 	if (h->addch.len >= (faimconf.wstatus.widthx-1)) {
 		int	i;
 
 		if ((h->addch.lastwhite > -1) && (h->addch.lastwhite > h->addch.firstwhite) && (h->addch.lastwhite > h->addch.secondwhite)) {
 			for (i = h->addch.len; i > h->addch.lastwhite; i--)
 				nw_addstr(h->win, "\b \b");
-			nw_addch(h->win, '\n');
+			nw_decode_addch(h->win, '\n');
 			for (i = 0; i <= h->addch.secondwhite; i++)
-				nw_addch(h->win, ' ');
+				nw_decode_addch(h->win, ' ');
 			for (i = h->addch.lastwhite+1; i < h->addch.len; i++)
-				nw_addch(h->win, h->addch.buf[i]);
+				nw_decode_addch(h->win, h->addch.buf[i]);
 			h->addch.len -= h->addch.lastwhite-1;
 		} else {
 			for (i = 0; i <= (h->addch.secondwhite+1); i++)
-				nw_addch(h->win, ' ');
+				nw_decode_addch(h->win, ' ');
 			h->addch.len = 0;
 		}
 
 		h->addch.len += h->addch.secondwhite+1;
 		h->addch.lastwhite = -1;
-//		memset(h->addch.buf, 0, sizeof(h->addch.buf));
 	}
 
-	nw_addch(h->win, c);
+	nw_decode_addch(h->win, c);
 
 	if (c == '\n') {
 		h->addch.lastwhite = h->addch.firstwhite = h->addch.secondwhite = -1;
 		h->addch.len = 0;
-//		memset(h->addch.buf, 0, sizeof(h->addch.buf));
 	} else if (c == '\b') {
 		if (h->addch.len > 0)
 			h->addch.len--;
@@ -106,12 +103,12 @@ static void nw_wrap_addch(h_t *h, unsigned char c) {
 		if (h->addch.secondwhite == h->addch.len)
 			h->addch.secondwhite = -1;
 	} else {
-		if (isspace(c)) {
+		if (isspace(c) || (c == '\1')) {
 			if (h->addch.firstwhite == -1)
 				h->addch.firstwhite = h->addch.len;
 			else if (h->addch.secondwhite == -1)
 				h->addch.secondwhite = h->addch.len;
-			else
+			else if (c != '\1')
 				h->addch.lastwhite = h->addch.len;
 		}
 		h->addch.buf[h->addch.len++] = c;
@@ -121,7 +118,7 @@ static void nw_wrap_addch(h_t *h, unsigned char c) {
 /* this is a terrible way of doing this */
 static void nw_wrap_addstr(h_t *h, const unsigned char *str) {
 	if (str == NULL)
-		nw_addch(h->win, '.');
+		nw_decode_addch(h->win, '.');
 	else {
 		int	i;
 
@@ -151,9 +148,6 @@ static const struct {
 	{	COLOR_WHITE,	0x80, 0x80, 0x80	},
 	{	COLOR_WHITE,	0xFF, 0xFF, 0xFF	},
 };
-
-#define CHECKTAG(tag)	(strcasecmp(tagbase, (tag)) == 0)
-#define CHECKAMP(tag)	(strcasecmp(tagbuf, (tag)) == 0)
 
 static const char *const parsehtml_pair_RGB(int pair, char bold) {
 	static char buf[20];
@@ -222,6 +216,9 @@ static int parsehtml_pair(const unsigned char *buf, int _pair, char *inbold, cha
 		return(_pair);
 	return(parsehtml_pair_closest(_pair, R, G, B, inbold, foreorback));
 }
+
+#define CHECKTAG(tag)	(strcasecmp(tagbase, (tag)) == 0)
+#define CHECKAMP(tag)	(strcasecmp(tagbuf, (tag)) == 0)
 
 static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 	unsigned char tagbuf[20] = { 0 },
@@ -542,7 +539,7 @@ static unsigned long parsehtml_amp(h_t *h, unsigned char *text) {
 		else
 			nw_wrap_addstr(h, keyname(c));
 	} else if CHECKAMP("NBSP") {
-		nw_wrap_addch(h, ' ');
+		nw_wrap_addch(h, '\1');
 	} else if CHECKAMP("AMP") {
 		nw_wrap_addch(h, '&');
 	} else if CHECKAMP("LT") {
@@ -568,9 +565,9 @@ static unsigned long parsehtml(h_t *h, char *str, int backup) {
 }
 
 int	vhwprintf(win_t *win, int _pair, const unsigned char *format, va_list msg) {
-	/*static*/ unsigned char buf[20*1024];
+	/*static*/ unsigned char buf[4*1024], *str, *ptr = NULL;
 	size_t	len = 0;
-	int	pos = -1, lines = 0;
+	int	pos, lines = 0;
 	h_t	h;
 
 	assert(win != NULL);
@@ -580,13 +577,26 @@ int	vhwprintf(win_t *win, int _pair, const unsigned char *format, va_list msg) {
 
 	len = vsnprintf(buf, sizeof(buf), format, msg);
 
+	if (len >= sizeof(buf)) {
+		size_t	len2;
+
+		ptr = malloc(len+1);
+		assert(ptr != NULL);
+
+		len2 = vsnprintf(ptr, len+1, format, msg);
+		assert(len2 == len);
+
+		str = ptr;
+	} else
+		str = buf;
+
 	if (_pair > -1) {
 		if (win->logfile != NULL)
 			fprintf(win->logfile, "<font color=\"%s\">%s%s%s%s%s</font>\n",
 				parsehtml_pair_RGB(_pair, h.inbold),
 				h.initalic?"<I>":"",
 				h.inunderline?"<U>":"",
-				buf,
+				str,
 				h.inunderline?"</U>":"",
 				h.initalic?"</I>":"");
 	} else
@@ -603,39 +613,37 @@ int	vhwprintf(win_t *win, int _pair, const unsigned char *format, va_list msg) {
 
 	nw_attr(win, h.inbold, h.initalic, h.inunderline, 0, 0, 0);
 	nw_color(win, h.pair);
-	while (++pos < len) {
-		if ((buf[pos] == '<') || (buf[pos] == '&')) {
+	for (pos = 0; pos < len; pos++)
+		if ((str[pos] == '<') || (str[pos] == '&')) {
 			static int lastpos = 0;
 			unsigned long skiplen = 0;
 
-			if ((skiplen = parsehtml(&h, buf+pos, pos-lastpos)) == 0) {
-				nw_wrap_addch(&h, buf[pos]);
+			if ((skiplen = parsehtml(&h, str+pos, pos-lastpos)) == 0) {
+				nw_wrap_addch(&h, str[pos]);
 				continue;
 			}
 			pos += skiplen;
 			nw_attr(win, h.inbold, h.initalic, h.inunderline, 0, 0, 0);
 			nw_color(win, h.pair);
 			lastpos = pos;
-			continue;
 		} else {
-			if (buf[pos] == '\r')
+			if (str[pos] == '\r')
 				continue;
-			if (isspace(buf[pos]) || (buf[pos] == '\n')) {
+			if (isspace(str[pos]) || (str[pos] == '\n')) {
 				if (h.white == 0)
 					nw_wrap_addch(&h, ' ');
 				h.white = 1;
 				continue;
 			} else
 				h.white = 0;
-			if (naimisprint(buf[pos]))
-				nw_wrap_addch(&h, buf[pos]);
+			if (naimisprint(str[pos]))
+				nw_wrap_addch(&h, str[pos]);
 			else
-				nw_wrap_addstr(&h, keyname(buf[pos]));
-			continue;
+				nw_wrap_addstr(&h, keyname(str[pos]));
 		}
-	}
 	if (h.white == 1)
 		nw_wrap_addch(&h, '\b');
+	free(ptr);
 	return(lines);
 }
 

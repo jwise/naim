@@ -82,8 +82,8 @@ HOOK_DECLARE(sendto);
 static void naim_sendto(conn_t *conn,
 		const char *const _name,
 		const char *const _dest,
-		const unsigned char *const _message, int len,
-		int flags) {
+		const unsigned char *const _message, uint32_t len,
+		uint32_t flags) {
 	char	*name = NULL, *dest = NULL;
 	unsigned char *message = malloc(len+1);
 
@@ -94,13 +94,13 @@ static void naim_sendto(conn_t *conn,
 
 	memmove(message, _message, len);
 	message[len] = 0;
-	HOOK_CALL(sendto, conn, &name, &dest, &message, &len, &flags);
+	HOOK_CALL(sendto, HOOK_T_CONN HOOK_T_WRSTRING HOOK_T_WRSTRING HOOK_T_WRSTRING HOOK_T_WRUINT32 HOOK_T_WRUINT32, conn, &name, &dest, &message, &len, &flags);
 	free(name);
 	free(dest);
 	free(message);
 }
 
-static int sendto_encrypt(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
+static int sendto_encrypt(void *userdata, const char *signature, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	if (!(*flags & RF_CHAT) && !(*flags & RF_ACTION)) {
 		buddylist_t	*blist = rgetlist(conn, *dest);
 
@@ -125,7 +125,7 @@ static int sendto_encrypt(void *userdata, conn_t *conn, char **name, char **dest
 	return(HOOK_CONTINUE);
 }
 
-static int sendto_send(void *userdata, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
+static int sendto_send(void *userdata, const char *signature, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	int	ret;
 
 	if (*flags & RF_ENCRYPTED) {

@@ -1474,9 +1474,9 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 static fte_t lily_got_data(lily_conn_t *c, firetalk_buffer_t *buffer) {
 	char	*str;
 
-	assert(firetalk_buffer_valid(buffer));
+	assert(firetalk_buffer_t_valid(buffer));
 	while ((str = lily_recv_line(c, buffer->buffer, &(buffer->pos))) != NULL) {
-		assert(firetalk_buffer_valid(buffer));
+		assert(firetalk_buffer_t_valid(buffer));
 		lily_got_cmd(c, str);
 	}
 
@@ -1486,9 +1486,9 @@ static fte_t lily_got_data(lily_conn_t *c, firetalk_buffer_t *buffer) {
 static fte_t lily_got_data_connecting(lily_conn_t *c, firetalk_buffer_t *buffer) {
 	char	*str;
 
-	assert(firetalk_buffer_valid(buffer));
+	assert(firetalk_buffer_t_valid(buffer));
 	while ((str = lily_recv_line(c, buffer->buffer, &(buffer->pos))) != NULL) {
-		assert(firetalk_buffer_valid(buffer));
+		assert(firetalk_buffer_t_valid(buffer));
 		if (strncmp(str, "%whoami ", sizeof("%whoami ")-1) == 0) {
 			char	*s = strstr(str, " name="),
 				buf[1024];

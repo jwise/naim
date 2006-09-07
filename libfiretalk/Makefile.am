@@ -19,7 +19,3 @@ tester_LDADD = \
 TESTS = ${check_PROGRAMS}
 
 include_HEADERS = firetalk.h
-
-.c.o: $<
-	@echo $(COMPILE) -c `test -f '$<' || echo '$(srcdir)/'`$<
-	@$(COMPILE) -c `test -f '$<' || echo '$(srcdir)/'`$<

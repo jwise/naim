@@ -1,9 +1,9 @@
 #!/bin/sh
 
 echo 'Automatically generated list of commands for naim.'
-echo '#include "conio.c"' \
-	| ${CPP} -DCONIOCPP -dD - \
-	| sed 's/^CONIO\(....\)(\(.*\)).*$/\1,\2/g' \
+echo '#include "commands.c"' \
+	| ${CPP} -DUACPP -dD - \
+	| sed 's/^UA\(....\)(\(.*\)).*$/\1,\2/g' \
 	| ${AWK} -F ',' '{
 		if ((inalia == 1) && ($1 != "ALIA")) {
 			inalia = 0;

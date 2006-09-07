@@ -1,12 +1,6 @@
 AC_DEFUN([AC_LIB_FIRETALK],
 [
 	AC_PREREQ(2.56)
-	AC_ARG_ENABLE(raw-irc-modes,
-		[  --enable-raw-irc-modes  enable the display of raw mode changes on IRC [[default=no]]],
-		[
-			AC_DEFINE(RAWIRCMODES, 1, [Define to enable the display of raw mode changes on IRC])
-		]
-	)
 	AC_DEFINE(ENABLE_FT_LILY_CTCPMAGIC, 1, [Define to enable experimental CTCP magic support])
 	AC_REQUIRE([AC_PROG_CC])
 	AC_REQUIRE([AC_PROG_RANLIB])

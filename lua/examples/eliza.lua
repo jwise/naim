@@ -13,43 +13,47 @@ if naimpsych == nil then
 end
 naimpsych.conns = {}
 
-function naim.commands.eliza(arg, conn)
-  if arg == nil then
-    naim.curconn():status_echo("[naimpsych] Syntax: /eliza &lt;nick&gt;")
-    return
-  end
-  arg = string.lower(arg)
-  arg = string.gsub(arg, " ", "")
+naim.commands.eliza = {
+  min = 1,
+  max = 1,
+  args = { "nick" },
+  desc = "Begin psychoanalyzing one of your friends",
+  func = function (conn, args)
+    arg = args[1]
+    if arg == nil then
+      naim.curconn():status_echo("[naimpsych] Syntax: /eliza &lt;nick&gt;")
+      return
+    end
+    arg = string.lower(arg)
+    arg = string.gsub(arg, " ", "")
   
-  local cid=conn.id
-  if naimpsych.conns[cid] == nil then
-    naimpsych.conns[cid] = {}
-  end
-  if (naimpsych.conns[cid][arg] == nil) or (naimpsych.conns[cid][arg] == 0) then
-    naimpsych.conns[cid][arg] = 1
-    conn:msg(arg, [[
+    if naimpsych.conns[conn] == nil then
+      naimpsych.conns[conn] = {}
+    end
+    if (naimpsych.conns[conn][arg] == nil) or (naimpsych.conns[conn][arg] == 0) then
+      naimpsych.conns[conn][arg] = 1
+      conn:msg(arg, [[
 WELCOME TO THE NAIM PSYCHIATRIST. MY NAME IS ELIZA. YOU CAN SAY "BYE" AT ANY TIME TO MAKE ME GO AWAY.<br>
 <br>
 IT SURE IS NEAT TO HAVE YOU DROP BY. WHAT BRINGS YOU HERE?]])
-    math.randomseed(os.time())
-    conn:status_echo("[naimpsych] Starting psychiatrist session with " .. arg .. ". Type /eliza " .. arg .. " again to terminate.")
-  else
-    naimpsych.conns[cid][arg] = 0
-    conn:status_echo("[naimpsych] Psychiatrist session with " .. arg .. " terminated.")
+      math.randomseed(os.time())
+      conn:status_echo("[naimpsych] Starting psychiatrist session with " .. arg .. ". Type /eliza " .. arg .. " again to terminate.")
+    else
+      naimpsych.conns[conn][arg] = 0
+      conn:status_echo("[naimpsych] Psychiatrist session with " .. arg .. " terminated.")
+    end
   end
-  
-end
+}
 
 function naimpsych.eliza(conn, sn, dest, text, flags)
   local response = ""
   text = string.gsub(text, "<[^>]*>", "")
   local user = string.upper(text)
   local userOrig = user
-  local cid = conn.id
   sn = string.lower(sn)
   sn = string.gsub(sn, " ", "")
   
-  if naimpsych.conns[cid] == nil or naimpsych.conns[cid][sn] == nil or naimpsych.conns[cid][sn] == 0  or dest ~= nil then
+  if naimpsych.conns[conn] == nil or naimpsych.conns[conn][sn] == nil or naimpsych.conns[conn][sn] == 0  or dest ~= nil then
     return
   end
 
@@ -167,7 +171,7 @@ function naimpsych.eliza(conn, sn, dest, text, flags)
   -- accept user input
   if string.sub(user, 1, 3) == "BYE" then
     response = "BYE, BYE FOR NOW. SEE YOU AGAIN SOME TIME."
-    naimpsych.conns[cid][sn] = 0
+    naimpsych.conns[conn][sn] = 0
     conn:msg(sn, response)
     return
   end
@@ -183,8 +187,8 @@ function naimpsych.eliza(conn, sn, dest, text, flags)
 end
 
 if naimpsych.ref ~= nil then
-	naim.hooks.recvfrom.del(naimpsych.ref)
+	naim.hooks.del("proto_recvfrom", naimpsych.ref)
 end
 
-naimpsych.ref = naim.hooks.recvfrom.add(naimpsych.eliza, 200)
+naimpsych.ref = naim.hooks.add("proto_recvfrom", naimpsych.eliza, 200)
 naim.debug("[naimpsych] naim psychiatrist loaded. Type /eliza &lt;nick&gt; to use.")

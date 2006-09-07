@@ -1,65 +1,16 @@
 #!/bin/sh
 
 echo '
-#define C_STATUS	0x00
-#define C_INCHAT	0x01
-#define C_INUSER	0x02
-#define C_NOTSTATUS	(C_INCHAT|C_INUSER)
-#define C_ANYWHERE	0xFF
+#include <naim/naim.h>
+#include "naim-int.h"
+#include "cmdar.h"
 
-#define CONIOARGS	(conn_t *conn, int argc, const char **args)
-#define CONIOFUNC2(x)	void x CONIOARGS
-
-#ifndef CONIOCPP
-# define CONIOFUNC(x)	void conio_ ## x CONIOARGS
-# define CONIOALIA(x)
-# define CONIOWHER(x)
-# define CONIODESC(x)
-# define CONIOAREQ(x,y)
-# define CONIOAOPT(x,y)
-#endif
-
-#ifndef CONIO_NOPROTOS
-'
-
-echo '#include "conio.c"' \
-        | ${CPP} -DCONIOCPP -dD - \
-	| grep '^CONIOFUNC(.*).*$' \
-	| sed 's/^\(CONIOFUNC(.*)\).*$/\1;/g'
-
-echo '
-#endif
-
-typedef struct {
-	const char
-		*c;
-	CONIOFUNC2((*func));
-	const char
-		*aliases[CONIO_MAXPARMS],
-		*desc;
-	const struct {
-		const char
-			required,
-			type,
-			*name;
-	}	args[CONIO_MAXPARMS];
-	int	minarg,
-		maxarg,
-		where;
-} cmdar_t;
-
-#ifndef CONIO_C
-extern cmdar_t
-	cmdar[];
-extern const int
-	cmdc;
-#else
 cmdar_t	cmdar[] = {
 '
 
-echo '#include "conio.c"' \
-        | ${CPP} -DCONIOCPP -dD - \
-	| sed 's/^CONIO\(....\)(\(.*\)).*$/\1,\2/g' \
+echo '#include "commands.c"' \
+        | ${CPP} -DUACPP -dD - \
+	| sed 's/^UA\(....\)(\(.*\)).*$/\1,\2/g' \
 	| ${AWK} -F ',' '{
 		if ((inalia == 1) && ($1 != "ALIA")) {
 			inalia = 0;
@@ -85,7 +36,7 @@ echo '#include "conio.c"' \
 			minarg = 0;
 			maxarg = 0;
 			funcwhere = "ANYWHERE";
-			printf("	{ \"%s\",	conio_%s,	{", $2, $2);
+			printf("	{ \"%s\",	ua_%s,	{", $2, $2);
 			inalia = 1;
 		} else if ($1 == "WHER")
 			funcwhere = $2;
@@ -158,7 +109,5 @@ echo '#include "conio.c"' \
 
 echo '
 };
-const int
-	cmdc = sizeof(cmdar)/sizeof(*cmdar);
-#endif
+const int cmdc = sizeof(cmdar)/sizeof(*cmdar);
 '

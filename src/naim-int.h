@@ -121,7 +121,7 @@ int	script_setvar(const char *name, const char *val);
 int	script_setvar_int(const char *name, const long val);
 char	*script_expand(const char *instr);
 int	script_script_parse(const char *line);
-int	script_cmd(char *cmd, char *arg, conn_t *conn);
+int	script_cmd(conn_t *conn, char *cmd, char *arg);
 void	script_listvars_start(void);
 char	*script_listvars_next(void);
 void	script_listvars_stop(void);
@@ -232,5 +232,148 @@ extern int consolescroll;
 static inline int naimisprint(int c) {
 	return((c >= 0) && (c <= 255) && (isprint(c) || (c >= 160)));
 }
+
+typedef struct {
+	const char *c;
+	void	(*func)();
+	const char *aliases[UA_MAXPARMS], *desc;
+	const struct {
+		const char required, type, *name;
+	}	args[UA_MAXPARMS];
+	int	minarg,
+		maxarg,
+		where;
+} cmdar_t;
+
+typedef struct {
+	char	*name;
+	unsigned char gotaway:1;
+} awayar_t;
+
+typedef struct {
+	char	*buf;
+	int	len;
+	unsigned char foundfirst:1,
+		foundmatch:1,
+		foundmult:1;
+} namescomplete_t;
+
+
+
+
+
+/*
+ * Provide G_GNUC_INTERNAL that is used for marking library functions
+ * as being used internally to the lib only, to not create inefficient PLT entries
+ */
+#if defined (__GNUC__)
+# define G_GNUC_INTERNAL	__attribute((visibility("hidden")))
+#else
+# define G_GNUC_INTERNAL
+#endif
+
+/* atomizer.c */
+char	*firstatom(char *string, char *bounds) G_GNUC_INTERNAL;
+char	*firstwhite(char *string) G_GNUC_INTERNAL;
+char	*atom(char *string) G_GNUC_INTERNAL;
+
+/* buddy.c */
+const unsigned char *naim_normalize(const unsigned char *const name) G_GNUC_INTERNAL;
+void	playback(conn_t *const conn, buddywin_t *const, const int) G_GNUC_INTERNAL;
+void	bcoming(conn_t *conn, const char *) G_GNUC_INTERNAL;
+void	bgoing(conn_t *conn, const char *) G_GNUC_INTERNAL;
+void	bidle(conn_t *conn, const char *, int) G_GNUC_INTERNAL;
+void	baway(conn_t *conn, const char *, int) G_GNUC_INTERNAL;
+void	verify_winlist_sanity(conn_t *const conn, const buddywin_t *const verifywin) G_GNUC_INTERNAL;
+void	bclearall(conn_t *conn, int) G_GNUC_INTERNAL;
+void	naim_changetime(void) G_GNUC_INTERNAL;
+
+/* commands.c */
+void	commands_hook_init(void) G_GNUC_INTERNAL;
+const cmdar_t *ua_find_cmd(const char *cmd) G_GNUC_INTERNAL;
+const cmdar_t *ua_findn_cmd(const char *cmd, const int len) G_GNUC_INTERNAL;
+const char *conio_tabcomplete(const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
+
+/* conio.c */
+void	gotkey(int) G_GNUC_INTERNAL;
+void	conio_hook_init(void) G_GNUC_INTERNAL;
+void	conio_bind_save(FILE *file) G_GNUC_INTERNAL;
+void	conio_bind_list(void) G_GNUC_INTERNAL;
+void	conio_bind_echo(conn_t *conn, const char *name) G_GNUC_INTERNAL;
+void	conio_bind_doset(conn_t *conn, const char *name, const char *binding) G_GNUC_INTERNAL;
+
+/* events.c */
+void	updateidletime(void) G_GNUC_INTERNAL;
+void	events_hook_init(void) G_GNUC_INTERNAL;
+
+/* fireio.c */
+void	chat_flush(buddywin_t *bwin) G_GNUC_INTERNAL;
+void	naim_set_info(conn_t *conn, const char *) G_GNUC_INTERNAL;
+void	naim_lastupdate(conn_t *conn) G_GNUC_INTERNAL;
+void	naim_chat_listmembers(conn_t *conn, const char *const chat) G_GNUC_INTERNAL;
+void	fremove(transfer_t *) G_GNUC_INTERNAL;
+transfer_t *fnewtransfer(struct firetalk_transfer_t *handle, buddywin_t *bwin, const char *filename,
+		const char *from, long size) G_GNUC_INTERNAL;
+void	fireio_hook_init(void) G_GNUC_INTERNAL;
+void	naim_awaylog(conn_t *conn, const char *src, const char *msg) G_GNUC_INTERNAL;
+void	naim_setversion(conn_t *conn) G_GNUC_INTERNAL;
+
+/* hamster.c */
+void	logim(conn_t *conn, const char *source, const char *target, const unsigned char *message) G_GNUC_INTERNAL;
+void	hamster_hook_init(void) G_GNUC_INTERNAL;
+
+/* helpcmd.c */
+void	help_printhelp(const char *) G_GNUC_INTERNAL;
+
+/* rc.c */
+const char *account_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
+const char *buddy_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
+const char *idiot_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
+int	rc_resize(faimconf_t *) G_GNUC_INTERNAL;
+void	rc_initdefs(faimconf_t *) G_GNUC_INTERNAL;
+int	naim_read_config(const char *) G_GNUC_INTERNAL;
+
+/* rodents.c */
+int	aimcmp(const unsigned char *, const unsigned char *) G_GNUC_INTERNAL;
+int	aimncmp(const unsigned char *, const unsigned char *, int len) G_GNUC_INTERNAL;
+const char *dtime(double t) G_GNUC_INTERNAL;
+const char *dsize(double b) G_GNUC_INTERNAL;
+
+/* set.c */
+const char *set_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
+void	set_setvar(const char *, const char *) G_GNUC_INTERNAL;
+
+/* win.c */
+void	do_resize(conn_t *conn, buddywin_t *bwin) G_GNUC_INTERNAL;
+void	statrefresh(void) G_GNUC_INTERNAL;
+void	whidecursor(void) G_GNUC_INTERNAL;
+void	wsetup(void) G_GNUC_INTERNAL;
+void	wshutitdown(void) G_GNUC_INTERNAL;
+void	win_resize(void) G_GNUC_INTERNAL;
+int	nw_printf(win_t *win, int, int, const unsigned char *, ...) G_GNUC_INTERNAL;
+int	nw_titlef(const unsigned char *, ...) G_GNUC_INTERNAL;
+int	nw_statusbarf(const unsigned char *format, ...) G_GNUC_INTERNAL;
+void	nw_initwin(win_t *win, int bg) G_GNUC_INTERNAL;
+void	nw_erase(win_t *win) G_GNUC_INTERNAL;
+void	nw_refresh(win_t *win) G_GNUC_INTERNAL;
+void	nw_attr(win_t *win, char B, char I, char U, char EM,
+		char STRONG, char CODE) G_GNUC_INTERNAL;
+void	nw_color(win_t *win, int pair) G_GNUC_INTERNAL;
+void	nw_flood(win_t *win, int pair) G_GNUC_INTERNAL;
+void	nw_addch(win_t *win, const unsigned long ch) G_GNUC_INTERNAL;
+void	nw_addstr(win_t *win, const unsigned char *) G_GNUC_INTERNAL;
+void	nw_move(win_t *win, int row, int col) G_GNUC_INTERNAL;
+void	nw_delwin(win_t *win) G_GNUC_INTERNAL;
+void	nw_touchwin(win_t *win) G_GNUC_INTERNAL;
+void	nw_newwin(win_t *win) G_GNUC_INTERNAL;
+void	nw_hline(win_t *win, unsigned long ch, int row) G_GNUC_INTERNAL;
+void	nw_vline(win_t *win, unsigned long ch, int col) G_GNUC_INTERNAL;
+void	nw_mvwin(win_t *win, int row, int col) G_GNUC_INTERNAL;
+void	nw_resize(win_t *win, int row, int col) G_GNUC_INTERNAL;
+int	nw_getcol(win_t *win) G_GNUC_INTERNAL;
+int	nw_getrow(win_t *win) G_GNUC_INTERNAL;
+void	nw_getline(win_t *win, char *buf, int buflen) G_GNUC_INTERNAL;
+int	nw_getch(void) G_GNUC_INTERNAL;
+void	nw_getpass(win_t *win, char *pass, int len) G_GNUC_INTERNAL;
 
 #endif /* naim_int_h */

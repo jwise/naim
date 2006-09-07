@@ -65,6 +65,10 @@
 /* Define to 1 if you have the <curses.h> header file. */
 #undef HAVE_CURSES_H
 
+/* Define to 1 if you have the declaration of `tzname', and to 0 if you don't.
+   */
+#undef HAVE_DECL_TZNAME
+
 /* Define to 1 if you have the <dirent.h> header file. */
 #undef HAVE_DIRENT_H
 
@@ -185,6 +189,9 @@
 /* Define to 1 if you have the `strrchr' function. */
 #undef HAVE_STRRCHR
 
+/* Define to 1 if you have the `strsignal' function. */
+#undef HAVE_STRSIGNAL
+
 /* Define to 1 if `tm_gmtoff' is member of `struct tm'. */
 #undef HAVE_STRUCT_TM_TM_GMTOFF
 
@@ -292,9 +299,6 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
-
-/* Define to enable the display of raw mode changes on IRC */
-#undef RAWIRCMODES
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS

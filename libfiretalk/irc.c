@@ -79,19 +79,27 @@ LIST_DELETE(irc_whois_t);
 typedef struct firetalk_driver_connection_t {
 	char	*nickname,
 		*password,
+		*chanmodes,
+		*chanprefix,
 		 buffer[512+1];
 	irc_whois_t *whois_head;
-	int	 passchange;	/* whether we are currently changing our pass */
+	int	 maxmodes;
 	unsigned char
-		 nosilence:1,	/* are we on a network that understands SILENCE */
-		 identified:1;	/* are we we identified */
+		 nosilence:1;	/* are we on a network that understands SILENCE */
 } irc_conn_t;
 
-ZERO_CTOR(irc_conn_t);
+static inline void irc_conn_t_ctor(irc_conn_t *this) {
+	memset(this, 0, sizeof(*this));
+	this->chanmodes = strdup("b,k,l,imnpst");
+	this->chanprefix = strdup("(ov)@+");
+	this->maxmodes = 3;
+}
 TYPE_NEW(irc_conn_t);
 static inline void irc_conn_t_dtor(irc_conn_t *this) {
 	free(this->nickname);
 	free(this->password);
+	free(this->chanmodes);
+	free(this->chanprefix);
 	irc_whois_t_list_delete(this->whois_head);
 	memset(this, 0, sizeof(*this));
 }
@@ -189,7 +197,7 @@ static fte_t irc_isprint(const int c) {
 }
 
 static fte_t irc_isnickfirst(const int c) {
-	return(isalpha(c) || (c == '[') || (c == ']') || (c == '\\') || (c == '`') || (c == '^') || (c == '{') || (c == '}'));
+	return(isalpha(c) || (c == '_') || (c == '[') || (c == ']') || (c == '\\') || (c == '`') || (c == '^') || (c == '{') || (c == '}'));
 }
 
 #if 0
@@ -678,8 +686,7 @@ static fte_t irc_set_nickname(irc_conn_t *c, const char *const nickname) {
 }
 
 static fte_t irc_set_password(irc_conn_t *c, const char *const oldpass, const char *const newpass) {
-	c->passchange++;
-	return(irc_send_printf(c,"PRIVMSG NickServ :SET PASSWORD %s",newpass));
+	return(FE_SUCCESS);
 }
 
 static void irc_destroy_conn(irc_conn_t *c) {
@@ -823,16 +830,9 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 			const char	*name = irc_get_nickname(args[0]);
 
 			firetalk_callback_im_buddyonline(c, name, 1);
-			if (irc_compare_nicks(c->nickname, name) == 0) {
+			if (irc_compare_nicks(c->nickname, name) == 0)
 				firetalk_callback_chat_joined(c, args[2]);
-
-				if (c->identified == 1) {
-					if (irc_send_printf(c, "PRIVMSG ChanServ :OP %s %s", args[2], c->nickname) != FE_SUCCESS) {
-						irc_internal_disconnect(c, FE_PACKET);
-						return(FE_PACKET);
-					}
-				}
-			} else {
+			else {
 				char	*extra = strchr(args[0], '!');
 
 				firetalk_callback_chat_user_joined(c, args[2], name, (extra != NULL)?(extra+1):NULL);
@@ -924,44 +924,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 				else
 					break;
 			}
-			if (strcasecmp(name, "NickServ") == 0) {
-				if ((strstr(args[3],"IDENTIFY") != NULL) && (strstr(args[3],"/msg") != NULL) && (strstr(args[3],"HELP") == NULL)) {
-					c->identified = 0;
-					/* nickserv seems to be asking us to identify ourselves, and we have a password */
-					if (!c->password) {
-						if ((c->password = malloc(128)) == NULL)
-							abort();
-						firetalk_callback_needpass(c, c->password, 128);
-					}
-					if ((c->password != NULL) && irc_send_printf(c, "PRIVMSG NickServ :IDENTIFY %s", c->password) != 0) {
-						irc_internal_disconnect(c, FE_PACKET);
-						return(FE_PACKET);
-					}
-				} else if ((strstr(args[3],"Password changed") != NULL) && (c->passchange != 0)) {
-					/* successful change */
-					c->passchange--;
-					firetalk_callback_passchanged(c);
-				} else if ((strstr(args[3],"authentication required") != NULL) && (c->passchange != 0)) {
-					/* didn't log in with the right password initially, not happening */
-					c->identified = 0;
-					c->passchange--;
-					firetalk_callback_error(c,FE_NOCHANGEPASS,NULL,args[3]);
-				} else if ((strstr(args[3],"isn't registered") != NULL) && (c->passchange != 0)) {
-					/* nick not registered, fail */
-					c->passchange--;
-					firetalk_callback_error(c,FE_NOCHANGEPASS,NULL,args[3]);
-				} else if (strstr(args[3],"Password accepted") != NULL) {
-					/* we're recognized */
-					c->identified = 1;
-					if (irc_send_printf(c,"PRIVMSG ChanServ :OP ALL") != FE_SUCCESS) {
-						irc_internal_disconnect(c,FE_PACKET);
-						return(FE_PACKET);
-					}
-				} else if (strchr(ROOMSTARTS, args[2][0]))
-					firetalk_callback_chat_getmessage(c, args[2], name, 1, irc_irc_to_html(args[3]));
-				else
-					firetalk_callback_im_getmessage(c, name, 1, irc_irc_to_html(args[3]));
-			} else if (strchr(name, '.') != NULL) {
+			if (strchr(name, '.') != NULL) {
 				if (strncmp(args[3], "*** Notice -- ", sizeof("*** Notice -- ")-1) == 0)
 					firetalk_callback_chat_getmessage(c, ":RAW", name, 1, irc_irc_to_html(args[3]+sizeof("*** Notice -- ")-1));
 				else
@@ -1045,8 +1008,6 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 				firetalk_callback_im_buddyonline(c, args[3], 0);
 			case 441: /* ERR_USERNOTINCHANNEL */
 			case 443: /* ERR_USERONCHANNEL */
-				if (!strcasecmp(args[3], "NickServ") && c->passchange)
-					c->passchange--;
 				whoisiter2 = NULL;
 				for (whoisiter = c->whois_head; whoisiter != NULL; whoisiter = whoisiter->next) {
 					if (irc_compare_nicks(args[3], whoisiter->nickname) == 0) {
@@ -1099,65 +1060,57 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 			goto unhandled;
 
 		if (strcmp(args[1],"MODE") == 0) {
-			const char
-				*source = irc_get_nickname(args[0]);
-			int	loc = 0,
-				arg = 4,
-				dir = 1;
-#ifdef RAWIRCMODES
-			int     i;
-			char	buf[512];
+			const char *source = irc_get_nickname(args[0]);
+			int	loc, arg = 4, dir = 1;
 
-			strcpy(buf, args[3]);
-			for (i = 4; args[i] != NULL; i++) {
-				strcat(buf, " ");
-				strcat(buf, args[i]);
-			}
-			firetalk_callback_chat_modechanged(c, args[2], buf, source);
-#endif
+			for (loc = 0; args[3][loc] != 0; loc++) {
+				char	*tmp;
+				int	arged;
 
-			while ((args[arg] != NULL) && (args[3][loc] != '\0')) {
-				switch (args[3][loc++]) {
-					case '+':
-						dir = 1;
-						break;
-					case '-':
-						dir = -1;
-						break;
-					case 'o':
-						if (dir == 1) {
-							firetalk_callback_chat_user_opped(c, args[2], args[arg++], source);
-							if (irc_compare_nicks(args[arg-1], c->nickname) == FE_SUCCESS)
-								firetalk_callback_chat_opped(c, args[2], source);
-						} else if (dir == -1) {
-							firetalk_callback_chat_user_deopped(c, args[2], args[arg++], source);
-							if (irc_compare_nicks(args[arg-1], c->nickname) == FE_SUCCESS) {
-								firetalk_callback_chat_deopped(c, args[2], source);
-								if (c->identified == 1) {
-									/* this is us, and we're identified, so we can request a reop */
-									if (irc_send_printf(c,"PRIVMSG ChanServ :OP %s %s",args[2],c->nickname) != FE_SUCCESS) {
-										irc_internal_disconnect(c,FE_PACKET);
-										return(FE_PACKET);
-									}
-								}
-							}
-						}
-						break;
-					case 'k':
-						if (dir == 1)
-							firetalk_callback_chat_keychanged(c, args[2], args[arg], source);
-						else
-							firetalk_callback_chat_keychanged(c, args[2], NULL, source);
-						arg++;
-						break;
-					case 'v':
-					case 'b':
-					case 'l':
-						arg++;
-						break;
-					default:
-						break;
+				if (args[3][loc] == '+') {
+					dir = 1;
+					continue;
+				} else if (args[3][loc] == '-') {
+					dir = -1;
+					continue;
 				}
+
+				if (((tmp = strchr(c->chanmodes, args[3][loc])) == NULL) && (strchr(c->chanprefix, args[3][loc]) == NULL))
+					break;
+
+				if ((tmp == NULL) || (tmp[1] == ','))
+					arged = 1;
+				else
+					arged = 0;
+
+				switch (args[3][loc]) {
+				  case 'o':
+					if (dir == 1) {
+						firetalk_callback_chat_user_opped(c, args[2], args[arg], source);
+						if (irc_compare_nicks(args[arg], c->nickname) == FE_SUCCESS)
+							firetalk_callback_chat_opped(c, args[2], source);
+					} else if (dir == -1) {
+						firetalk_callback_chat_user_deopped(c, args[2], args[arg], source);
+						if (irc_compare_nicks(args[arg], c->nickname) == FE_SUCCESS)
+							firetalk_callback_chat_deopped(c, args[2], source);
+					}
+					break;
+				  case 'k':
+					if (dir == 1)
+						firetalk_callback_chat_keychanged(c, args[2], args[arg], source);
+					else
+						firetalk_callback_chat_keychanged(c, args[2], NULL, source);
+					break;
+				  default:
+					if (dir == 1)
+						firetalk_callback_chat_modeset(c, args[2], source, args[3][loc], arged?args[arg]:NULL);
+					else
+						firetalk_callback_chat_modeunset(c, args[2], source, args[3][loc], arged?args[arg]:NULL);
+					break;
+				}
+
+				if (arged)
+					arg++;
 			}
 			return(FE_SUCCESS);
 		}
@@ -1282,11 +1235,11 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 static fte_t irc_got_data(irc_conn_t *c, firetalk_buffer_t *buffer) {
 	char	**args;
 
-	assert(firetalk_buffer_valid(buffer));
+	assert(firetalk_buffer_t_valid(buffer));
 	while (((args = irc_recv_parse(c, buffer->buffer, &(buffer->pos))) != NULL) && (args[1] != NULL)) {
 		fte_t	fte;
 
-		assert(firetalk_buffer_valid(buffer));
+		assert(firetalk_buffer_t_valid(buffer));
 		if ((fte = irc_got_data_parse(c, args)) != FE_SUCCESS)
 			return(fte);
 	}
@@ -1297,9 +1250,9 @@ static fte_t irc_got_data(irc_conn_t *c, firetalk_buffer_t *buffer) {
 static fte_t irc_got_data_connecting(irc_conn_t *c, firetalk_buffer_t *buffer) {
 	char	**args;
 
-	assert(firetalk_buffer_valid(buffer));
+	assert(firetalk_buffer_t_valid(buffer));
 	while (((args = irc_recv_parse(c, buffer->buffer, &(buffer->pos))) != NULL) && (args[1] != NULL)) {
-		assert(firetalk_buffer_valid(buffer));
+		assert(firetalk_buffer_t_valid(buffer));
 		if (strcmp(args[1], "ERROR") == 0) {
 			irc_send_printf(c, "QUIT :error");
 			if (args[2] == NULL)
@@ -1314,6 +1267,24 @@ static fte_t irc_got_data_connecting(irc_conn_t *c, firetalk_buffer_t *buffer) {
 					firetalk_callback_user_nickchanged(c, c->nickname, args[2]);
 					STRREPLACE(c->nickname, args[2]);
 					firetalk_callback_newnick(c, args[2]);
+				}
+				break;
+			  case   5: /* :PREFIX 005 sn{ key=value} */ {
+					int	i;
+
+					for (i = 3; args[i] != NULL; i++) {
+						char	*key = args[i], *value;
+
+						if ((value = strchr(args[i], '=')) != NULL)
+							*value++ = 0;
+
+						if ((value != NULL) && (strcmp(key, "MODES") == 0))
+							c->maxmodes = atoi(value);
+						else if ((value != NULL) && (strcmp(key, "CHANMODES") == 0))
+							STRREPLACE(c->chanmodes, value);
+						else if ((value != NULL) && (strcmp(key, "PREFIX") == 0))
+							STRREPLACE(c->chanprefix, value);
+					}
 				}
 				break;
 			  case 376: /* End of MOTD */

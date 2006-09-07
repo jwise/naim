@@ -64,7 +64,7 @@ static void iupdate(void) {
 		} else
 			script_setvar("iftopic", "");
 
-		if ((curconn->curbwin->et != BUDDY) || (curconn->curbwin->e.buddy->typing == 0))
+		if ((curconn->curbwin->et != BUDDY) || (curconn->curbwin->e.buddy->typing < now-10*60))
 			script_setvar("iftyping", "");
 		else
 			script_setvar("iftyping", script_expand(getvar(curconn, "statusbar_typing")));
@@ -421,7 +421,7 @@ void	bupdate(void) {
 				switch (bwin->et) {
 				  case BUDDY:
 					assert(bwin->e.buddy != NULL);
-					if (bwin->e.buddy->typing)
+					if (bwin->e.buddy->typing >= now-10*60)
 						back = faimconf.f[cBUDDY_TYPING];
 					else if (bwin->e.buddy->tag != NULL)
 						back = faimconf.f[cBUDDY_TAGGED];

@@ -23,10 +23,10 @@
 #include "firetalk-int.h"
 #include "firetalk.h"
 
-int	firetalk_sock_t_canary = 0;
-#define SOCK_CANARY	(&firetalk_sock_t_canary)
-int	firetalk_buffer_t_canary = 0;
-#define BUFFER_CANARY	(&firetalk_buffer_t_canary)
+void	*firetalk_sock_t_magic = &firetalk_sock_t_magic,
+	*firetalk_sock_t_canary = &firetalk_sock_t_canary,
+	*firetalk_buffer_t_magic = &firetalk_buffer_t_magic,
+	*firetalk_buffer_t_canary = &firetalk_buffer_t_canary;
 
 fte_t	firetalk_sock_resolve4(const char *const host, struct in_addr *inet4_ip) {
 	struct hostent *he;
@@ -43,13 +43,13 @@ fte_t	firetalk_sock_resolve4(const char *const host, struct in_addr *inet4_ip) {
 }
 
 struct sockaddr_in *firetalk_sock_remotehost4(firetalk_sock_t *sock) {
-	assert(firetalk_sock_valid(sock));
+	assert(firetalk_sock_t_valid(sock));
 
 	return(&(sock->remote_addr));
 }
 
 struct sockaddr_in *firetalk_sock_localhost4(firetalk_sock_t *sock) {
-	assert(firetalk_sock_valid(sock));
+	assert(firetalk_sock_t_valid(sock));
 
 	return(&(sock->local_addr));
 }
@@ -79,13 +79,13 @@ fte_t	firetalk_sock_resolve6(const char *const host, struct in6_addr *inet6_ip) 
 }
 
 struct sockaddr_in6 *firetalk_sock_remotehost6(firetalk_sock_t *sock) {
-	assert(firetalk_sock_valid(sock));
+	assert(firetalk_sock_t_valid(sock));
 
 	return(&(sock->remote_addr6));
 }
 
 struct sockaddr_in6 *firetalk_sock_localhost6(firetalk_sock_t *sock) {
-	assert(firetalk_sock_valid(sock));
+	assert(firetalk_sock_t_valid(sock));
 
 	return(&(sock->local_addr6));
 }
@@ -97,7 +97,7 @@ fte_t	firetalk_sock_connect(firetalk_sock_t *sock) {
 	struct sockaddr_in6 *inet6_ip = &(sock->remote_addr6);
 #endif
 
-	assert(firetalk_sock_valid(sock));
+	assert(firetalk_sock_t_valid(sock));
 
 	if (sock->fd != -1) {
 		close(sock->fd);
@@ -152,7 +152,7 @@ fte_t	firetalk_sock_connect(firetalk_sock_t *sock) {
 }
 
 fte_t	firetalk_sock_connect_host(firetalk_sock_t *sock, const char *const host, const uint16_t port) {
-	assert(firetalk_sock_valid(sock));
+	assert(firetalk_sock_t_valid(sock));
 
 #ifdef _FC_USE_IPV6
 	if (firetalk_sock_resolve6(host, &(sock->remote_addr6.sin6_addr)) == FE_SUCCESS) {
@@ -172,7 +172,7 @@ fte_t	firetalk_sock_connect_host(firetalk_sock_t *sock, const char *const host, 
 }
 
 fte_t	firetalk_sock_send(firetalk_sock_t *sock, const void *const buffer, const int bufferlen) {
-	assert(firetalk_sock_valid(sock));
+	assert(firetalk_sock_t_valid(sock));
 	assert(sock->state != FCS_NOTCONNECTED);
 
 	if (sock->state == FCS_WAITING_SYNACK)
@@ -187,7 +187,7 @@ fte_t	firetalk_sock_send(firetalk_sock_t *sock, const void *const buffer, const 
 }
 
 void	firetalk_sock_preselect(firetalk_sock_t *sock, fd_set *my_read, fd_set *my_write, fd_set *my_except, int *n) {
-	assert(firetalk_sock_valid(sock));
+	assert(firetalk_sock_t_valid(sock));
 
 	if (sock->fd == -1)
 		return;
@@ -201,26 +201,16 @@ void	firetalk_sock_preselect(firetalk_sock_t *sock, fd_set *my_read, fd_set *my_
 		FD_SET(sock->fd, my_read);
 }
 
-void	firetalk_sock_init(firetalk_sock_t *sock) {
-	memset(sock, 0, sizeof(*sock));
-	sock->canary = SOCK_CANARY;
-	sock->fd = -1;
-	sock->state = FCS_NOTCONNECTED;
-}
-
 void	firetalk_sock_close(firetalk_sock_t *sock) {
-	assert(firetalk_sock_valid(sock));
-
-	if (sock->fd != -1)
-		close(sock->fd);
-	firetalk_sock_init(sock);
+	firetalk_sock_t_dtor(sock);
+	firetalk_sock_t_ctor(sock);
 }
 
 static fte_t firetalk_sock_synack(firetalk_sock_t *sock) {
 	int	i;
 	unsigned int o = sizeof(i);
 
-	assert(firetalk_sock_valid(sock));
+	assert(firetalk_sock_t_valid(sock));
 
 	if (getsockopt(sock->fd, SOL_SOCKET, SO_ERROR, &i, &o)) {
 		firetalk_sock_close(sock);
@@ -240,8 +230,8 @@ static fte_t firetalk_sock_synack(firetalk_sock_t *sock) {
 static fte_t firetalk_sock_read(firetalk_sock_t *sock, firetalk_buffer_t *buffer) {
 	int	length;
 
-	assert(firetalk_sock_valid(sock));
-	assert(firetalk_buffer_valid(buffer));
+	assert(firetalk_sock_t_valid(sock));
+	assert(firetalk_buffer_t_valid(buffer));
 
 	/* read data into handle buffer */
 	length = recv(sock->fd, &(buffer->buffer[buffer->pos]), buffer->size - buffer->pos, MSG_DONTWAIT);
@@ -261,8 +251,8 @@ static fte_t firetalk_sock_read(firetalk_sock_t *sock, firetalk_buffer_t *buffer
 }
 
 fte_t	firetalk_sock_postselect(firetalk_sock_t *sock, fd_set *my_read, fd_set *my_write, fd_set *my_except, firetalk_buffer_t *buffer) {
-	assert(firetalk_sock_valid(sock));
-	assert(firetalk_buffer_valid(buffer));
+	assert(firetalk_sock_t_valid(sock));
+	assert(firetalk_buffer_t_valid(buffer));
 
 	buffer->readdata = 0;
 
@@ -279,8 +269,10 @@ fte_t	firetalk_sock_postselect(firetalk_sock_t *sock, fd_set *my_read, fd_set *m
 	return(FE_SUCCESS);
 }
 
-int	firetalk_sock_valid(const firetalk_sock_t *sock) {
-	if (sock->canary != SOCK_CANARY)
+int	firetalk_sock_t_valid(const firetalk_sock_t *sock) {
+	if (sock->magic != &firetalk_sock_t_magic)
+		return(0);
+	if (sock->canary != &firetalk_sock_t_canary)
 		return(0);
 	if ((sock->fd == -1) && (sock->state != FCS_NOTCONNECTED))
 		return(0);
@@ -292,7 +284,7 @@ int	firetalk_sock_valid(const firetalk_sock_t *sock) {
 fte_t	firetalk_buffer_alloc(firetalk_buffer_t *buffer, uint16_t size) {
 	void	*ptr;
 
-	assert(firetalk_buffer_valid(buffer));
+	assert(firetalk_buffer_t_valid(buffer));
 
 	if ((ptr = realloc(buffer->buffer, size)) == NULL)
 		abort();
@@ -303,10 +295,12 @@ fte_t	firetalk_buffer_alloc(firetalk_buffer_t *buffer, uint16_t size) {
 	return(FE_SUCCESS);
 }
 
-int	firetalk_buffer_valid(const firetalk_buffer_t *buffer) {
+int	firetalk_buffer_t_valid(const firetalk_buffer_t *buffer) {
 	int	i, c;
 
-	if (buffer->canary != BUFFER_CANARY)
+	if (buffer->magic != &firetalk_buffer_t_magic)
+		return(0);
+	if (buffer->canary != &firetalk_buffer_t_canary)
 		return(0);
 	if ((buffer->buffer == NULL) && (buffer->size != 0))
 		return(0);

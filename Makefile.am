@@ -10,7 +10,6 @@ EXTRA_DIST = \
 	configure \
 	contrib/extractbuddy.sh \
 	doc/course.hlp \
-	doc/naim.hlp \
 	${man_MANS} \
 	${pkgdoc_DATA}
 bin_SCRIPTS = \

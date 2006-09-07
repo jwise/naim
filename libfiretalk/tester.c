@@ -356,7 +356,7 @@ int	main(int argc, char *argv[]) {
 		DO_TEST(subcode_send_request, (conn1.conn, conn2.username, "PING", FIRETALK_TEST_STRING), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_SUBCODE_REPLY, FIRETALK_TEST_STRING);
 
-		DO_TEST(chat_normalize, (conn1.conn, "fttest"), ret == NULL, firetalkerror);
+		DO_TEST(chat_normalize, (conn1.conn, "fttest2"), ret == NULL, firetalkerror);
 			fttest = strdup(ret);
 
 		DO_TEST(register_callback, (conn1.conn, FC_CHAT_JOINED, (ptrtofnct)chat_joined), ret != FE_SUCCESS, ret);

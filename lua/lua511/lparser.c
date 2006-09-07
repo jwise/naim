@@ -383,12 +383,19 @@ static void close_func (LexState *ls) {
 Proto *luaY_parser (lua_State *L, ZIO *z, Mbuffer *buff, const char *name) {
   struct LexState lexstate;
   struct FuncState funcstate;
+//printf("name = \"%s\"\n", name);
+//printf("z = { p = \"%s\" }\n", z->p);
   lexstate.buff = buff;
   luaX_setinput(L, &lexstate, z, luaS_new(L, name));
+//printf("z = { p = \"%s\" }\n", z->p);
   open_func(&lexstate, &funcstate);
+//printf("z = { p = \"%s\" }\n", z->p);
   funcstate.f->is_vararg = VARARG_ISVARARG;  /* main func. is always vararg */
+//printf("z = { p = \"%s\" }\n", z->p);
   luaX_next(&lexstate);  /* read first token */
+//printf("z = { p = \"%s\" }\n", z->p);
   chunk(&lexstate);
+//printf("z = { p = \"%s\" }\n", z->p);
   check(&lexstate, TK_EOS);
   close_func(&lexstate);
   lua_assert(funcstate.prev == NULL);
@@ -1211,11 +1218,17 @@ static void funcstat (LexState *ls, int line) {
   /* funcstat -> FUNCTION funcname body */
   int needself;
   expdesc v, b;
+//printf("%i %i [%.*s]\n", ls->buff->n, ls->buff->buffsize, ls->buff->n, ls->buff->buffer);
   luaX_next(ls);  /* skip FUNCTION */
+//printf("%i %i [%.*s]\n", ls->buff->n, ls->buff->buffsize, ls->buff->n, ls->buff->buffer);
   needself = funcname(ls, &v);
+//printf("%i %i [%.*s]\n", ls->buff->n, ls->buff->buffsize, ls->buff->n, ls->buff->buffer);
   body(ls, &b, needself, line);
+//printf("%i %i [%.*s]\n", ls->buff->n, ls->buff->buffsize, ls->buff->n, ls->buff->buffer);
   luaK_storevar(ls->fs, &v, &b);
+//printf("%i %i [%.*s]\n", ls->buff->n, ls->buff->buffsize, ls->buff->n, ls->buff->buffer);
   luaK_fixline(ls->fs, line);  /* definition `happens' in the first line */
+//printf("%i %i [%.*s]\n", ls->buff->n, ls->buff->buffsize, ls->buff->n, ls->buff->buffer);
 }
 
 

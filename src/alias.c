@@ -38,7 +38,7 @@ int	alias_parse(const char *script, const char *_arg) {
 
 	if (_arg != NULL)
 		_arg = arg = strdup(_arg);
-	for (a = 0; (a < 50) && (arg != NULL); a++) {
+	for (a = 0; (a < UA_MAXPARMS) && (arg != NULL); a++) {
 		char	buf[1024], *tmp;
 
 		tmp = atom(arg);
@@ -48,7 +48,7 @@ int	alias_parse(const char *script, const char *_arg) {
 		snprintf(buf, sizeof(buf), "arg%i", a+1);
 		script_setvar(buf, tmp);
         }
-	for (b = a; b < 50; b++) {
+	for (b = a; b < UA_MAXPARMS; b++) {
 		char	buf[1024];
 
 		snprintf(buf, sizeof(buf), "args%i*", b+1);

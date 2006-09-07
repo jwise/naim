@@ -1,16 +1,21 @@
+LOBJEXT = lo
+
 nodist_pkgdoc_DATA = commands.txt 
 pkgdoc_DATA = keyboard.txt
 
-DISTCLEANFILES = \
-	conio_keys.h \
-	conio_cmds.h \
+BUILT_SOURCES = \
 	commands.txt
+
+DISTCLEANFILES = \
+	cmdar.c \
+	cmdar.h \
+	conio_keys.h \
+	${BUILT_SOURCES}
 	
 EXTRA_DIST = \
 	${pkgdoc_DATA} \
-	cmplhlp2.sh \
-	cmplhelp.sh \
-	gencmds.sh \
+	gencmdarc.sh \
+	gencmdarh.sh \
 	gencmd2.sh \
 	genkeys.sh \
 	main_stub.c \
@@ -22,14 +27,14 @@ NAIM_CORE = \
 	alias.c \
 	atomizer.c \
 	buddy.c \
+	cmdar.c \
+	commands.c \
 	conio.c \
 	echof.c \
 	events.c \
+	firebind.c \
 	fireio.c \
 	hamster.c \
-	help.h \
-	help.c \
-	helpcmd.c \
 	hwprintf.c \
 	linux_vsprintf.c \
 	main.c \
@@ -46,8 +51,9 @@ NAIM_LDADD = libnaim_core.la
 lib_LTLIBRARIES = libnaim_core.la
 libnaim_core_la_SOURCES = ${NAIM_CORE}
 libnaim_core_la_CFLAGS = ${AM_CFLAGS} -DDLSEARCHPATH='"${pkgmoddir}"'
+libnaim_core_la_CPPFLAGS = -DDLSEARCHPATH='"${pkgmoddir}"'
 libnaim_core_la_LIBADD = \
-	@LIBLTDL@ ../lua/liblua.la \
+	@LIBLTDL@ ../lua/libnlua.la \
 	@CURSESLIB@ @NETLIB@
 libnaim_core_la_LDFLAGS = -export-dynamic -no-undefined \
 	-Wl,--whole-archive -Wl,../libfiretalk/libfiretalk.a -Wl,--no-whole-archive
@@ -56,8 +62,9 @@ NAIM_SOURCES = ${NAIM_CORE}
 NAIM_LDADD = \
 	../libfiretalk/libfiretalk.a \
 	@LIBLTDL@ \
-	../lua/liblua.la \
+	../lua/libnlua.la \
 	@CURSESLIB@ @NETLIB@
+naim_CPPFLAGS = -DDLSEARCHPATH='"${pkgmoddir}"'
 endif
 
 naim_SOURCES = ${NAIM_SOURCES}
@@ -66,56 +73,28 @@ naim_LDFLAGS = -dlopen self -export-dynamic -no-undefined
 
 INCLUDES = -I${top_srcdir}/include -I${top_srcdir}/libfiretalk ${INCLTDL}
 
-
-conio_keys.h: ${srcdir}/conio.c
+conio_keys.h: ${srcdir}/conio.c config.h
 	AWK="${AWK}" CPP="${CPP} ${CPPFLAGS} ${DEFAULT_INCLUDES} ${INCLUDES} ${DEFS}" SRCDIR=${srcdir} ${srcdir}/genkeys.sh > conio_keys.h
 
-conio_cmds.h: ${srcdir}/conio.c config.h
-	AWK="${AWK}" CPP="${CPP} ${CPPFLAGS} ${DEFAULT_INCLUDES} ${INCLUDES} ${DEFS}" ${srcdir}/gencmds.sh > conio_cmds.h
+cmdar.c: ${srcdir}/commands.c config.h
+	AWK="${AWK}" CPP="${CPP} ${CPPFLAGS} ${DEFAULT_INCLUDES} ${INCLUDES} ${DEFS}" ${srcdir}/gencmdarc.sh > cmdar.c
 
-commands.txt: ${srcdir}/conio.c config.h
+cmdar.h: ${srcdir}/commands.c config.h
+	AWK="${AWK}" CPP="${CPP} ${CPPFLAGS} ${DEFAULT_INCLUDES} ${INCLUDES} ${DEFS}" ${srcdir}/gencmdarh.sh > cmdar.h
+
+commands.txt: ${srcdir}/commands.c config.h
 	AWK="${AWK}" CPP="${CPP} ${CPPFLAGS} ${DEFAULT_INCLUDES} ${INCLUDES} ${DEFS}" ${srcdir}/gencmd2.sh > commands.txt
 
-conio.o: ${srcdir}/conio.c conio_keys.h conio_cmds.h commands.txt
-	@echo $(COMPILE) -c `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
-	@$(COMPILE) -c `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
-libnaim_core_la-conio.lo: ${srcdir}/conio.c conio_keys.h conio_cmds.h commands.txt
-	@echo $(LTCOMPILE) -c -o $@ `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
-	@$(LTCOMPILE) -c -o $@ `test -f 'conio.c' || echo '$(srcdir)/'`conio.c
-
-fireio.o: ${srcdir}/fireio.c conio_cmds.h
-	@echo $(COMPILE) -c `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
-	@$(COMPILE) -c `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
-libnaim_core_la-fireio.lo: ${srcdir}/fireio.c conio_cmds.h
-	@echo $(LTCOMPILE) -c -o $@ `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
-	@$(LTCOMPILE) -c -o $@ `test -f 'fireio.c' || echo '$(srcdir)/'`fireio.c
-
-helpcmd.o: ${srcdir}/helpcmd.c conio_cmds.h
-	@echo $(COMPILE) -c `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
-	@$(COMPILE) -c `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
-libnaim_core_la-helpcmd.lo: ${srcdir}/helpcmd.c conio_cmds.h
-	@echo $(LTCOMPILE) -c -o $@ `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
-	@$(LTCOMPILE) -c -o $@ `test -f 'helpcmd.c' || echo '$(srcdir)/'`helpcmd.c
-
-main.o: ${srcdir}/main.c
-	@echo $(COMPILE) -DDLSEARCHPATH='"${pkgmoddir}"' -c `test -f 'main.c' || echo '$(srcdir)/'`main.c
-	@$(COMPILE) -DDLSEARCHPATH='"${pkgmoddir}"' -c `test -f 'main.c' || echo '$(srcdir)/'`main.c
-libnaim_core_la-main.lo: ${srcdir}/main.c
-	@echo $(LTCOMPILE) -DDLSEARCHPATH='"${pkgmoddir}"' -c -o $@ `test -f 'main.c' || echo '$(srcdir)/'`main.c
-	@$(LTCOMPILE) -DDLSEARCHPATH='"${pkgmoddir}"' -c -o $@ `test -f 'main.c' || echo '$(srcdir)/'`main.c
-
-.c.o: $<
-	@echo $(COMPILE) -c `test -f '$<' || echo '$(srcdir)/'`$<
-	@$(COMPILE) -c `test -f '$<' || echo '$(srcdir)/'`$<
-.c.lo: $<
-	@echo $(LTCOMPILE) -c -o $@ `test -f '$<' || echo '$(srcdir)/'`$<
-	@$(LTCOMPILE) -c -o $@ `test -f '$<' || echo '$(srcdir)/'`$<
-
-help.h: ${top_srcdir}/doc/naim.hlp
-	AWK="${AWK}" "${srcdir}/cmplhlp2.sh" < ${top_srcdir}/doc/naim.hlp > help.h
-
-help.c: ${top_srcdir}/doc/naim.hlp
-	AWK="${AWK}" "${srcdir}/cmplhelp.sh" < ${top_srcdir}/doc/naim.hlp > help.c
+naim-cmdar.${OBJEXT}: cmdar.h
+libnaim_la-cmdar.${LOBJEXT}: cmdar.h
+naim-commands.${OBJEXT}: cmdar.h
+libnaim_la-commands.${LOBJEXT}: cmdar.h
+naim-conio.${OBJEXT}: conio_keys.h
+libnaim_la-conio.${LOBJEXT}: conio_keys.h
+naim-events.${OBJEXT}: cmdar.h
+libnaim_la-events.${LOBJEXT}: cmdar.h
+naim-fireio.${OBJEXT}: cmdar.h
+libnaim_la-fireio.${LOBJEXT}: cmdar.h
 
 install: install-am install-global-symlink
 
