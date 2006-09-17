@@ -473,8 +473,8 @@ void	firetalk_callback_chat_user_joined(struct firetalk_driver_connection_t *c, 
 void	firetalk_callback_chat_user_left(struct firetalk_driver_connection_t *c, const char *const room, const char *const who, const char *const reason);
 void	firetalk_callback_chat_user_quit(struct firetalk_driver_connection_t *c, const char *const who, const char *const reason);
 void	firetalk_callback_chat_gottopic(struct firetalk_driver_connection_t *c, const char *const room, const char *const topic, const char *const author);
-void	firetalk_callback_chat_modeset(struct firetalk_driver_connection_t *c, const char *const room, const char *const by, int mode, const char *const arg);
-void	firetalk_callback_chat_modeunset(struct firetalk_driver_connection_t *c, const char *const room, const char *const by, int mode, const char *const arg);
+void	firetalk_callback_chat_modeset(struct firetalk_driver_connection_t *c, const char *const room, const char *const by, const char *const mode, const char *const arg);
+void	firetalk_callback_chat_modeunset(struct firetalk_driver_connection_t *c, const char *const room, const char *const by, const char *const mode, const char *const arg);
 void	firetalk_callback_chat_user_opped(struct firetalk_driver_connection_t *c, const char *const room, const char *const who, const char *const by);
 void	firetalk_callback_chat_user_deopped(struct firetalk_driver_connection_t *c, const char *const room, const char *const who, const char *const by);
 void	firetalk_callback_chat_keychanged(struct firetalk_driver_connection_t *c, const char *const room, const char *const what, const char *const by);

@@ -41,6 +41,52 @@ function naim.prototypes.windows.event2(window, e, who, verb, object)
 	end
 end
 
+function naim.internal.split(s, c)
+	local t = {}
+
+	for v in string.gmatch(s, '[^' .. c .. ']+') do
+		table.insert(t, v)
+	end
+
+	return t
+end
+
+function naim.internal.v2k(t1)
+	local t = {}
+
+	for k,v in pairs(t1) do
+		t[v] = k
+	end
+
+	return t
+end
+
+function naim.internal.dtime(_t)
+	local t = math.floor(_t)
+
+	if t < 2 then
+		local mt = math.floor(100*(_t - t))
+
+		buf = string.format("%i.%02is", _t, mt)
+	elseif t < 10 then
+		local mt = math.floor(10*(_t - t))
+
+		buf = string.format("%i.%01is", _t, mt)
+	elseif t < 90 then
+		buf = t .. "s"
+	elseif t < 60*60 then
+		buf = math.floor(t/60) .. "m"
+	elseif t < 24*60*60 then
+		buf = math.floor(t/(60*60)) .. ":" .. string.format("%02i", math.floor(t/60%60)) .. "m"
+	elseif t < 365*24*60*60 then
+		buf = math.floor(t/(24*60*60)) .. "d " .. math.floor(t/(60*60)%24) .. ":" .. string.format("%02i", math.floor(t/60%60)) .. "m"
+	else
+		buf = math.floor(t/(365*24*60*60)) .. "y " .. math.floor(t/(24*60*60)%365) .. "d"
+	end
+
+	return buf
+end
+
 function naim.internal.eventeval(code)
 	local functabfunc = assert(loadstring("return {" .. (code and code or "") .. "}"))
 
@@ -118,6 +164,8 @@ naim.sockets = {}
 naim.connections = {}
 setmetatable(naim.connections, naim.internal.rometatable("connections"))
 
+naim.timers = {}
+
 do
 	local display = naim.internal.eventeval("display")
 	local notify = naim.internal.eventeval("display,notify")
@@ -160,8 +208,6 @@ function naim.internal.newconn(winname, handle)
 		groups = {},
 	}
 	setmetatable(naim.connections[winname], naim.internal.rwmetatable(naim.prototypes.connections))
-	setmetatable(naim.connections[winname].windows, naim.internal.rometatable("windows"))
-	setmetatable(naim.connections[winname].buddies, naim.internal.rometatable("buddies"))
 	setmetatable(naim.connections, naim.internal.rometatable("connections"))
 end
 
@@ -172,44 +218,34 @@ function naim.internal.delconn(winname)
 end
 
 function naim.internal.newwin(conn, winname, handle)
-	setmetatable(conn.windows, {})
 	conn.windows[winname] = {
 		handle = handle,
 		conn = conn,
 		name = winname,
 	}
 	setmetatable(conn.windows[winname], naim.internal.rwmetatable(naim.prototypes.windows))
-	setmetatable(conn.windows, naim.internal.rometatable("windows"))
 end
 
 function naim.internal.delwin(conn, winname)
-	setmetatable(conn.windows, {})
 	conn.windows[winname] = nil
-	setmetatable(conn.windows, naim.internal.rometatable("windows"))
 end
 
 function naim.internal.newbuddy(conn, account, handle)
-	setmetatable(conn.buddies, {})
 	conn.buddies[account] = {
 		handle = handle,
 		conn = conn,
 		name = account,
 	}
 	setmetatable(conn.buddies[account], naim.internal.rwmetatable(naim.prototypes.buddies))
-	setmetatable(conn.buddies, naim.internal.rometatable("buddies"))
 end
 
 function naim.internal.changebuddy(conn, account, newaccount)
-	setmetatable(conn.buddies, {})
 	conn.buddies[newaccount] = conn.buddies[account]
 	conn.buddies[account] = nil
-	setmetatable(conn.buddies, naim.internal.rometatable("buddies"))
 end
 
 function naim.internal.delbuddy(conn, account)
-	setmetatable(conn.buddies, {})
 	conn.buddies[account] = nil
-	setmetatable(conn.buddies, naim.internal.rometatable("buddies"))
 end
 
 
@@ -490,7 +526,7 @@ naim.commands.names = {
 		local maxlen = 0
 
 		for member,info in pairs(group.members) do
-			local mlen = member:len() + (info.admin and 1 or 0)
+			local mlen = member:len() + (info.operator and 1 or 0)
 
 			if mlen > maxlen then
 				maxlen = mlen
@@ -500,10 +536,13 @@ naim.commands.names = {
 		local t = {}
 
 		for member,info in pairs(group.members) do
-			local mlen = member:len() + (info.admin and 1 or 0)
+			local mlen = member:len() + (info.operator and 1 or 0)
 
-			table.insert(t, (info.admin and "@" or "") .. member .. string.rep("&nbsp;", maxlen-mlen))
+			table.insert(t, (info.operator and "@" or "") .. member .. string.rep("&nbsp;", maxlen-mlen))
 		end
+
+		table.sort(t)
+		--table.sort(t, function(e1, e2) return e1:lower() < e2:lower() end)
 
 		local p = "Users in group " .. tostring(window) .. ":"
 
@@ -515,8 +554,66 @@ naim.commands.names = {
 
 
 
-naim.hooks.add('proto_buddy_coming', function(conn, who)
-	
+function naim.settimeout(func, delay, ...)
+	local arg = {...}
+
+	func = type(func) == "function" and func or loadstring(func)
+
+	local t = {
+		when = os.time()+delay,
+		func = function()
+			func(unpack(arg))
+		end,
+	}
+
+	naim.timers[t] = t
+
+	return t
+end
+
+function naim.cleartimeout(timeoutID)
+	naim.timers[timeoutID] = nil
+end
+
+function naim.setinterval(func, delay, ...)
+	local arg = {...}
+
+	func = type(func) == "function" and func or loadstring(func)
+
+	local function intervalfunc()
+		func(unpack(arg))
+		naim.settimeout(intervalfunc, delay)
+	end
+
+	return naim.settimeout(intervalfunc, delay)
+end
+
+naim.clearinterval = naim.cleartimeout
+
+
+
+
+
+naim.hooks.add('proto_connected', function(conn)
+	conn.online = os.time()
+end, 100)
+
+naim.hooks.add('proto_disconnected', function(conn, errorcode)
+	conn.online = nil
+	conn.groups = {}
+	conn.buddies = {}
+end, 100)
+
+naim.hooks.add('proto_userinfo', function(conn, who, info, warnlev, signontime, idletime, class)
+	local buddy = conn.buddies[who]
+
+	conn:echo("Information about <font color=\"#00FFFF\">" .. who .. "</font>:<br><font color=\"#808080\">"
+		.. (buddy and buddy.caps and "Client capabilities: <b>" .. table.concat(buddy.caps, ' ') .. "</b><br>" or "")
+		.. (warnlev > 0 and "&nbsp; &nbsp; &nbsp; Warning level: <b>" .. warnlev .. "</b><br>" or "")
+		.. (signontime > 0 and "&nbsp; &nbsp; &nbsp; &nbsp; Online time: <b>" .. naim.internal.dtime(os.time()-signontime) .. "</b><br>" or "")
+		.. (idletime > 0 and "&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Idle time: <b>" .. naim.internal.dtime(60*idletime) .. "</b><br>" or "")
+		.. (info and "<hr>" .. info .. "<br><hr></font>" or "")
+	)
 end, 100)
 
 naim.hooks.add('proto_buddy_nickchanged', function(conn, who, newnick)
@@ -530,6 +627,83 @@ naim.hooks.add('proto_buddy_nickchanged', function(conn, who, newnick)
 		assert(not conn.windows[newnick])
 		conn.windows[newnick] = conn.windows[who]
 		conn.windows[who] = nil
+	end
+end, 100)
+
+--naim.hooks.add('proto_buddy_coming', function(conn, who)
+--end, 100)
+
+naim.hooks.add('proto_buddy_idle', function(conn, who, idletime)
+	local window = conn.windows[who]
+	local buddy = conn.buddies[who]
+	assert(buddy)
+
+	local idle = idletime >= 10 and true or nil
+
+	if window then
+		if idle and not buddy.idle then
+			window:event2("event", who, "is now", "idle")
+		elseif not idle and buddy.idle then
+			window:event2("event", who, "is no longer", "idle")
+		end
+	end
+
+	buddy.idle = idle
+end, 100)
+
+naim.hooks.add('proto_buddy_away', function(conn, who)
+	local window = conn.windows[who]
+	local buddy = conn.buddies[who]
+	assert(buddy)
+
+	if window then
+		if not buddy.away then
+			window:event2("event", who, "is now", "away")
+		end
+	end
+
+	buddy.away = true
+end, 100)
+
+naim.hooks.add('proto_buddy_unaway', function(conn, who)
+	local window = conn.windows[who]
+	local buddy = conn.buddies[who]
+	assert(buddy)
+
+	if window then
+		if buddy.away then
+			window:event2("event", who, "is no longer", "away")
+		end
+	end
+
+	buddy.away = nil
+end, 100)
+
+naim.hooks.add('proto_buddy_capschanged', function(conn, who, caps)
+	local buddy = conn.buddies[who]
+	assert(buddy)
+
+	if not buddy.caps or table.concat(buddy.caps, ' ') ~= caps then
+		local capst = naim.internal.split(caps, ' ')
+		local window = conn.windows[who]
+
+		if window and buddy.caps then
+			local c1, c2 = naim.internal.v2k(buddy.caps), naim.internal.v2k(capst)
+
+			for k,v in pairs(c1) do
+				if not c2[k] then
+					window:event2("event", who, "lost", "capability " .. k)
+				end
+			end
+
+			for k,v in pairs(c2) do
+				if not c1[k] then
+					window:event2("event", who, "gained", "capability " .. k)
+				end
+			end
+		end
+
+		buddy.caps = capst
 	end
 end, 100)
 
@@ -580,7 +754,7 @@ end, 100)
 naim.hooks.add('proto_chat_oped', function(conn, chat, by)
 	local group = conn.groups[string.lower(chat)]
 
-	group.admin = true
+	group.operator = true
 
 	if group.synched then
 		local window = conn.windows[string.lower(chat)]
@@ -594,7 +768,7 @@ end, 100)
 naim.hooks.add('proto_chat_deoped', function(conn, chat, by)
 	local group = conn.groups[string.lower(chat)]
 
-	group.admin = nil
+	group.operator = nil
 
 	assert(group.synched)
 	local window = conn.windows[string.lower(chat)]
@@ -609,7 +783,7 @@ naim.hooks.add('proto_chat_modeset', function(conn, chat, by, mode, arg)
 	local window = conn.windows[string.lower(chat)]
 
 	if window and group.synched then
-		window:event2("event", by, "set", "mode <font color=\"#FF00FF\">" .. string.char(mode) .. (arg and " " .. arg or "") .. "</font>")
+		window:event2("event", by, "set", "<font color=\"#FF00FF\">" .. string.lower(mode) .. (arg and " " .. arg or "") .. "</font>")
 	end
 end, 100)
 
@@ -618,7 +792,7 @@ naim.hooks.add('proto_chat_modeunset', function(conn, chat, by, mode, arg)
 	local window = conn.windows[string.lower(chat)]
 
 	if window and group.synched then
-		window:event2("event", by, "unset", "mode <font color=\"#FF00FF\">" .. string.char(mode) .. (arg and " " .. arg or "") .. "</font>")
+		window:event2("event", by, "unset", "<font color=\"#FF00FF\">" .. string.lower(mode) .. (arg and " " .. arg or "") .. "</font>")
 	end
 end, 100)
 
@@ -673,7 +847,7 @@ end, 100)
 naim.hooks.add('proto_chat_user_oped', function(conn, chat, who, by)
 	local group = conn.groups[string.lower(chat)]
 
-	group.members[who].admin = true
+	group.members[who].operator = true
 
 	if group.synched then
 		local window = conn.windows[string.lower(chat)]
@@ -687,7 +861,7 @@ end, 100)
 naim.hooks.add('proto_chat_user_deoped', function(conn, chat, who, by)
 	local group = conn.groups[string.lower(chat)]
 
-	group.members[who].admin = nil
+	group.members[who].operator = nil
 
 	assert(group.synched)
 	local window = conn.windows[string.lower(chat)]
@@ -725,7 +899,37 @@ naim.hooks.add('proto_chat_topicchanged', function(conn, chat, topic, by)
 	end
 end, 100)
 
-naim.hooks.add('preselect', function(rfd, wfd, efd, maxfd)
+naim.hooks.add('periodic', function(now, nowf)
+	naim.settimeout(naim.echo, 5, "timer1 called")
+	naim.settimeout(function() naim.echo("timer2 called") end, 6)
+	naim.settimeout('naim.echo("timer3 called")', 7)
+end, 100)
+
+naim.hooks.add('preselect', function(rfd, wfd, efd, maxfd, timeout)
+	local now = os.time()
+	local firsttimer = now + timeout
+
+	for k,timer in pairs(naim.timers) do
+		if timer.when > now and timer.when < firsttimer then
+			firsttimer = timer.when
+		end
+	end
+
+	return true,maxfd,(firsttimer - now)
+end, 100)
+
+naim.hooks.add('postselect', function(rfd, wfd, efd)
+	local now = os.time()
+
+	for k,timer in pairs(naim.timers) do
+		if timer.when <= now then
+			timer.func()
+			naim.cleartimeout(k)
+		end
+	end
+end, 100)
+
+naim.hooks.add('postselect', function(rfd, wfd, efd)
 	for connname,conn in pairs(naim.connections) do
 		for winname,window in pairs(conn.windows) do
 			if window.events then
@@ -763,7 +967,7 @@ naim.hooks.add('preselect', function(rfd, wfd, efd, maxfd)
 							objfunc(events[i].verb, events[i].objects)
 							table.insert(t, ", ")
 						end
-						table.insert(t, " and ")
+						table.insert(t, "and ")
 						objfunc(events[#events].verb, events[#events].objects)
  					end
 
@@ -775,8 +979,3 @@ naim.hooks.add('preselect', function(rfd, wfd, efd, maxfd)
 		end
 	end
 end, 100)
-
---naim.hooks.add('postselect', function(rfd, wfd, efd)
---	for k,v in pairs(naim.sockets) do
---	end
---end, 100)

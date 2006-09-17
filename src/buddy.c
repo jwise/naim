@@ -783,6 +783,7 @@ static FILE *playback_fopen(conn_t *const conn, buddywin_t *const bwin, const ch
 
 void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 	FILE	*rfile;
+	struct h_t *h = hhandle(&(bwin->nwin));
 
 	assert(bwin->nwin.logfile != NULL);
 	fflush(bwin->nwin.logfile);
@@ -823,7 +824,13 @@ void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
 			long	len = strlen(buf);
 
 			pos += len;
-			hwprintf(&(bwin->nwin), -C(IMWIN,TEXT)-1, "%s", buf);
+			//hwprintf(&(bwin->nwin), -C(IMWIN,TEXT)-1, "%s", buf);
+			if (buf[len-1] == '\n') {
+				hhprint(h, buf, len-1);
+				hendblock(h);
+			} else
+				hhprint(h, buf, len);
+
 			if ((now = time(NULL)) > lastprogress) {
 				nw_statusbarf("Redrawing window for %s (%li lines left).",
 					bwin->winname, lines*(playbacklen-pos)/playbacklen);
@@ -1080,12 +1087,12 @@ void	baway(conn_t *conn, const char *buddy, int isaway) {
 				awayar[awayc-1].name = strdup(buddy);
 				awayar[awayc-1].gotaway = 0;
 				firetalk_im_get_info(conn->conn, buddy);
-			} else
+			} /*else
 				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now away.\n",
-					user_name(NULL, 0, conn, blist));
-		} else if ((isaway == 0) && (blist->isaway == 1))
+					user_name(NULL, 0, conn, blist));*/
+		} /*else if ((isaway == 0) && (blist->isaway == 1))
 			window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer away!\n",
-				user_name(NULL, 0, conn, blist));
+				user_name(NULL, 0, conn, blist));*/
 	}
 
 	blist->isaway = isaway;

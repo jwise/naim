@@ -9,7 +9,8 @@ EXTRA_DIST = \
 	examples/eliza.lua \
 	examples/i-r-elite-script.lua \
 	examples/lseen.lua \
-	examples/printtree.lua
+	examples/printtree.lua \
+	examples/stats.lua
 
 noinst_LTLIBRARIES = liblua.la libnlua.la
 liblua_la_SOURCES = \

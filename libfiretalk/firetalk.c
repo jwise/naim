@@ -929,14 +929,14 @@ void	firetalk_callback_chat_gottopic(struct firetalk_driver_connection_t *c, con
 			conn->callbacks[FC_CHAT_GOTTOPIC](conn, conn->clientstruct, room, topic, author);
 }
 
-void	firetalk_callback_chat_modeset(struct firetalk_driver_connection_t *c, const char *const room, const char *const by, const int mode, const char *const arg) {
+void	firetalk_callback_chat_modeset(struct firetalk_driver_connection_t *c, const char *const room, const char *const by, const char *const mode, const char *const arg) {
 	firetalk_connection_t *conn = firetalk_find_conn(c);
 
 	if (conn->callbacks[FC_CHAT_MODESET])
 		conn->callbacks[FC_CHAT_MODESET](conn, conn->clientstruct, room, by, mode, arg);
 }
 
-void	firetalk_callback_chat_modeunset(struct firetalk_driver_connection_t *c, const char *const room, const char *const by, const int mode, const char *const arg) {
+void	firetalk_callback_chat_modeunset(struct firetalk_driver_connection_t *c, const char *const room, const char *const by, const char *const mode, const char *const arg) {
 	firetalk_connection_t *conn = firetalk_find_conn(c);
 
 	if (conn->callbacks[FC_CHAT_MODEUNSET])
@@ -1261,8 +1261,6 @@ const char *firetalk_strerror(const fte_t e) {
 			return("Usernames do not match");
 		case FE_PACKET:
 			return("Packet transfer error");
-		case FE_RECONNECTING:
-			return("Server wants us to reconnect elsewhere");
 		case FE_BADUSERPASS:
 			return("Invalid username or password");
 		case FE_SEQUENCE:
@@ -2031,8 +2029,8 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 		my_timeout->tv_usec = 0;
 	}
 
-	if (my_timeout->tv_sec > 15)
-		my_timeout->tv_sec = 15;
+	if (my_timeout->tv_sec > 50)
+		my_timeout->tv_sec = 50;
 
 	/* internal preselect */
 	for (conn = conn_head; conn != NULL; conn = conn->next) {

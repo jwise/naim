@@ -521,7 +521,17 @@
 #define LUA_NUMBER_SCAN		"%lf"
 /*#define LUA_NUMBER_FMT		"%.14g"*/
 #define LUA_NUMBER_FMT		"%li"
-#define lua_number2str(s,n)	sprintf((s), LUA_NUMBER_FMT, (long int)(n))
+//#define lua_number2str(s,n)	sprintf((s), LUA_NUMBER_FMT, (long int)(n))
+#define lua_number2str(s,n)	do { \
+		char *__s = (s); \
+		double __n = (n); \
+		long int __tmp = __n, __parts = 10000*(__n - __tmp); \
+		\
+		if (__parts == 0) \
+			snprintf(__s, LUAI_MAXNUMBER2STR, "%li", __tmp); \
+		else \
+			snprintf(__s, LUAI_MAXNUMBER2STR, "%li.%04li", __tmp, __parts); \
+	} while(0)
 #define LUAI_MAXNUMBER2STR	32 /* 16 digits, sign, point, and \0 */
 #define lua_str2number(s,p)	strtod((s), (p))
 

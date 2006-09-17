@@ -1,6 +1,6 @@
 -- IRC "seen" modules for naim
 -- Copywrite 2006 Andrew Chin (achin@eminence32.net)
--- ver 2006/8/26
+-- ver 2006/9/7
 
 
 if not lseen then
@@ -17,12 +17,12 @@ function lseen.recvfrom(conn, sn, dest, text, flags)
 	--naim.echo("flags: " .. flags)
 	--naim.echo("text: " .. text)
 	--naim.echo("dest: ".. dest)
-
+	text = text:gsub("<[^>]*>","")
 	who = string.match(text,"^!seen ([%w%p`]*).*")
-		
+			
 	if who then
 		who = string.lower(who)
-
+		naim.echo("who:"..who)
 		if who == conn.sn then
 			naim.echo("who:"..conn.sn)
 			msg = "I'm right here!"
@@ -44,46 +44,40 @@ end
 
 function lseen.join(conn, room, who, extra)
 	lsn = string.lower(who)
-	lseen.db[lsn] = {}
-	lseen.db[lsn].lastseen = os.time()
-	lseen.db[lsn].target = room
-	lseen.db[lsn].event = "joining"
+
+	-- look up to see how lsn has been away
+	if lseen.db[lsn] then
+		gone = os.time() - lseen.db[lsn].lastseen
+		if gone > 4233600 then
+			room:msg(lsn.." hasn't been seen for ".. prettydiff(os.difftime(os.time(),lseen.db[lsn].lastseen)).."!")
+		end
+	end
+	
+	lseen.db[lsn] = { lastseen = os.time(), target = room, event = "joining" }
 
 end
 
 function lseen.left(conn, room, who, reason)
 	lsn = string.lower(who)
-	lseen.db[lsn] = {}
-	lseen.db[lsn].lastseen = os.time()
-	lseen.db[lsn].target = room
-	lseen.db[lsn].event = "leaving"
+	lseen.db[lsn] = {lastseen = os.time(), target = room, event = "leaving" }
 
 end
 	
 function lseen.kick(conn, room, who, by, reason)
 	lsn = string.lower(who)
-	lseen.db[lsn] = {}
-	lseen.db[lsn].lastseen = os.time()
-	lseen.db[lsn].target = room
-	lseen.db[lsn].event = "being kicked from"
+	lseen.db[lsn] = {lastseen = os.time(), target = room, event = "being kicked from" }
 end
 
 function lseen.nick(conn, room, oldnick, newnick) 
 	lsn = string.lower(oldnick)
-	lseen.db[lsn] = {}
-	lseen.db[lsn].lastseen = os.time()
-	lseen.db[lsn].target = newnick
-	lseen.db[lsn].event = "changing their nick to"
+	lseen.db[lsn] = {lastseen = os.time(), target = newnick, event = "changing their nick to" }
 
 end
 
 function lseen.saw(conn, sn, dest, text, flags)
 	if dest then
 		lsn = string.lower(sn)
-		lseen.db[lsn] = {}
-		lseen.db[lsn].lastseen = os.time()
-		lseen.db[lsn].target = dest
-		lseen.db[lsn].event = "talking to"
+		lseen.db[lsn] = {lastseen = os.time(), target = dest, event = "talking to" }
 	end
 	-- conn:msg(sn,"i just got the message: '".. text .. "' from '"..sn.."' to '"..dest.."'")
 end
@@ -93,7 +87,8 @@ function prettydiff(sec)
 	seconds = sec
    minutes = 0
 	hours = nil
-	
+	days = nil
+
 	if seconds > 59 then
 		minutes = math.floor(seconds / 60)
 		seconds = math.fmod(seconds, 60)
@@ -104,12 +99,22 @@ function prettydiff(sec)
 		minutes = math.fmod(minutes,60)
 	end
 
-	if hours then
-		return hours .. " hours, " .. minutes .. " minutes"
-	else
-		return minutes .. " minutes, " .. seconds .. " seconds"
+	if hours and hours > 30 then
+		days = math.floor(hours/24)
+		hours = math.fmod(hours,24)
 	end
 
+	if not hours then hours = 0 end
+
+	if days then
+		return days .. " days " .. hours .. " hours " .. minutes .. " minutes"
+	else
+		if hours then
+			return hours .. " hours, " .. minutes .. " minutes"
+		else
+			return minutes .. " minutes, " .. seconds .. " seconds"
+		end
+	end
 end
 
 function lseen.seen(who)

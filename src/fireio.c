@@ -70,15 +70,12 @@ void	naim_set_info(conn_t *conn, const char *str) {
 	}
 }
 
-static int fireio_postselect(void *userdata, const char *signature, fd_set *rfd, fd_set *wfd, fd_set *efd) {
+static int fireio_postselect_setnow(void *userdata, const char *signature, fd_set *rfd, fd_set *wfd, fd_set *efd) {
 	struct timeval tv;
-	char	buf[1024];
 
 	gettimeofday(&tv, NULL);
 	now = tv.tv_sec;
 	nowf = tv.tv_usec/1000000. + ((double)now);
-	snprintf(buf, sizeof(buf), "%lu", now);
-	script_setvar("nowi", buf);
 
 	return(HOOK_CONTINUE);
 }
@@ -170,15 +167,6 @@ static int fireio_warned(void *userdata, const char *signature, conn_t *conn, in
 	return(HOOK_CONTINUE);
 }
 
-static int fireio_buddy_idle(void *userdata, const char *signature, conn_t *conn, const char *who, long idletime) {
-	if (idletime >= 10)
-		bidle(conn, who, 1);
-	else
-		bidle(conn, who, 0);
-
-	return(HOOK_CONTINUE);
-}
-
 static int fireio_buddy_eviled(void *userdata, const char *signature, conn_t *conn, const char *who, long warnval) {
 	buddylist_t *blist;
 
@@ -188,57 +176,11 @@ static int fireio_buddy_eviled(void *userdata, const char *signature, conn_t *co
 	return(HOOK_CONTINUE);
 }
 
-static int fireio_buddy_capschanged(void *userdata, const char *signature, conn_t *conn, const char *who, const char *caps) {
-	buddylist_t *blist;
-
-	if ((blist = rgetlist(conn, who)) != NULL) {
-		int	i, j, strtolower = 1;
-
-		if ((blist->caps != NULL) && (blist->caps[0] != 0)) {
-			buddywin_t *bwin;
-
-			if ((bwin = bgetbuddywin(conn, blist)) != NULL)
-				window_echof(bwin, "Client capabilities for <font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> have changed, possibly meaning %s has signed onto or off with multiple clients.\n",
-					user_name(NULL, 0, conn, blist), USER_GROUP(blist), USER_NAME(blist));
-		}
-
-		blist->caps = realloc(blist->caps, 2*strlen(caps)+1);
-
-		for (i = 0; (caps[i] != 0) && (caps[i] != ' '); i++)
-			if (islower(caps[i])) {
-				strtolower = 0;
-				break;
-			}
-
-		for (j = i = 0; caps[i] != 0; i++)
-			if (caps[i] == ' ') {
-				int	x;
-
-				strtolower = 1;
-				for (x = i+1; (caps[x] != 0) && (caps[x] != ' '); x++)
-					if (islower(caps[x])) {
-						strtolower = 0;
-						break;
-					}
-				blist->caps[j++] = ',';
-				blist->caps[j++] = ' ';
-			} else if (caps[i] == '_')
-				blist->caps[j++] = ' ';
-			else if (strtolower && (j > 0) && (blist->caps[j-1] != ' '))
-				blist->caps[j++] = tolower(caps[i]);
-			else
-				blist->caps[j++] = caps[i];
-		blist->caps[j] = 0;
-	}
-
-	return(HOOK_CONTINUE);
-}
-
 static int fireio_buddy_typing(void *userdata, const char *signature, conn_t *conn, const char *who, int typing) {
 	buddylist_t *blist;
 
 	if ((blist = rgetlist(conn, who)) != NULL) {
-		if (typing)
+		if ((typing == 1) || (typing == 2))
 			blist->typing = now;
 		else
 			blist->typing = 0;
@@ -745,15 +687,13 @@ static int fireio_error_msg(void *userdata, const char *signature, conn_t *conn,
 	return(HOOK_CONTINUE);
 }
 
-static int fireio_error_disconnect(void *userdata, const char *signature, conn_t *conn, int error) {
+static int fireio_disconnected(void *userdata, const char *signature, conn_t *conn, int error) {
 	echof(conn, NULL, "Disconnected from %s: %s.\n",
 		conn->winname, firetalk_strerror(error));
 	conn->online = -1;
 	bclearall(conn, 0);
 
-	if (error == FE_RECONNECTING)
-		echof(conn, NULL, "Please wait...\n");
-	else if ((error != FE_USERDISCONNECT) && getvar_int(conn, "autoreconnect")) {
+	if ((error != FE_USERDISCONNECT) && getvar_int(conn, "autoreconnect")) {
 		echof(conn, NULL, "Attempting to reconnect...\n");
 		ua_connect(conn, 0, NULL);
 	} else
@@ -787,37 +727,6 @@ static int fireio_userinfo(void *userdata, const char *signature, conn_t *conn, 
 				return(HOOK_CONTINUE);;
 			}
 	}
-
-	echof(conn, NULL, "Information about %s:\n", SN);
-
-	if (class & (FF_SUBSTANDARD|FF_NORMAL|FF_ADMIN))
-	  echof(conn, NULL,
-		"</B>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <B>Class</B>:%s%s%s",
-			(class&FF_SUBSTANDARD)?" AIM":"",
-			(class&FF_NORMAL)?" AOLamer":"",
-			(class&FF_ADMIN)?" Operator":"");
-	{
-		buddylist_t *blist = rgetlist(conn, SN);
-
-		if ((blist != NULL) && (blist->caps != NULL))
-		  echof(conn, NULL,
-			"</B><B>Client features</B>: %s", blist->caps);
-	}
-	if (warning > 0)
-	  echof(conn, NULL,
-		"</B>&nbsp; <B>Warning level</B>: %i", warning);
-	if (online > 0)
-	  echof(conn, NULL,
-		"</B>&nbsp; &nbsp; <B>Online time</B>: <B>%s</B>",
-		dtime(now-online));
-	if (idle > 0)
-	  echof(conn, NULL,
-		"</B>&nbsp; &nbsp; &nbsp; <B>Idle time</B>: <B>%s</B>",
-		dtime(60*idle));
-	if (info != NULL)
-	  echof(conn, NULL,
-		"</B>&nbsp; &nbsp; &nbsp; &nbsp; <B>Profile</B>:<br> %s<br> <hr>", info);
-	bupdate();
 
 	return(HOOK_CONTINUE);
 }
@@ -1075,7 +984,7 @@ void	naim_lastupdate(conn_t *conn) {
 void	fireio_hook_init(void) {
 	void	*mod = NULL;
 
-	HOOK_ADD(postselect,		mod, fireio_postselect,		100, NULL);
+	HOOK_ADD(postselect,		mod, fireio_postselect_setnow,	10, NULL);
 	HOOK_ADD(proto_doinit,		mod, fireio_doinit,		100, NULL);
 	HOOK_ADD(proto_connected,	mod, fireio_connected,		100, NULL);
 	HOOK_ADD(proto_connectfailed,	mod, fireio_connectfailed,	100, NULL);
@@ -1083,7 +992,7 @@ void	fireio_hook_init(void) {
 	HOOK_ADD(proto_buddy_nickchanged, mod, fireio_buddy_nickchanged, 100, NULL);
 	HOOK_ADD(proto_warned,		mod, fireio_warned,		100, NULL);
 	HOOK_ADD(proto_error_msg,	mod, fireio_error_msg,		100, NULL);
-	HOOK_ADD(proto_error_disconnect, mod, fireio_error_disconnect,	100, NULL);
+	HOOK_ADD(proto_disconnected,	mod, fireio_disconnected,	100, NULL);
 	HOOK_ADD(proto_userinfo,	mod, fireio_userinfo,		100, NULL);
 	HOOK_ADD(proto_buddyadded,	mod, fireio_buddyadded,		100, NULL);
 	HOOK_ADD(proto_buddyremoved,	mod, fireio_buddyremoved,	100, NULL);
@@ -1091,9 +1000,7 @@ void	fireio_hook_init(void) {
 	HOOK_ADD(proto_buddy_going,	mod, fireio_buddy_going,	100, NULL);
 	HOOK_ADD(proto_buddy_away,	mod, fireio_buddy_away,		100, NULL);
 	HOOK_ADD(proto_buddy_unaway,	mod, fireio_buddy_unaway,	100, NULL);
-	HOOK_ADD(proto_buddy_idle,	mod, fireio_buddy_idle,		100, NULL);
 	HOOK_ADD(proto_buddy_eviled,	mod, fireio_buddy_eviled,	100, NULL);
-	HOOK_ADD(proto_buddy_capschanged, mod, fireio_buddy_capschanged, 100, NULL);
 	HOOK_ADD(proto_buddy_typing,	mod, fireio_buddy_typing,	100, NULL);
 	HOOK_ADD(proto_denyadded,	mod, fireio_denyadded,		100, NULL);
 	HOOK_ADD(proto_denyremoved,	mod, fireio_denyremoved,	100, NULL);

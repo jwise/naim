@@ -268,6 +268,11 @@ int	getvar_int(conn_t *conn, const char *);
 char	*getvar(conn_t *conn, const char *);
 
 /* hwprintf.c */
+struct h_t;
+int	hhprint(struct h_t *, const unsigned char *, const size_t);
+struct h_t *hhandle(win_t *win);
+void	hendblock(struct h_t *h);
+int	vhhprintf(struct h_t *, const int, const unsigned char *, va_list);
 int	vhwprintf(win_t *, int, const unsigned char *, va_list);
 int	hwprintf(win_t *, int, const unsigned char *, ...);
 

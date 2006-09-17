@@ -282,7 +282,6 @@ const unsigned char *naim_normalize(const unsigned char *const name) G_GNUC_INTE
 void	playback(conn_t *const conn, buddywin_t *const, const int) G_GNUC_INTERNAL;
 void	bcoming(conn_t *conn, const char *) G_GNUC_INTERNAL;
 void	bgoing(conn_t *conn, const char *) G_GNUC_INTERNAL;
-void	bidle(conn_t *conn, const char *, int) G_GNUC_INTERNAL;
 void	baway(conn_t *conn, const char *, int) G_GNUC_INTERNAL;
 void	verify_winlist_sanity(conn_t *const conn, const buddywin_t *const verifywin) G_GNUC_INTERNAL;
 void	bclearall(conn_t *conn, int) G_GNUC_INTERNAL;

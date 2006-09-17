@@ -93,7 +93,11 @@ void naim_faulthandler(int sig) {
 	fprintf(stderr, "\r\n");
 	fprintf(stderr, "Running " PACKAGE_STRING NAIM_SNAPSHOT " for %s.\r\n", dtime(now - startuptime));
 #ifdef HAVE_STRSIGNAL
-	fprintf(stderr, "%s; partial symbolic backtrace:\r\n", strsignal(sig));
+	{
+		char	*strsignal(int sig);
+
+		fprintf(stderr, "%s; partial symbolic backtrace:\r\n", strsignal(sig));
+	}
 #else
 	fprintf(stderr, "Signal %i; partial symbolic backtrace:\r\n", sig);
 #endif
@@ -404,39 +408,33 @@ int	main_stub(int argc, char **args) {
 
 	while (stayconnected) {
 		fd_set	rfd, wfd, efd;
-		struct timeval	timeout;
+		double	timeout = 0;
 		time_t	now60;
 		int	autohide;
 		uint32_t maxfd = 0;
+		struct timeval tv;
 
 		now = time(NULL);
 		autohide = script_getvar_int("autohide");
-		if (((nowf - changetime) > autohide) 
-			&& ((nowf - curconn->lastupdate) > autohide)) {
-			timeout.tv_sec = 60 - (now%60);
-			timeout.tv_usec = 0;
-		} else {
-			if (((nowf - curconn->lastupdate) <= SLIDETIME)
-			 || ((nowf - curconn->lastupdate) >= (autohide - SLIDETIME))
-			 || ((nowf - changetime) <= autohide)) {
-				timeout.tv_sec = 0;
-				timeout.tv_usec = 50000;
-			} else {
-				double	ttt;
-
-				ttt = autohide - (nowf - curconn->lastupdate) - SLIDETIME;
-				timeout.tv_sec = ttt;
-				timeout.tv_usec = (ttt - timeout.tv_sec)*1000000;
-			}
-		}
+		if (((nowf - changetime) > autohide) && ((nowf - curconn->lastupdate) > autohide))
+			timeout = 60 - (now%60);
+		else if (((nowf - curconn->lastupdate) <= SLIDETIME)
+		      || ((nowf - curconn->lastupdate) >= (autohide - SLIDETIME))
+		      || ((nowf - changetime) <= autohide))
+			timeout = 0.05;
+		else
+			timeout = autohide - (nowf - curconn->lastupdate) - SLIDETIME;
 
 		FD_ZERO(&rfd);
 		FD_ZERO(&wfd);
 		FD_ZERO(&efd);
 
-		HOOK_CALL(preselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET HOOK_T_WRUINT32, &rfd, &wfd, &efd, &maxfd);
+		HOOK_CALL(preselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET HOOK_T_WRUINT32 HOOK_T_WRFLOAT, &rfd, &wfd, &efd, &maxfd, &timeout);
 
-		if (firetalk_select_custom(maxfd, &rfd, &wfd, &efd, &timeout) != FE_SUCCESS) {
+		tv.tv_sec = timeout;
+		tv.tv_usec = (timeout - tv.tv_sec)*1000000;
+
+		if (firetalk_select_custom(maxfd, &rfd, &wfd, &efd, &tv) != FE_SUCCESS) {
 			if (errno == EINTR) { // SIGWINCH
 				statrefresh();
 				if (rc_resize(&faimconf))
@@ -444,7 +442,7 @@ int	main_stub(int argc, char **args) {
 				statrefresh();
 				continue;
 			}
-			echof(curconn, "MAIN", "firetalk_select_custom() returned error %i: %s\n",
+			echof(curconn, "MAIN", "Main loop encountered error %i (%s).\n",
 				errno, strerror(errno));
 			nw_refresh(&(curconn->nwin));
 			statrefresh();
@@ -453,14 +451,14 @@ int	main_stub(int argc, char **args) {
 			exit(1); /* NOTREACH */
 		}
 
+		HOOK_CALL(postselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET, &rfd, &wfd, &efd);
+
 		now60 = now-(now%60);
 		if ((now60 - lastcycle) >= 60) {
 			lastcycle = now60;
 			HOOK_CALL(periodic, HOOK_T_TIME HOOK_T_FLOAT, now, nowf);
 		} else if (lastcycle > now60)
 			lastcycle = now60;
-
-		HOOK_CALL(postselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET, &rfd, &wfd, &efd);
 
 		statrefresh();
 		script_clean_garbage();

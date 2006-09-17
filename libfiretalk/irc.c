@@ -81,6 +81,7 @@ typedef struct firetalk_driver_connection_t {
 		*password,
 		*chanmodes,
 		*chanprefix,
+		*chanmodesexp[56],
 		 buffer[512+1];
 	irc_whois_t *whois_head;
 	int	 maxmodes;
@@ -90,16 +91,20 @@ typedef struct firetalk_driver_connection_t {
 
 static inline void irc_conn_t_ctor(irc_conn_t *this) {
 	memset(this, 0, sizeof(*this));
-	this->chanmodes = strdup("b,k,l,imnpst");
+	this->chanmodes = strdup("beI,k,l,imnpsta");
 	this->chanprefix = strdup("(ov)@+");
 	this->maxmodes = 3;
 }
 TYPE_NEW(irc_conn_t);
 static inline void irc_conn_t_dtor(irc_conn_t *this) {
+	int	i;
+
 	free(this->nickname);
 	free(this->password);
 	free(this->chanmodes);
 	free(this->chanprefix);
+	for (i = 0; i < sizeof(this->chanmodesexp)/sizeof(*(this->chanmodesexp)); i++)
+		free(this->chanmodesexp[i]);
 	irc_whois_t_list_delete(this->whois_head);
 	memset(this, 0, sizeof(*this));
 }
@@ -784,6 +789,25 @@ static void irc_addwhois(irc_conn_t *c, const char *const name, const char *cons
 		}
 }
 
+static int mode_has_arg(const char *chanmodes, const char mode, const int dir) {
+	char	*m = strchr(chanmodes, mode), *c1, *c2 = NULL, *c3 = NULL;
+
+	if (m == NULL)
+		return(-1);
+
+	if ((c1 = strchr(chanmodes, ',')) != NULL)
+		if ((c2 = strchr(c1+1, ',')) != NULL)
+			c3 = strchr(c2+1, ',');
+
+	if (m < c1)
+		return(2);
+	if (m < c2)
+		return(1);
+	if ((m < c3) && (dir == 1))
+		return(1);
+	return(0);
+}
+
 static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 	irc_whois_t *whoisiter, *whoisiter2;
 	char	*tempchr;
@@ -1064,7 +1088,6 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 			int	loc, arg = 4, dir = 1;
 
 			for (loc = 0; args[3][loc] != 0; loc++) {
-				char	*tmp;
 				int	arged;
 
 				if (args[3][loc] == '+') {
@@ -1075,13 +1098,13 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 					continue;
 				}
 
-				if (((tmp = strchr(c->chanmodes, args[3][loc])) == NULL) && (strchr(c->chanprefix, args[3][loc]) == NULL))
-					break;
+				arged = mode_has_arg(c->chanmodes, args[3][loc], dir);
 
-				if ((tmp == NULL) || (tmp[1] == ','))
+				if (arged == -1) {
+					if (strchr(c->chanprefix, args[3][loc]) == NULL)
+						break;
 					arged = 1;
-				else
-					arged = 0;
+				}
 
 				switch (args[3][loc]) {
 				  case 'o':
@@ -1101,15 +1124,23 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 					else
 						firetalk_callback_chat_keychanged(c, args[2], NULL, source);
 					break;
-				  default:
-					if (dir == 1)
-						firetalk_callback_chat_modeset(c, args[2], source, args[3][loc], arged?args[arg]:NULL);
-					else
-						firetalk_callback_chat_modeunset(c, args[2], source, args[3][loc], arged?args[arg]:NULL);
+				  default: {
+						char	buf[] = "mode X", *desc;
+
+						if ((desc = c->chanmodesexp[args[3][loc] - 'A']) == NULL) {
+							desc = buf;
+							buf[strlen(buf)-1] = args[3][loc];
+						}
+
+						if (dir == 1)
+							firetalk_callback_chat_modeset(c, args[2], source, desc, arged?args[arg]:NULL);
+						else
+							firetalk_callback_chat_modeunset(c, args[2], source, desc, arged?args[arg]:NULL);
+					}
 					break;
 				}
 
-				if (arged)
+				if (arged && (args[arg] != NULL))
 					arg++;
 			}
 			return(FE_SUCCESS);
@@ -1132,6 +1163,30 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 				break;
 			case 332: /* RPL_TOPIC */
 				firetalk_callback_chat_gottopic(c, args[3], irc_irc_to_html(args[4]), NULL);
+				break;
+			case 705:
+				if ((strcasecmp(args[3], "cmode") == 0) && (strchr(args[4], '+') != NULL)) {
+					char	*dot;
+					int	mode;
+
+					dot = strchr(args[4], '+');
+					if (!isalpha(dot[1]) || (dot[2] != ' '))
+						break;
+					mode = dot[1];
+
+					dot = strchr(dot+3, '.');
+					if (dot == NULL)
+						break;
+					*dot = 0;
+					dot = strchr(args[4], '+')+3;
+					while (!isalpha(*dot) && (*dot != 0))
+						dot++;
+#ifdef DEBUG_ECHO
+					irc_echof(c, __FUNCTION__, "mode=%c, desc=\"%s\"\n", mode, dot);
+#endif
+					if (*dot != 0)
+						STRREPLACE(c->chanmodesexp[mode - 'A'], dot);
+				}
 				break;
 			default:
 				handled = 0;
@@ -1291,6 +1346,7 @@ static fte_t irc_got_data_connecting(irc_conn_t *c, firetalk_buffer_t *buffer) {
 			  case 422: /* MOTD is missing */
 				firetalk_callback_doinit(c, c->nickname);
 				firetalk_callback_connected(c);
+				irc_send_printf(c, "HELP cmode");
 				break;
 			  case 431:
 			  case 432:

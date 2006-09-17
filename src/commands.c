@@ -348,18 +348,16 @@ UAAOPT(string,filename)
 			*def = rc_var_s_ar[i].val,
 			*use, *cm, *q;
 
+		assert(def != NULL);
 		if (glob != NULL) {
 			use = glob;
 			if (strcmp(glob, def) == 0)
 				cm = "#";
 			else
 				cm = "";
-		} else if (def != NULL) {
+		} else {
 			use = def;
 			cm = "#";
-		} else {
-			use = "";
-			cm = "";
 		}
 
 		q = ((*use == 0) || ((strchr(use, ' ') != NULL))?"\"":"");
@@ -581,7 +579,9 @@ UAAOPT(string,filename)
 				*glob = script_getvar(rc_var_s_ar[i].var),
 				*q;
 
-			if (loc != glob) {
+			assert(loc != NULL);
+			assert(glob != NULL);
+			if ((loc != glob) && (strcmp(loc, glob) != 0)) {
 				q = ((*loc == 0) || ((strchr(loc, ' ') != NULL))?"\"":"");
 
 				if (rc_var_s_ar[i].desc != NULL)
@@ -599,7 +599,9 @@ UAAOPT(string,filename)
 			const char *loc = getvar(c, rc_var_i_ar[i].var),
 				*glob = script_getvar(rc_var_i_ar[i].var);
 
-			if (loc != glob) {
+			assert(loc != NULL);
+			assert(glob != NULL);
+			if ((loc != glob) && (strcmp(loc, glob) != 0)) {
 				if (rc_var_i_ar[i].desc != NULL)
 					fprintf(file, "# %s-specific %s (see above)\n", c->winname,
 						rc_var_i_ar[i].var);
@@ -615,7 +617,9 @@ UAAOPT(string,filename)
 			const char *loc = getvar(c, rc_var_b_ar[i].var),
 				*glob = script_getvar(rc_var_b_ar[i].var);
 
-			if (loc != glob) {
+			assert(loc != NULL);
+			assert(glob != NULL);
+			if ((loc != glob) && (strcmp(loc, glob) != 0)) {
 				if (rc_var_b_ar[i].desc != NULL)
 					fprintf(file, "# %s-specific %s (see above)\n", c->winname,
 						rc_var_b_ar[i].var);
@@ -651,9 +655,8 @@ UAAOPT(string,filename)
 				if (c->port > 0)
 					fprintf(file, ":%i", c->port);
 			}
+			fprintf(file, "\n");
 		}
-
-		fprintf(file, "\n");
 	} while ((c = c->next) != conn);
 
 	fclose(file);
