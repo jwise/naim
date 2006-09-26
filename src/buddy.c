@@ -14,8 +14,6 @@ extern time_t	now, awaytime;
 extern double	nowf, changetime;
 extern char	*lastclose;
 extern const char *home;
-extern int	awayc;
-extern awayar_t	*awayar;
 extern int	printtitle;
 
 extern int buddyc G_GNUC_INTERNAL,
@@ -1080,19 +1078,6 @@ void	baway(conn_t *conn, const char *buddy, int isaway) {
 			free(bwin->blurb);
 			bwin->blurb = NULL;
 		}
-		if ((isaway == 1) && (blist->isaway == 0)) {
-			if ((conn->online+30) < now) {
-				awayc++;
-				awayar = realloc(awayar, awayc*sizeof(*awayar));
-				awayar[awayc-1].name = strdup(buddy);
-				awayar[awayc-1].gotaway = 0;
-				firetalk_im_get_info(conn->conn, buddy);
-			} /*else
-				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now away.\n",
-					user_name(NULL, 0, conn, blist));*/
-		} /*else if ((isaway == 0) && (blist->isaway == 1))
-			window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer away!\n",
-				user_name(NULL, 0, conn, blist));*/
 	}
 
 	blist->isaway = isaway;

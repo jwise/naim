@@ -5,6 +5,7 @@
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 
+#include <assert.h>
 #include "moon-int.h"
 
 int	nlua_setvar_int(const char *name, const long value) {
@@ -13,7 +14,7 @@ int	nlua_setvar_int(const char *name, const long value) {
 	if (name == NULL)
 		return(0);
 
-	_get_global_ent(lua, "naim.variables", NULL);
+	_get_global_ent(lua, "naim", "variables", NULL);
 	lua_pushstring(lua, name);
 	lua_pushnumber(lua, value);
 	lua_settable(lua, -3);
@@ -29,7 +30,7 @@ int	nlua_setvar(const char *const name, const char *const value) {
 	if ((name == NULL) || (value == NULL))
 		return(0);
 
-	_get_global_ent(lua, "naim.variables", NULL);
+	_get_global_ent(lua, "naim", "variables", NULL);
 	lua_pushstring(lua, name);
 	lua_pushstring(lua, value);
 	lua_settable(lua, -3);
@@ -45,7 +46,7 @@ long	nlua_getvar_int(const char *const name) {
 
 	assert(name != NULL);
 
-	_get_global_ent(lua, "naim.variables", name, NULL);
+	_get_global_ent(lua, "naim", "variables", name, NULL);
 	if (lua_isnumber(lua, -1))
 		result = (long)lua_tonumber(lua, -1);
 	else
@@ -60,7 +61,7 @@ char	*nlua_getvar_safe(const char *const name, char **buf) {
 	const int top = lua_gettop(lua);
 	assert(name != NULL);
 
-	_get_global_ent(lua, "naim.variables", name, NULL);
+	_get_global_ent(lua, "naim", "variables", name, NULL);
 
 	if (lua_isstring(lua, -1))		/* Remember that LUA is loosely typed, so a Number would actually give us a string representation! */
 		*buf = strdup(lua_tostring(lua, -1));
@@ -85,7 +86,7 @@ char	*nlua_getvar(const char *const name) {
 }
 
 void	nlua_listvars_start(void) {
-	_get_global_ent(lua, "naim.variables", NULL);
+	_get_global_ent(lua, "naim", "variables", NULL);
 	lua_pushnil(lua);
 }
 

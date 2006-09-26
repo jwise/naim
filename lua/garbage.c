@@ -4,6 +4,7 @@
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 
+#include <stdlib.h>
 #include "moon-int.h"
 
 static void *_garbage_dump[100] = { 0 }, **_garbage_dump2 = NULL;

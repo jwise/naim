@@ -5,8 +5,10 @@
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 
+#include <stdlib.h>
 #include "moon-int.h"
 #include "default_lua.h"
+#include "naim-int.h"
 
 lua_State *lua = NULL;
 extern conn_t *curconn;
@@ -38,7 +40,7 @@ static int _nlua_curwin(lua_State *L) {
 	if (!inconn)
 		_push_conn_t(L, curconn);
 	else if (curconn->curbwin != NULL)
-		_get_global_ent(L, "naim.connections", curconn->winname, "windows", curconn->curbwin->winname, NULL);
+		_get_global_ent(L, "naim", "connections", curconn->winname, "windows", curconn->curbwin->winname, NULL);
 	else
 		lua_pushnil(L);
 	return(1);
@@ -125,7 +127,8 @@ static void _loadfunctions(void) {
 	extern const struct luaL_reg naim_prototypes_connectionslib[],
 		naim_prototypes_windowslib[],
 		naim_prototypes_buddieslib[],
-		naim_hookslib[];
+		naim_hookslib[],
+		naim_pdlib[];
 	extern void naim_commandsreg(lua_State *L);
 
 	luaL_register(lua, "naim", naimlib);
@@ -134,6 +137,7 @@ static void _loadfunctions(void) {
 	luaL_register(lua, "naim.prototypes.windows", naim_prototypes_windowslib);
 	luaL_register(lua, "naim.prototypes.buddies", naim_prototypes_buddieslib);
 	luaL_register(lua, "naim.hooks", naim_hookslib);
+	luaL_register(lua, "naim.pd", naim_pdlib);
 	naim_commandsreg(lua);
 }
 

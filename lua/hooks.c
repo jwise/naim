@@ -5,13 +5,15 @@
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
 
+#include <assert.h>
+#include <stdlib.h>
 #include "moon-int.h"
 
 extern conn_t *curconn;
 
 static int _nlua_hook(void *userdata, const char *signature, ...) {
 	va_list	msg;
-	int	ref = (int)userdata, i, top, newtop, args = 0, recoverable = 0;
+	int	ref = (int)userdata, i, top, newtop, args = 0;
 
 	top = lua_gettop(lua);
 
@@ -47,7 +49,6 @@ static int _nlua_hook(void *userdata, const char *signature, ...) {
 				const char **str = va_arg(msg, const char **);
 
 				lua_pushstring(lua, *str);
-				recoverable++;
 				break;
 			}
 		  case HOOK_T_WRLSTRINGc: {
@@ -55,21 +56,18 @@ static int _nlua_hook(void *userdata, const char *signature, ...) {
 				uint32_t *len = va_arg(msg, uint32_t *);
 
 				lua_pushlstring(lua, *str, *len);
-				recoverable++;
 				break;
 			}
 		  case HOOK_T_WRUINT32c: {
 				uint32_t *val = va_arg(msg, uint32_t *);
 
 				lua_pushnumber(lua, *val);
-				recoverable++;
 				break;
 			}
 		  case HOOK_T_WRFLOATc: {
 				double *val = va_arg(msg, double *);
 
 				lua_pushnumber(lua, *val);
-				recoverable++;
 				break;
 			}
 		  default:
@@ -80,7 +78,7 @@ static int _nlua_hook(void *userdata, const char *signature, ...) {
 	va_end(msg);
 
 	if (lua_pcall(lua, args, LUA_MULTRET, 0) != 0) {
-		status_echof(curconn, "Chain %d run error: %s\n", ref, lua_tostring(lua, -1));
+		status_echof(curconn, "Hook %x run error: %s\n", ref, lua_tostring(lua, -1));
 		lua_pop(lua, 1);
 		return(HOOK_CONTINUE);
 	}
@@ -117,8 +115,8 @@ static int _nlua_hook(void *userdata, const char *signature, ...) {
 
 				if (strcmp(*str, newstr) != 0) {
 #ifdef DEBUG_ECHO
-					echof(curconn, "hook", "rewriting a string! (%s -> %s)\n", *str, newstr);
-					statrefresh();
+					//status_echof(curconn, "rewriting a string! (%s -> %s)\n", *str, newstr);
+					//statrefresh();
 #endif
 					*str = realloc(*str, len+1);
 					strcpy(*str, newstr);
@@ -134,8 +132,8 @@ static int _nlua_hook(void *userdata, const char *signature, ...) {
 
 				if (memcmp(*str, newstr, *len) != 0) {
 #ifdef DEBUG_ECHO
-					echof(curconn, "hook", "rewriting an lstring! (%s -> %s)\n", *str, newstr);
-					statrefresh();
+					//status_echof(curconn, "rewriting an lstring! (%s -> %s)\n", *str, newstr);
+					//statrefresh();
 #endif
 					*str = realloc(*str, (*len)+1);
 					memmove(*str, newstr, *len);
@@ -151,8 +149,8 @@ static int _nlua_hook(void *userdata, const char *signature, ...) {
 
 				if (*val != newval) {
 #ifdef DEBUG_ECHO
-					echof(curconn, "hook", "rewriting a uint32! (%lu -> %lu)\n", *val, newval);
-					statrefresh();
+					//status_echof(curconn, "rewriting a uint32! (%lu -> %lu)\n", *val, newval);
+					//statrefresh();
 #endif
 					*val = newval;
 				}
@@ -166,10 +164,10 @@ static int _nlua_hook(void *userdata, const char *signature, ...) {
 
 				if (*val != newval) {
 #ifdef DEBUG_ECHO
-					echof(curconn, "hook", "rewriting a float! (%li.%04li -> %li.%04li)\n",
-						(long int)*val, (long int)(10000*(*val - (long int)*val)),
-						(long int)newval, (long int)(10000*(newval - (long int)newval)));
-					statrefresh();
+					//status_echof(curconn, "rewriting a float! (%li.%04li -> %li.%04li)\n",
+					//	(long int)*val, (long int)(10000*(*val - (long int)*val)),
+					//	(long int)newval, (long int)(10000*(newval - (long int)newval)));
+					//statrefresh();
 #endif
 					*val = newval;
 				}

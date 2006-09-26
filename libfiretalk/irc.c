@@ -718,7 +718,7 @@ static fte_t irc_disconnected(irc_conn_t *c, const fte_t reason) {
 	return(irc_internal_disconnect(c, reason));
 }
 
-static irc_conn_t *irc_create_conn(void) {
+static irc_conn_t *irc_create_conn(struct firetalk_driver_cookie_t *cookie) {
 	irc_conn_t *c;
 
 	if ((c = irc_conn_t_new()) == NULL)

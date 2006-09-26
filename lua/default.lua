@@ -1,3 +1,13 @@
+function insensitive_index(t, s)
+	s = s:lower()
+
+	for k,v in pairs(t) do
+		if k:lower() == s then
+			return v
+		end
+	end
+end
+
 function naim.prototypes.windows.event(window, e, s)
 	if window.eventtab and window.eventtab[e] then
 		window.eventtab[e].func(window, e, s)
@@ -123,26 +133,26 @@ end
 
 function naim.internal.rwmetatable(prototype)
 	return({
-		__index = function(table, key)
+		__index = function(t, key)
 			if prototype[key] ~= nil then
 				return prototype[key]
 			elseif prototype["get_"..key] ~= nil then
-				return prototype["get_"..key](table.handle)
+				return prototype["get_"..key](t.handle)
 			else
 				return nil
 			end
 		end,
-		__newindex = function(table, key, value)
+		__newindex = function(t, key, value)
 			if prototype["set_"..key] ~= nil then
-				prototype["set_"..key](table.handle, key, value)
+				prototype["set_"..key](t.handle, key, value)
 			elseif prototype["get_"..key] ~= nil then
 				error(key .. " is a read-only attribute",2)
 			else
-				rawset(table, key, value)
+				rawset(t, key, value)
 			end
 		end,
-		__tostring = function(table)
-			return(table.name)
+		__tostring = function(t)
+			return(t.name)
 		end,
 	})
 end
@@ -198,22 +208,25 @@ function naim.internal.expandstring(s)
 	return(naim.internal.varsub(s, naim.variables))
 end
 
-function naim.internal.newconn(winname, handle)
+function naim.internal.newconn(name, handle)
 	setmetatable(naim.connections, {})
-	naim.connections[winname] = {
+	naim.connections[name] = {
 		handle = handle,
-		name = winname,
+		name = name,
 		windows = {},
 		buddies = {},
 		groups = {},
 	}
-	setmetatable(naim.connections[winname], naim.internal.rwmetatable(naim.prototypes.connections))
+	setmetatable(naim.connections[name].windows, { __index = insensitive_index })
+	setmetatable(naim.connections[name].buddies, { __index = insensitive_index })
+	setmetatable(naim.connections[name].groups, { __index = insensitive_index })
+	setmetatable(naim.connections[name], naim.internal.rwmetatable(naim.prototypes.connections))
 	setmetatable(naim.connections, naim.internal.rometatable("connections"))
 end
 
-function naim.internal.delconn(winname)
+function naim.internal.delconn(name)
 	setmetatable(naim.connections, {})
-	naim.connections[winname] = nil
+	naim.connections[name] = nil
 	setmetatable(naim.connections, naim.internal.rometatable("connections"))
 end
 
@@ -511,13 +524,13 @@ naim.commands.names = {
 	func = function(conn, arg)
 		local window
 
-		if #arg > 0 and conn.windows[string.lower(arg[1])] then
-			window = conn.windows[string.lower(arg[1])]
+		if #arg > 0 and conn.windows[arg[1]] then
+			window = conn.windows[arg[1]]
 		else
 			window = conn:curwin()
 		end
 
-		local group = conn.groups[string.lower(tostring(window))]
+		local group = conn.groups[tostring(window)]
 
 		if not group then
 			return naim.call(naim.commands.buddylist, conn, unpack(arg))
@@ -575,17 +588,22 @@ function naim.cleartimeout(timeoutID)
 	naim.timers[timeoutID] = nil
 end
 
-function naim.setinterval(func, delay, ...)
+function naim.setinterval(func, interval, ...)
 	local arg = {...}
 
 	func = type(func) == "function" and func or loadstring(func)
 
-	local function intervalfunc()
-		func(unpack(arg))
-		naim.settimeout(intervalfunc, delay)
-	end
+	local t = {
+		interval = interval,
+		when = os.time() + interval,
+		func = function()
+			func(unpack(arg))
+		end,
+	}
 
-	return naim.settimeout(intervalfunc, delay)
+	naim.timers[t] = t
+
+	return t
 end
 
 naim.clearinterval = naim.cleartimeout
@@ -708,12 +726,12 @@ naim.hooks.add('proto_buddy_capschanged', function(conn, who, caps)
 end, 100)
 
 naim.hooks.add('proto_chat_joined', function(conn, chat)
-	assert(not conn.groups[string.lower(chat)])
-	conn.groups[string.lower(chat)] = {
+	assert(not conn.groups[chat])
+	conn.groups[chat] = {
 		members = {},
 	}
 
-	local window = conn.windows[string.lower(chat)]
+	local window = conn.windows[chat]
 
 	if window then
 		window:echo("You are now participating in the " .. chat .. " group.")
@@ -721,8 +739,8 @@ naim.hooks.add('proto_chat_joined', function(conn, chat)
 end, 100)
 
 naim.hooks.add('proto_chat_synched', function(conn, chat)
-	local group = conn.groups[string.lower(chat)]
-	local window = conn.windows[string.lower(chat)]
+	local group = conn.groups[chat]
+	local window = conn.windows[chat]
 
 	group.synched = true
 
@@ -732,15 +750,15 @@ naim.hooks.add('proto_chat_synched', function(conn, chat)
 end, 100)
 
 naim.hooks.add('proto_chat_left', function(conn, chat)
-	assert(conn.groups[string.lower(chat)])
-	conn.groups[string.lower(chat)] = nil
+	assert(conn.groups[chat])
+	conn.groups[chat] = nil
 end, 100)
 
 naim.hooks.add('proto_chat_kicked', function(conn, chat, by, reason)
-	assert(conn.groups[string.lower(chat)])
-	conn.groups[string.lower(chat)] = nil
+	assert(conn.groups[chat])
+	conn.groups[chat] = nil
 
-	local window = conn.windows[string.lower(chat)]
+	local window = conn.windows[chat]
 
 	if window then
 		if reason and reason ~= "" then
@@ -752,12 +770,12 @@ naim.hooks.add('proto_chat_kicked', function(conn, chat, by, reason)
 end, 100)
 
 naim.hooks.add('proto_chat_oped', function(conn, chat, by)
-	local group = conn.groups[string.lower(chat)]
+	local group = conn.groups[chat]
 
 	group.operator = true
 
 	if group.synched then
-		local window = conn.windows[string.lower(chat)]
+		local window = conn.windows[chat]
 
 		if window then
 			window:event("attacked")
@@ -766,12 +784,12 @@ naim.hooks.add('proto_chat_oped', function(conn, chat, by)
 end, 100)
 
 naim.hooks.add('proto_chat_deoped', function(conn, chat, by)
-	local group = conn.groups[string.lower(chat)]
+	local group = conn.groups[chat]
 
 	group.operator = nil
 
 	assert(group.synched)
-	local window = conn.windows[string.lower(chat)]
+	local window = conn.windows[chat]
 
 	if window then
 		window:event("attacked")
@@ -779,8 +797,8 @@ naim.hooks.add('proto_chat_deoped', function(conn, chat, by)
 end, 100)
 
 naim.hooks.add('proto_chat_modeset', function(conn, chat, by, mode, arg)
-	local group = conn.groups[string.lower(chat)]
-	local window = conn.windows[string.lower(chat)]
+	local group = conn.groups[chat]
+	local window = conn.windows[chat]
 
 	if window and group.synched then
 		window:event2("event", by, "set", "<font color=\"#FF00FF\">" .. string.lower(mode) .. (arg and " " .. arg or "") .. "</font>")
@@ -788,8 +806,8 @@ naim.hooks.add('proto_chat_modeset', function(conn, chat, by, mode, arg)
 end, 100)
 
 naim.hooks.add('proto_chat_modeunset', function(conn, chat, by, mode, arg)
-	local group = conn.groups[string.lower(chat)]
-	local window = conn.windows[string.lower(chat)]
+	local group = conn.groups[chat]
+	local window = conn.windows[chat]
 
 	if window and group.synched then
 		window:event2("event", by, "unset", "<font color=\"#FF00FF\">" .. string.lower(mode) .. (arg and " " .. arg or "") .. "</font>")
@@ -797,8 +815,8 @@ naim.hooks.add('proto_chat_modeunset', function(conn, chat, by, mode, arg)
 end, 100)
 
 naim.hooks.add('proto_chat_user_joined', function(conn, chat, who, extra)
-	local group = conn.groups[string.lower(chat)]
-	local window = conn.windows[string.lower(chat)]
+	local group = conn.groups[chat]
+	local window = conn.windows[chat]
 
 	assert(not group.members[who])
 	group.members[who] = {}
@@ -813,8 +831,8 @@ naim.hooks.add('proto_chat_user_joined', function(conn, chat, who, extra)
 end, 100)
 
 naim.hooks.add('proto_chat_user_left', function(conn, chat, who, reason)
-	local group = conn.groups[string.lower(chat)]
-	local window = conn.windows[string.lower(chat)]
+	local group = conn.groups[chat]
+	local window = conn.windows[chat]
 
 	assert(group.members[who])
 	group.members[who] = nil
@@ -829,8 +847,8 @@ naim.hooks.add('proto_chat_user_left', function(conn, chat, who, reason)
 end, 100)
 
 naim.hooks.add('proto_chat_user_kicked', function(conn, chat, who, by, reason)
-	local group = conn.groups[string.lower(chat)]
-	local window = conn.windows[string.lower(chat)]
+	local group = conn.groups[chat]
+	local window = conn.windows[chat]
 
 	assert(group.members[who])
 	group.members[who] = nil
@@ -845,12 +863,12 @@ naim.hooks.add('proto_chat_user_kicked', function(conn, chat, who, by, reason)
 end, 100)
 
 naim.hooks.add('proto_chat_user_oped', function(conn, chat, who, by)
-	local group = conn.groups[string.lower(chat)]
+	local group = conn.groups[chat]
 
 	group.members[who].operator = true
 
 	if group.synched then
-		local window = conn.windows[string.lower(chat)]
+		local window = conn.windows[chat]
 
 		if window then
 			window:event2("attacks", by, "oped", "<font color=\"#00FFFF\">" .. who .. "</font>")
@@ -859,12 +877,12 @@ naim.hooks.add('proto_chat_user_oped', function(conn, chat, who, by)
 end, 100)
 
 naim.hooks.add('proto_chat_user_deoped', function(conn, chat, who, by)
-	local group = conn.groups[string.lower(chat)]
+	local group = conn.groups[chat]
 
 	group.members[who].operator = nil
 
 	assert(group.synched)
-	local window = conn.windows[string.lower(chat)]
+	local window = conn.windows[chat]
 
 	if window then
 		window:event2("attacks", by, "deoped", "<font color=\"#00FFFF\">" .. who .. "</font>")
@@ -872,8 +890,8 @@ naim.hooks.add('proto_chat_user_deoped', function(conn, chat, who, by)
 end, 100)
 
 naim.hooks.add('proto_chat_user_nickchanged', function(conn, chat, who, newnick)
-	local group = conn.groups[string.lower(chat)]
-	local window = conn.windows[string.lower(chat)]
+	local group = conn.groups[chat]
+	local window = conn.windows[chat]
 
 	assert(not group.members[newnick])
 	group.members[newnick] = group.members[who]
@@ -885,8 +903,8 @@ naim.hooks.add('proto_chat_user_nickchanged', function(conn, chat, who, newnick)
 end, 100)
 
 naim.hooks.add('proto_chat_topicchanged', function(conn, chat, topic, by)
-	local group = conn.groups[string.lower(chat)]
-	local window = conn.windows[string.lower(chat)]
+	local group = conn.groups[chat]
+	local window = conn.windows[chat]
 
 	group.topic = topic
 
@@ -900,10 +918,14 @@ naim.hooks.add('proto_chat_topicchanged', function(conn, chat, topic, by)
 end, 100)
 
 naim.hooks.add('periodic', function(now, nowf)
-	naim.settimeout(naim.echo, 5, "timer1 called")
-	naim.settimeout(function() naim.echo("timer2 called") end, 6)
-	naim.settimeout('naim.echo("timer3 called")', 7)
+	--naim.settimeout(naim.echo, 5, "timer1 called")
+	--naim.settimeout(function() naim.echo("timer2 called") end, 6)
+	--naim.settimeout('naim.echo("timer3 called")', 7)
 end, 100)
+
+--naim.setinterval(naim.echo, 10, "interval1 called")
+--naim.setinterval(function() naim.echo("interval2 called") end, 11)
+--naim.setinterval('naim.echo("interval3 called")', 12)
 
 naim.hooks.add('preselect', function(rfd, wfd, efd, maxfd, timeout)
 	local now = os.time()
@@ -923,8 +945,13 @@ naim.hooks.add('postselect', function(rfd, wfd, efd)
 
 	for k,timer in pairs(naim.timers) do
 		if timer.when <= now then
+			if timer.interval then
+				timer.when = now + timer.interval
+			else
+				naim.cleartimeout(k)
+			end
 			timer.func()
-			naim.cleartimeout(k)
+			now = os.time()
 		end
 	end
 end, 100)

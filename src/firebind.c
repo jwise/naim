@@ -14,8 +14,6 @@ extern int	namec;
 extern namescomplete_t namescomplete;
 extern time_t	now;
 extern double	nowf;
-extern int	awayc;
-extern awayar_t *awayar;
 
 #define nFIRE_HANDLER(func) \
 static void _firebind_ ## func(struct firetalk_connection_t *sess, conn_t *conn, ...)
@@ -1125,23 +1123,15 @@ nFIRE_CTCPHAND(default) {
 
 nFIRE_CTCPREPHAND(VERSION) {
 	char	*str = strdup(args), *ver, *env;
-	int	i, show = 1;
-
-	for (i = 0; i < awayc; i++)
-		if (firetalk_compare_nicks(conn->conn, from, awayar[i].name) == FE_SUCCESS) {
-			show = 0;
-			break;
-		}
 
 	if (((ver = strchr(str, ':')) != NULL)
 	 && ((env = strchr(ver+1, ':')) != NULL)
 	 && (strchr(env+1, ':') == NULL)) {
 		*ver++ = 0;
 		*env++ = 0;
-		if (show)
-			echof(conn, NULL, "<font color=\"#00FFFF\">%s</font> is running %s version %s (%s).\n",
-				from, str, ver, env);
-	} else if (show)
+		echof(conn, NULL, "<font color=\"#00FFFF\">%s</font> is running %s version %s (%s).\n",
+			from, str, ver, env);
+	} else
 		echof(conn, NULL, "CTCP VERSION reply from <font color=\"#00FFFF\">%s</font>: %s.\n",
 			from, args);
 	free(str);
@@ -1169,24 +1159,6 @@ nFIRE_CTCPREPHAND(AWAY) {
 
 	if ((bwin = bgetwin(conn, from, BUDDY)) != NULL)
 		STRREPLACE(bwin->blurb, rest);
-
-	if (awayc > 0) {
-		int	i;
-
-		assert(awayar != NULL);
-
-		for (i = 0; i < awayc; i++)
-			if (firetalk_compare_nicks(conn->conn, from, awayar[i].name) == FE_SUCCESS) {
-				if (bwin == NULL)
-					status_echof(conn, "<font color=\"#00FFFF\">%s</font> is now away: %s.\n",
-						from, rest);
-				else
-					window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now away: %s.\n",
-						user_name(NULL, 0, conn, bwin->e.buddy), rest);
-				awayar[i].gotaway = 1;
-				return;
-			}
-	}
 
 	if (time >= 0)
 		echof(conn, NULL, "<font color=\"#00FFFF\">%s</font> has been away for %s: %s.\n",

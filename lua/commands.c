@@ -5,6 +5,7 @@
 */
 
 #include "moon-int.h"
+#include "naim-int.h"
 #include "cmdar.h"
 
 static int _lua2conio(lua_State *L, int first, const char **args, const int argmax) {
@@ -28,19 +29,6 @@ static int _table2conio(lua_State *L, int t, const char **args, const int argmax
 
 	assert(lua_gettop(L) == top);
 	return(argc);
-}
-
-static conn_t *_get_conn_t(lua_State *L, int index) {
-	const int top = lua_gettop(L);
-	conn_t	*obj;
-
-	lua_pushstring(L, "handle");
-	lua_gettable(L, index);
-	obj = (conn_t *)lua_touserdata(L, -1);
-	lua_pop(L, 1);
-
-	assert(lua_gettop(L) == top);
-	return(obj);
 }
 
 #define NLUA_COMMAND(name) \

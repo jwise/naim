@@ -971,7 +971,7 @@ static fte_t toc_isprint(const int c) {
 	return(FE_INVALIDFORMAT);
 }
 
-static toc_conn_t *toc_create_conn() {
+static toc_conn_t *toc_create_conn(struct firetalk_driver_cookie_t *cookie) {
 	toc_conn_t *c;
 
 	if ((c = toc_conn_t_new()) == NULL)

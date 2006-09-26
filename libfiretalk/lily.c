@@ -750,7 +750,7 @@ static fte_t lily_disconnected(lily_conn_t *c, const fte_t reason) {
 	return(lily_internal_disconnect(c, reason));
 }
 
-static lily_conn_t *lily_create_conn(void) {
+static lily_conn_t *lily_create_conn(struct firetalk_driver_cookie_t *cookie) {
 	lily_conn_t *c;
 
 	if ((c = lily_conn_t_new()) == NULL)

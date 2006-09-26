@@ -3,7 +3,10 @@
 ** | | | | | | || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
+
+#include <assert.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include "moon-int.h"
 
 #if 0
@@ -39,22 +42,20 @@ static void _replace_entv(lua_State *L, const char *name, va_list msg) {
 	assert(top > 0);
 
 	while (name != NULL) {
-		const char *dot;
-
-		assert(lua_istable(L, top));
+		//const char *dot;
 
 		if (!lua_istable(L, top)) {			// { t }
-			luaL_error(L, "trying to look up stack[%i][...] but stack[%i] is not a table (it is a %s)\r\n", top, top, lua_typename(L, lua_type(L, top)));
+			luaL_error(L, "trying to look up stack[%d][...] but stack[%d] is not a table (it is a %s)\r\n", top, top, lua_typename(L, lua_type(L, top)));
 			abort(); /* NOTREACH */
 		}
 
-		if ((dot = strchr(name, '.')) != NULL) {
-			lua_pushlstring(L, name, dot-name);	// { NAME, t }
-			name = dot+1;
-		} else {
+		//if ((dot = strchr(name, '.')) != NULL) {
+		//	lua_pushlstring(L, name, dot-name);	// { NAME, t }
+		//	name = dot+1;
+		//} else {
 			lua_pushstring(L, name);		// { NAME, t }
 			name = va_arg(msg, const char *);
-		}
+		//}
 		lua_gettable(L, top);				// { t[NAME], t }
 		lua_replace(L, top);				// { t[NAME] }
 		assert(lua_gettop(L) == top);
@@ -71,14 +72,14 @@ void	_get_entv(lua_State *L, int index, const char *name, va_list msg) {
 		return;
 
 	if (!lua_istable(L, index)) {
-		luaL_error(L, "trying to look up %i[..] but %i is not a table (it is a %s)", index, index, lua_typename(L, lua_type(L, index)));
+		luaL_error(L, "trying to look up %d[..] but %d is not a table (it is a %s)", index, index, lua_typename(L, lua_type(L, index)));
 		abort(); /* NOTREACH */
 	}
 
 	lua_pushvalue(L, index);				// { t }
 
 	if (!lua_istable(L, -1)) {
-		luaL_error(L, "made a copy of %i to -1 but -1 is not a table (it is a %s)", index, lua_typename(L, lua_type(L, -1)));
+		luaL_error(L, "made a copy of %d to -1 but -1 is not a table (it is a %s)", index, lua_typename(L, lua_type(L, -1)));
 		abort(); /* NOTREACH */
 	}
 

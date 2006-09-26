@@ -1351,7 +1351,7 @@ firetalk_connection_t *firetalk_create_conn(const int protocol, struct firetalk_
 	conn->protocol = protocol;
 	assert(firetalk_buffer_t_valid(&(conn->buffer)));
 	firetalk_buffer_alloc(&(conn->buffer), firetalk_protocols[protocol]->default_buffersize);
-	conn->handle = firetalk_protocols[protocol]->create_conn();
+	conn->handle = firetalk_protocols[protocol]->create_conn(firetalk_protocols[protocol]->cookie);
 	return(conn);
 }
 

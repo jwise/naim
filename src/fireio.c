@@ -18,11 +18,6 @@ extern time_t	now, awaytime;
 extern double	nowf;
 extern char	*sty, *statusbar_text;
 
-extern int awayc G_GNUC_INTERNAL;
-extern awayar_t *awayar G_GNUC_INTERNAL;
-int	awayc = 0;
-awayar_t *awayar = NULL;
-
 #define NAIM_VERSION_STRING	"naim:" PACKAGE_VERSION NAIM_SNAPSHOT
 
 #define STANDARD_TRAILER	\
@@ -702,36 +697,6 @@ static int fireio_disconnected(void *userdata, const char *signature, conn_t *co
 	return(HOOK_CONTINUE);
 }
 
-static int fireio_userinfo(void *userdata, const char *signature, conn_t *conn, const char *SN, const unsigned char *info, long warning, long online, long idle, long class) {
-	if (awayc > 0) {
-		int	i;
-
-		assert(awayar != NULL);
-
-		for (i = 0; i < awayc; i++)
-			if (firetalk_compare_nicks(conn->conn, SN, awayar[i].name) == FE_SUCCESS) {
-				if (awayar[i].gotaway == 0) {
-					buddywin_t	*bwin = bgetwin(conn, SN, BUDDY);
-
-					if (bwin == NULL)
-						status_echof(conn, "<font color=\"#00FFFF\">%s</font> is now away.\n",
-							SN);
-					else
-						window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now away.\n",
-							user_name(NULL, 0, conn, bwin->e.buddy));
-				}
-				free(awayar[i].name);
-				memmove(awayar+i, awayar+i+1, (awayc-i-1)*sizeof(*awayar));
-				awayc--;
-				awayar = realloc(awayar, awayc*sizeof(*awayar));
-				return(HOOK_CONTINUE);;
-			}
-	}
-
-	return(HOOK_CONTINUE);
-}
-
-
 buddywin_t *cgetwin(conn_t *conn, const char *roomname) {
 	buddywin_t *bwin;
 
@@ -993,7 +958,6 @@ void	fireio_hook_init(void) {
 	HOOK_ADD(proto_warned,		mod, fireio_warned,		100, NULL);
 	HOOK_ADD(proto_error_msg,	mod, fireio_error_msg,		100, NULL);
 	HOOK_ADD(proto_disconnected,	mod, fireio_disconnected,	100, NULL);
-	HOOK_ADD(proto_userinfo,	mod, fireio_userinfo,		100, NULL);
 	HOOK_ADD(proto_buddyadded,	mod, fireio_buddyadded,		100, NULL);
 	HOOK_ADD(proto_buddyremoved,	mod, fireio_buddyremoved,	100, NULL);
 	HOOK_ADD(proto_buddy_coming,	mod, fireio_buddy_coming,	100, NULL);

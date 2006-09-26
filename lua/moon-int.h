@@ -7,7 +7,6 @@
 
 #include <naim/naim.h>
 #include <naim/modutil.h>
-#include "naim-int.h"
 
 #include "lua.h"
 #include "lualib.h"
@@ -15,6 +14,7 @@
 
 /* conn.c */
 void	_push_conn_t(lua_State *L, conn_t *conn);
+conn_t	*_get_conn_t(lua_State *L, int index);
 
 /* garbage.c */
 void	nlua_clean_garbage(void);

@@ -30,6 +30,7 @@ libnlua_la_SOURCES = \
 	hooks.c \
 	moon.c \
 	moon-int.h \
+	pd.c \
 	script.c \
 	util.c \
 	variables.c
