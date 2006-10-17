@@ -1,8 +1,8 @@
 AC_PREREQ(2.50)
-AC_INIT(naim, 0.11.8.2, n@ml.org)
-AC_CONFIG_SRCDIR([doc/naim.hlp])
+AC_INIT(naim, 0.11.8.2.1, [Daniel Reed <n@ml.org>])
+AC_CONFIG_SRCDIR([src/naim-int.h])
 AC_CONFIG_HEADER([src/config.h])
-AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip no-define no-dependencies subdir-objects std-options 1.8])
+AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip no-dependencies no-define subdir-objects std-options 1.8])
 AM_PROG_CC_C_O
 
 echo ""

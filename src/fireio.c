@@ -1055,6 +1055,32 @@ nFIRE_HANDLER(naim_error_msg) {
 	if ((error == FE_MESSAGETRUNCATED) && (awaytime > 0))
 		return;
 
+	if ((error == FE_INVALIDFORMAT) && (target != NULL) && (awayc > 0)) {
+		int	i;
+
+		assert(awayar != NULL);
+
+		for (i = 0; i < awayc; i++)
+			if (firetalk_compare_nicks(conn->conn, target, awayar[i].name) == FE_SUCCESS) {
+				if (awayar[i].gotaway == 0) {
+					buddywin_t *bwin = bgetwin(conn, target, BUDDY);
+
+					if (bwin == NULL)
+						status_echof(conn, "<font color=\"#00FFFF\">%s</font> is now away.\n",
+							target);
+					else
+						window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now away.\n",
+							user_name(NULL, 0, conn, bwin->e.buddy));
+				}
+				free(awayar[i].name);
+				memmove(awayar+i, awayar+i+1, (awayc-i-1)*sizeof(*awayar));
+				awayc--;
+				awayar = realloc(awayar, awayc*sizeof(*awayar));
+				return;
+			}
+	}
+
+
 	if ((target != NULL) && ((bwin = bgetanywin(conn, target)) != NULL)) {
 		if (desc != NULL)
 			window_echof(bwin, "ERROR: %s, %c%s\n",
