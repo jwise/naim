@@ -241,5 +241,5 @@ AC_DEFUN([AC_PROG_NAIM],
 			])
 	])
 
-	AC_CHECK_FUNCS(hstrerror strsignal strverscmp waitpid)
+	AC_CHECK_FUNCS(hstrerror strsignal strverscmp waitpid utime)
 ])# AC_PROG_NAIM

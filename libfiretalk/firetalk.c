@@ -145,7 +145,7 @@ firetalk_deny_t *firetalk_im_internal_add_deny(firetalk_connection_t *conn, cons
 	assert(firetalk_connection_t_valid(conn));
 
 	for (iter = conn->deny_head; iter != NULL; iter = iter->next)
-		if (firetalk_protocols[conn->protocol]->comparenicks(iter->nickname, nickname) == FE_SUCCESS)
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, iter->nickname, nickname) == FE_SUCCESS)
 			break; /* not an error, user is in buddy list */
 
 	if (iter == NULL) {
@@ -285,7 +285,7 @@ fte_t	firetalk_user_visible(firetalk_connection_t *conn, const char *const nickn
 		firetalk_member_t *mem;
 
 		for (mem = iter->member_head; mem != NULL; mem = mem->next)
-			if (firetalk_protocols[conn->protocol]->comparenicks(mem->nickname, nickname) == FE_SUCCESS)
+			if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, mem->nickname, nickname) == FE_SUCCESS)
 				return(FE_SUCCESS);
 	}
 	return(FE_NOMATCH);
@@ -299,10 +299,10 @@ fte_t	firetalk_user_visible_but(firetalk_connection_t *conn, const char *const r
 	for (iter = conn->room_head; iter != NULL; iter = iter->next) {
 		firetalk_member_t *mem;
 
-		if (firetalk_protocols[conn->protocol]->comparenicks(iter->name, room) == FE_SUCCESS)
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, iter->name, room) == FE_SUCCESS)
 			continue;
 		for (mem = iter->member_head; mem != NULL; mem = mem->next)
-			if (firetalk_protocols[conn->protocol]->comparenicks(mem->nickname, nickname) == FE_SUCCESS)
+			if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, mem->nickname, nickname) == FE_SUCCESS)
 				return(FE_SUCCESS);
 	}
 	return(FE_NOMATCH);
@@ -314,7 +314,7 @@ fte_t	firetalk_chat_internal_add_room(firetalk_connection_t *conn, const char *c
 	assert(firetalk_connection_t_valid(conn));
 
 	for (iter = conn->room_head; iter != NULL; iter = iter->next)
-		if (firetalk_protocols[conn->protocol]->comparenicks(iter->name, name) == FE_SUCCESS)
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, iter->name, name) == FE_SUCCESS)
 			return(FE_DUPEROOM); /* not an error, we're already in room */
 
 	if ((iter = firetalk_room_t_new()) == NULL)
@@ -333,14 +333,14 @@ fte_t	firetalk_chat_internal_add_member(firetalk_connection_t *conn, const char 
 	assert(firetalk_connection_t_valid(conn));
 
 	for (iter = conn->room_head; iter != NULL; iter = iter->next)
-		if (firetalk_protocols[conn->protocol]->comparenicks(iter->name, room) == FE_SUCCESS)
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, iter->name, room) == FE_SUCCESS)
 			break;
 
 	if (iter == NULL) /* we don't know about that room */
 		return(FE_NOTFOUND);
 
 	for (memberiter = iter->member_head; memberiter != NULL; memberiter = memberiter->next)
-		if (firetalk_protocols[conn->protocol]->comparenicks(memberiter->nickname, nickname) == FE_SUCCESS)
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, memberiter->nickname, nickname) == FE_SUCCESS)
 			return(FE_SUCCESS);
 
 	if ((memberiter = firetalk_member_t_new()) == NULL)
@@ -359,7 +359,7 @@ static void firetalk_im_delete_buddy(firetalk_connection_t *conn, const char *co
 		assert(iter->nickname != NULL);
 		assert(iter->group != NULL);
 
-		if (firetalk_protocols[conn->protocol]->comparenicks(nickname, iter->nickname) == FE_SUCCESS)
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, nickname, iter->nickname) == FE_SUCCESS)
 			break;
 	}
 	if (iter == NULL)
@@ -383,7 +383,7 @@ firetalk_buddy_t *firetalk_im_find_buddy(firetalk_connection_t *conn, const char
 		assert(iter->nickname != NULL);
 		assert(iter->group != NULL);
 
-		if (firetalk_protocols[conn->protocol]->comparenicks(iter->nickname, name) == FE_SUCCESS)
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, iter->nickname, name) == FE_SUCCESS)
 			return(iter);
 	}
 	return(NULL);
@@ -417,7 +417,7 @@ fte_t	firetalk_im_internal_remove_deny(firetalk_connection_t *conn, const char *
 
 	prev = NULL;
 	for (iter = conn->deny_head; iter != NULL; iter = iter->next) {
-		if (firetalk_protocols[conn->protocol]->comparenicks(nickname, iter->nickname) == FE_SUCCESS) {
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, nickname, iter->nickname) == FE_SUCCESS) {
 			if (conn->callbacks[FC_IM_DENYREMOVED] != NULL)
 				conn->callbacks[FC_IM_DENYREMOVED](conn, conn->clientstruct, iter->nickname);
 
@@ -441,7 +441,7 @@ fte_t	firetalk_chat_internal_remove_room(firetalk_connection_t *conn, const char
 
 	prev = NULL;
 	for (iter = conn->room_head; iter != NULL; iter = iter->next) {
-		if (firetalk_protocols[conn->protocol]->comparenicks(name, iter->name) == FE_SUCCESS) {
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, name, iter->name) == FE_SUCCESS) {
 			if (prev)
 				prev->next = iter->next;
 			else
@@ -462,7 +462,7 @@ fte_t	firetalk_chat_internal_remove_member(firetalk_connection_t *conn, const ch
 	assert(firetalk_connection_t_valid(conn));
 
 	for (iter = conn->room_head; iter != NULL; iter = iter->next)
-		if (firetalk_protocols[conn->protocol]->comparenicks(iter->name, room) == FE_SUCCESS)
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, iter->name, room) == FE_SUCCESS)
 			break;
 
 	if (iter == NULL) /* we don't know about that room */
@@ -470,7 +470,7 @@ fte_t	firetalk_chat_internal_remove_member(firetalk_connection_t *conn, const ch
 
 	memberprev = NULL;
 	for (memberiter = iter->member_head; memberiter != NULL; memberiter = memberiter->next) {
-		if (firetalk_protocols[conn->protocol]->comparenicks(memberiter->nickname,nickname) == FE_SUCCESS) {
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, memberiter->nickname,nickname) == FE_SUCCESS) {
 			if (memberprev)
 				memberprev->next = memberiter->next;
 			else
@@ -488,9 +488,9 @@ firetalk_room_t *firetalk_find_room(firetalk_connection_t *conn, const char *con
 	firetalk_room_t *roomiter;
 	const char *normalroom;
 
-	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
+	normalroom = firetalk_protocols[conn->protocol]->room_normalize(conn->handle, room);
 	for (roomiter = conn->room_head; roomiter != NULL; roomiter = roomiter->next)
-		if (firetalk_protocols[conn->protocol]->comparenicks(roomiter->name, normalroom) == FE_SUCCESS)
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, roomiter->name, normalroom) == FE_SUCCESS)
 			return(roomiter);
 
 	firetalkerror = FE_NOTFOUND;
@@ -501,7 +501,7 @@ static firetalk_member_t *firetalk_find_member(firetalk_connection_t *conn, fire
 	firetalk_member_t *memberiter;
 
 	for (memberiter = r->member_head; memberiter != NULL; memberiter = memberiter->next)
-		if (firetalk_protocols[conn->protocol]->comparenicks(memberiter->nickname, name) == FE_SUCCESS)
+		if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, memberiter->nickname, name) == FE_SUCCESS)
 			return(memberiter);
 
 	firetalkerror = FE_NOTFOUND;
@@ -527,7 +527,7 @@ void	firetalk_callback_im_getmessage(struct firetalk_driver_connection_t *c, con
 	}
 	if (conn->callbacks[FC_IM_GETMESSAGE]) {
 		for (iter = conn->deny_head; iter != NULL; iter = iter->next)
-			if (firetalk_protocols[conn->protocol]->comparenicks(sender, iter->nickname) == FE_SUCCESS)
+			if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, sender, iter->nickname) == FE_SUCCESS)
 				return;
 		isonline_hack = sender;
 		conn->callbacks[FC_IM_GETMESSAGE](conn, conn->clientstruct, sender, automessage, message);
@@ -541,7 +541,7 @@ void	firetalk_callback_im_getaction(struct firetalk_driver_connection_t *c, cons
 
 	if (conn->callbacks[FC_IM_GETACTION]) {
 		for (iter = conn->deny_head; iter != NULL; iter = iter->next)
-			if (firetalk_protocols[conn->protocol]->comparenicks(sender, iter->nickname) == FE_SUCCESS)
+			if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, sender, iter->nickname) == FE_SUCCESS)
 				return;
 		isonline_hack = sender;
 		conn->callbacks[FC_IM_GETACTION](conn, conn->clientstruct, sender, automessage, message);
@@ -816,7 +816,7 @@ void	firetalk_callback_user_nickchanged(struct firetalk_driver_connection_t *c, 
 
 	for (roomiter = conn->room_head; roomiter != NULL; roomiter = roomiter->next)
 		for (memberiter = roomiter->member_head; memberiter != NULL; memberiter = memberiter->next)
-			if (firetalk_protocols[conn->protocol]->comparenicks(memberiter->nickname, oldnick) == FE_SUCCESS) {
+			if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, memberiter->nickname, oldnick) == FE_SUCCESS) {
 				if (strcmp(memberiter->nickname, newnick) != 0) {
 					tempstr = memberiter->nickname;
 					memberiter->nickname = strdup(newnick);
@@ -914,7 +914,7 @@ void	firetalk_callback_chat_user_quit(struct firetalk_driver_connection_t *c, co
 	for (roomiter = conn->room_head; roomiter != NULL; roomiter = roomiter->next)
 		for (memberiter = roomiter->member_head; memberiter != NULL; memberiter = membernext) {
 			membernext = memberiter->next;
-			if (firetalk_protocols[conn->protocol]->comparenicks(memberiter->nickname, who) == FE_SUCCESS)
+			if (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, memberiter->nickname, who) == FE_SUCCESS)
 				firetalk_callback_chat_user_left(c, roomiter->name, who, reason);
 		}
 }
@@ -1464,7 +1464,7 @@ fte_t	firetalk_im_add_buddy(firetalk_connection_t *conn, const char *const name,
 		iter->uploaded = 1;
 	}
 
-	if ((isonline_hack != NULL) && (firetalk_protocols[conn->protocol]->comparenicks(iter->nickname, isonline_hack) == FE_SUCCESS))
+	if ((isonline_hack != NULL) && (firetalk_protocols[conn->protocol]->comparenicks(conn->handle, iter->nickname, isonline_hack) == FE_SUCCESS))
 		firetalk_callback_im_buddyonline(conn->handle, iter->nickname, 1);
 
 	return(FE_SUCCESS);
@@ -1574,7 +1574,7 @@ fte_t	firetalk_chat_listmembers(firetalk_connection_t *conn, const char *const r
 }
 
 const char *firetalk_chat_normalize(firetalk_connection_t *conn, const char *const room) {
-	return(firetalk_protocols[conn->protocol]->room_normalize(room));
+	return(firetalk_protocols[conn->protocol]->room_normalize(conn->handle, room));
 }
 
 fte_t	firetalk_set_away(firetalk_connection_t *conn, const char *const message, const int auto_flag) {
@@ -1632,7 +1632,7 @@ fte_t	firetalk_chat_join(firetalk_connection_t *conn, const char *const room) {
 	if (conn->sock.state == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
 
-	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
+	normalroom = firetalk_protocols[conn->protocol]->room_normalize(conn->handle, room);
 	if (!normalroom)
 		return(FE_ROOMUNAVAILABLE);
 
@@ -1647,7 +1647,7 @@ fte_t	firetalk_chat_part(firetalk_connection_t *conn, const char *const room) {
 	if (conn->sock.state == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
 
-	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
+	normalroom = firetalk_protocols[conn->protocol]->room_normalize(conn->handle, room);
 	if (!normalroom)
 		return(FE_ROOMUNAVAILABLE);
 
@@ -1665,7 +1665,7 @@ fte_t	firetalk_chat_send_message(firetalk_connection_t *conn, const char *const 
 	if (*room == ':')
 		normalroom = room;
 	else
-		normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
+		normalroom = firetalk_protocols[conn->protocol]->room_normalize(conn->handle, room);
 	if (!normalroom)
 		return(FE_ROOMUNAVAILABLE);
 
@@ -1680,7 +1680,7 @@ fte_t	firetalk_chat_send_action(firetalk_connection_t *conn, const char *const r
 	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
-	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
+	normalroom = firetalk_protocols[conn->protocol]->room_normalize(conn->handle, room);
 	if (!normalroom)
 		return(FE_ROOMUNAVAILABLE);
 
@@ -1695,7 +1695,7 @@ fte_t	firetalk_chat_invite(firetalk_connection_t *conn, const char *const room, 
 	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
-	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
+	normalroom = firetalk_protocols[conn->protocol]->room_normalize(conn->handle, room);
 	if (!normalroom)
 		return(FE_ROOMUNAVAILABLE);
 
@@ -1710,7 +1710,7 @@ fte_t	firetalk_chat_set_topic(firetalk_connection_t *conn, const char *const roo
 	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
-	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
+	normalroom = firetalk_protocols[conn->protocol]->room_normalize(conn->handle, room);
 	if (!normalroom)
 		return(FE_ROOMUNAVAILABLE);
 
@@ -1725,7 +1725,7 @@ fte_t	firetalk_chat_op(firetalk_connection_t *conn, const char *const room, cons
 	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
-	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
+	normalroom = firetalk_protocols[conn->protocol]->room_normalize(conn->handle, room);
 	if (!normalroom)
 		return(FE_ROOMUNAVAILABLE);
 
@@ -1740,7 +1740,7 @@ fte_t	firetalk_chat_deop(firetalk_connection_t *conn, const char *const room, co
 	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
-	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
+	normalroom = firetalk_protocols[conn->protocol]->room_normalize(conn->handle, room);
 	if (!normalroom)
 		return(FE_ROOMUNAVAILABLE);
 
@@ -1755,7 +1755,7 @@ fte_t	firetalk_chat_kick(firetalk_connection_t *conn, const char *const room, co
 	if (conn->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
-	normalroom = firetalk_protocols[conn->protocol]->room_normalize(room);
+	normalroom = firetalk_protocols[conn->protocol]->room_normalize(conn->handle, room);
 	if (!normalroom)
 		return(FE_ROOMUNAVAILABLE);
 
@@ -1983,13 +1983,13 @@ fte_t	firetalk_compare_nicks(firetalk_connection_t *conn, const char *const nick
 	if ((nick1 == NULL) || (nick2 == NULL))
 		return(FE_NOMATCH);
 
-	return(firetalk_protocols[conn->protocol]->comparenicks(nick1, nick2));
+	return(firetalk_protocols[conn->protocol]->comparenicks(conn->handle, nick1, nick2));
 }
 
 fte_t	firetalk_isprint(firetalk_connection_t *conn, const int c) {
 	assert(firetalk_connection_t_valid(conn));
 
-	return(firetalk_protocols[conn->protocol]->isprintable(c));
+	return(firetalk_protocols[conn->protocol]->isprintable(conn->handle, c));
 }
 
 fte_t	firetalk_select(void) {

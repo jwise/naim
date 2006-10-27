@@ -156,7 +156,7 @@ static void irc_disc_rem(irc_conn_t *c, const char *disc) {
 		irc_disc_user_rem(c, disc, mem->nickname);
 }
 
-static const char *irc_normalize_room_name(const char *const name) {
+static const char *irc_normalize_room_name(irc_conn_t *c, const char *const name) {
 	static char	newname[2048];
 
 	if (strchr(ROOMSTARTS, *name))
@@ -189,14 +189,14 @@ static void irc_echof(irc_conn_t *c, const char *const where, const char *const 
 }
 #endif
 
-static fte_t irc_compare_nicks(const char *const nick1, const char *const nick2) {
+static fte_t irc_compare_nicks(irc_conn_t *c, const char *const nick1, const char *const nick2) {
 	if (irc_compare_nicks_int(nick1, nick2) == 0)
 		return(FE_SUCCESS);
 	return(FE_NOMATCH);
 }
 
-static fte_t irc_isprint(const int c) {
-	if (isprint(c))
+static fte_t irc_isprint(irc_conn_t *c, const int ch) {
+	if (isprint(ch))
 		return(FE_SUCCESS);
 	return(FE_INVALIDFORMAT);
 }
@@ -778,7 +778,7 @@ static void irc_addwhois(irc_conn_t *c, const char *const name, const char *cons
 	va_end(msg);
 
 	for (whoisiter = c->whois_head; whoisiter != NULL; whoisiter = whoisiter->next)
-		if (irc_compare_nicks(name, whoisiter->nickname) == 0) {
+		if (irc_compare_nicks(c, name, whoisiter->nickname) == 0) {
 			int	len = whoisiter->info?strlen(whoisiter->info):0;
 
 			whoisiter->info = realloc(whoisiter->info, len+strlen(buf)+1);
@@ -834,7 +834,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 			const char *name = irc_get_nickname(args[0]);
 
 			firetalk_callback_im_buddyonline(c, name, 0);
-			if (irc_compare_nicks(c->nickname, name) == 0)
+			if (irc_compare_nicks(c, c->nickname, name) == 0)
 				irc_internal_disconnect(c, FE_DISCONNECT);
 			else
 				firetalk_callback_chat_user_quit(c, name, irc_irc_to_html(args[2]));
@@ -854,7 +854,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 			const char	*name = irc_get_nickname(args[0]);
 
 			firetalk_callback_im_buddyonline(c, name, 1);
-			if (irc_compare_nicks(c->nickname, name) == 0)
+			if (irc_compare_nicks(c, c->nickname, name) == 0)
 				firetalk_callback_chat_joined(c, args[2]);
 			else {
 				char	*extra = strchr(args[0], '!');
@@ -864,7 +864,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 		} else if (strcmp(args[1], "PART") == 0) {
 			const char	*name = irc_get_nickname(args[0]);
 
-			if (irc_compare_nicks(c->nickname, name) == 0) {
+			if (irc_compare_nicks(c, c->nickname, name) == 0) {
 				irc_disc_rem(c, args[2]);
 				firetalk_callback_chat_left(c, args[2]);
 			} else {
@@ -874,7 +874,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 		} else if (strcmp(args[1],"NICK") == 0) {
 			const char *name = irc_get_nickname(args[0]);
 
-			if (irc_compare_nicks(c->nickname, name) == 0) {
+			if (irc_compare_nicks(c, c->nickname, name) == 0) {
 				STRREPLACE(c->nickname, args[2]);
 				firetalk_callback_newnick(c, c->nickname);
 			}
@@ -964,7 +964,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 		} else if (strcmp(args[1], "KICK") == 0) {
 			const char *name = irc_get_nickname(args[3]);
 
-			if (irc_compare_nicks(c->nickname, name) == 0) {
+			if (irc_compare_nicks(c, c->nickname, name) == 0) {
 				irc_disc_rem(c, args[2]);
 				firetalk_callback_chat_kicked(c, args[2], irc_get_nickname(args[0]), irc_irc_to_html(args[4]));
 			} else {
@@ -1006,7 +1006,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 				break;
 			case 313: /* RPL_WHOISOPER */
 				for (whoisiter = c->whois_head; whoisiter != NULL; whoisiter = whoisiter->next)
-					if (irc_compare_nicks(args[3],whoisiter->nickname) == 0) {
+					if (irc_compare_nicks(c, args[3],whoisiter->nickname) == 0) {
 						whoisiter->flags |= FF_ADMIN;
 						break;
 					}
@@ -1014,7 +1014,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 			case 318: /* RPL_ENDOFWHOIS */
 				whoisiter2 = NULL;
 				for (whoisiter = c->whois_head; whoisiter != NULL; whoisiter = whoisiter->next) {
-					if (irc_compare_nicks(args[3], whoisiter->nickname) == 0) {
+					if (irc_compare_nicks(c, args[3], whoisiter->nickname) == 0) {
 						/* manual whois */
 						firetalk_callback_gotinfo(c, whoisiter->nickname, whoisiter->info, 0, whoisiter->online, whoisiter->idle, whoisiter->flags);
 						if (whoisiter2)
@@ -1034,7 +1034,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 			case 443: /* ERR_USERONCHANNEL */
 				whoisiter2 = NULL;
 				for (whoisiter = c->whois_head; whoisiter != NULL; whoisiter = whoisiter->next) {
-					if (irc_compare_nicks(args[3], whoisiter->nickname) == 0) {
+					if (irc_compare_nicks(c, args[3], whoisiter->nickname) == 0) {
 						if (whoisiter2)
 							whoisiter2->next = whoisiter->next;
 						else
@@ -1110,11 +1110,11 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 				  case 'o':
 					if (dir == 1) {
 						firetalk_callback_chat_user_opped(c, args[2], args[arg], source);
-						if (irc_compare_nicks(args[arg], c->nickname) == FE_SUCCESS)
+						if (irc_compare_nicks(c, args[arg], c->nickname) == FE_SUCCESS)
 							firetalk_callback_chat_opped(c, args[2], source);
 					} else if (dir == -1) {
 						firetalk_callback_chat_user_deopped(c, args[2], args[arg], source);
-						if (irc_compare_nicks(args[arg], c->nickname) == FE_SUCCESS)
+						if (irc_compare_nicks(c, args[arg], c->nickname) == FE_SUCCESS)
 							firetalk_callback_chat_deopped(c, args[2], source);
 					}
 					break;
@@ -1150,7 +1150,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 		switch (numeric) {
 			case 317: /* RPL_WHOISIDLE */
 				for (whoisiter = c->whois_head; whoisiter != NULL; whoisiter = whoisiter->next)
-					if (irc_compare_nicks(args[3], whoisiter->nickname) == 0) {
+					if (irc_compare_nicks(c, args[3], whoisiter->nickname) == 0) {
 						whoisiter->online = atol(args[5]);
 						whoisiter->idle = atol(args[4])/60;
 					}
@@ -1221,7 +1221,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 				firetalk_callback_im_buddyonline(c, str, 1);
 				if (oped) {
 					firetalk_callback_chat_user_opped(c, args[4], str, NULL);
-					if (irc_compare_nicks(str, c->nickname) == FE_SUCCESS)
+					if (irc_compare_nicks(c, str, c->nickname) == FE_SUCCESS)
 						firetalk_callback_chat_opped(c, args[4], NULL);
 				}
 

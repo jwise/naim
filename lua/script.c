@@ -45,9 +45,8 @@ char	*nlua_expand(const char *script) {
 	return(result);
 }
 
-int	nlua_luacmd(conn_t *conn, char *cmd, char *arg) {
+void	nlua_luacmd(conn_t *conn, char *cmd, char *arg) {
 	const int top = lua_gettop(lua);
-	char	*lcmd;
 
 	_get_global_ent(lua, "naim", "call", NULL);
 	if (!lua_isfunction(lua, -1)) {
@@ -56,42 +55,39 @@ int	nlua_luacmd(conn_t *conn, char *cmd, char *arg) {
 		lua_pop(lua, 1);		// {}
 		if (!complained && (conn != NULL)) {
 			complained++;
-			status_echof(conn, "naim.call is no longer a function. This is a bug in a user script.");
+			echof(conn, cmd, "naim.call is no longer a function. This is a bug in a user script.");
 		}
 		assert(lua_gettop(lua) == top);
-		return(0);
+		return;
 	}
 
-	lcmd = strdup(cmd);
-	{
-		char	*p;
-
-		for (p = lcmd; *p; p++)
-			*p = tolower(*p);
-	}
-	_get_global_ent(lua, "naim", "commands", lcmd, NULL);
-	free(lcmd);
+#if 1
+	lua_pushstring(lua, cmd);
+#else
+	_get_global_ent(lua, "naim", "commands", cmd, NULL);
 	if (lua_isnil(lua, -1)) {
 		lua_pop(lua, 2);		// {}
+		if (conn != NULL)
+			echof(conn, cmd, "Unknown command.");
 		assert(lua_gettop(lua) == top);
-		return(0);
+		return;
 	}
 	if (!lua_istable(lua, -1)) {
 		lua_pop(lua, 2);		// {}
 		if (conn != NULL)
-			status_echof(conn, "naim.commands.%s is not a function table. This is a bug in a user script.", cmd);
+			echof(conn, cmd, "naim.commands.%s is not a function table. This is a bug in a user script.", cmd);
 		assert(lua_gettop(lua) == top);
-		return(0);
+		return;
 	}
+#endif
 	_push_conn_t(lua, conn);		// { CONN, naim.commands[CMD], naim.call }
 	lua_pushstring(lua, arg);		// { ARG, CONN, naim.commands[CMD], naim.call }
 	if (lua_pcall(lua, 3, 0, 0) != 0) {	// {}
 		if (conn != NULL)
-			status_echof(conn, "Lua function \"%s\" returned an error: \"%s\"", cmd, lua_tostring(lua, -1));
+			echof(conn, cmd, "Lua function \"%s\" returned an error: \"%s\"", cmd, lua_tostring(lua, -1));
 		lua_pop(lua, 1);
 		assert(lua_gettop(lua) == top);
-		return(0);
+		return;
 	}
 	assert(lua_gettop(lua) == top);
-	return(1);
 }

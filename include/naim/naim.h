@@ -78,9 +78,9 @@ enum {
 };
 
 typedef struct {
-	void	*win;
+	struct winwin_t *_win;
 	FILE	*logfile;
-	int	height;
+	int	logfilelines, height;
 	unsigned char dirty:1,
 		small:1;
 } win_t;

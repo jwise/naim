@@ -469,7 +469,7 @@ static char *aim_interpolate_variables(const char *const input, const char *cons
 	return(output);
 }
 
-static const char *aim_normalize_room_name(const char *const name) {
+static const char *aim_normalize_room_name(toc_conn_t *c, const char *const name) {
 	static char newname[2048];
 
 	if (name == NULL)
@@ -485,7 +485,7 @@ static const char *aim_normalize_room_name(const char *const name) {
 	return(newname);
 }
 
-static char *aim_handle_ect(toc_conn_t *conn, const char *const from, char *const message, const int reply) {
+static char *aim_handle_ect(toc_conn_t *c, const char *const from, char *const message, const int reply) {
 	char	*ectbegin, *ectend, *textbegin, *textend;
 
 	while ((ectbegin = strstr(message, ECT_TOKEN)) != NULL) {
@@ -500,14 +500,14 @@ static char *aim_handle_ect(toc_conn_t *conn, const char *const from, char *cons
 			if ((arg = strchr(textbegin, ' ')) != NULL) {
 				*arg++ = 0;
 				if (reply == 1)
-					firetalk_callback_subcode_reply(conn, from, textbegin, firetalk_htmlclean(arg));
+					firetalk_callback_subcode_reply(c, from, textbegin, firetalk_htmlclean(arg));
 				else
-					firetalk_callback_subcode_request(conn, from, textbegin, firetalk_htmlclean(arg));
+					firetalk_callback_subcode_request(c, from, textbegin, firetalk_htmlclean(arg));
 			} else {
 				if (reply == 1)
-					firetalk_callback_subcode_reply(conn, from, textbegin, NULL);
+					firetalk_callback_subcode_reply(c, from, textbegin, NULL);
 				else
-					firetalk_callback_subcode_request(conn, from, textbegin, NULL);
+					firetalk_callback_subcode_request(c, from, textbegin, NULL);
 			}
 			memmove(ectbegin, ectend, strlen(ectend)+1);
 		} else
@@ -793,7 +793,7 @@ static char *toc_hash_password(const char *const password) {
 	return(output);
 }
 
-static fte_t toc_compare_nicks (const char *s1, const char *s2) {
+static fte_t toc_compare_nicks(toc_conn_t *c, const char *s1, const char *s2) {
 	assert(s1 != NULL);
 	assert(s2 != NULL);
 
@@ -845,7 +845,7 @@ static int toc_internal_set_id(toc_conn_t *c, const char *const name, const int 
 
 	for (iter = c->room_head; iter != NULL; iter = iter->next)
 		if (iter->joined == 0)
-			if ((iter->exchange == exchange) && (toc_compare_nicks(iter->name, name) == 0)) {
+			if ((iter->exchange == exchange) && (toc_compare_nicks(c, iter->name, name) == 0)) {
 				iter->id = id;
 				return(FE_SUCCESS);
 			}
@@ -857,7 +857,7 @@ static int toc_internal_find_exchange(toc_conn_t *c, const char *const name) {
 
 	for (iter = c->room_head; iter != NULL; iter = iter->next)
 		if (iter->joined == 0)
-			if (toc_compare_nicks(iter->name, name) == 0)
+			if (toc_compare_nicks(c, iter->name, name) == 0)
 				return(iter->exchange);
 	firetalkerror = FE_NOTFOUND;
 	return(0);
@@ -881,7 +881,7 @@ static int toc_internal_find_room_id(toc_conn_t *c, const char *const name) {
 
 	for (iter = c->room_head; iter != NULL; iter = iter->next)
 		if (iter->exchange == exchange)
-			if (toc_compare_nicks(iter->name, namepart) == 0)
+			if (toc_compare_nicks(c, iter->name, namepart) == 0)
 				return(iter->id);
 	firetalkerror = FE_NOTFOUND;
 	return(0);
@@ -893,8 +893,7 @@ static char *toc_internal_find_room_name(toc_conn_t *c, const long id) {
 
 	for (iter = c->room_head; iter != NULL; iter = iter->next)
 		if (iter->id == id) {
-			snprintf(newname, sizeof(newname), "%d:%s", 
-				iter->exchange, iter->name);
+			snprintf(newname, sizeof(newname), "%d:%s", iter->exchange, iter->name);
 			return(newname);
 		}
 	firetalkerror = FE_NOTFOUND;
@@ -912,7 +911,7 @@ static int toc_internal_set_room_invited(toc_conn_t *c, const char *const name, 
 	toc_room_t *iter;
 
 	for (iter = c->room_head; iter != NULL; iter = iter->next)
-		if (toc_compare_nicks(iter->name,name) == 0) {
+		if (toc_compare_nicks(c, iter->name,name) == 0) {
 			iter->invited = invited;
 			return(FE_SUCCESS);
 		}
@@ -924,7 +923,7 @@ static int toc_internal_get_room_invited(toc_conn_t *c, const char *const name) 
 	toc_room_t *iter;
 
 	for (iter = c->room_head; iter != NULL; iter = iter->next)
-		if (toc_compare_nicks(aim_normalize_room_name(iter->name),name) == 0)
+		if (toc_compare_nicks(c, aim_normalize_room_name(c, iter->name), name) == 0)
 			return(iter->invited);
 
 	return(-1);
@@ -965,8 +964,8 @@ static char **toc_parse_args(char *str, const int maxargs, const char sep) {
 
 /* External Function Definitions */
 
-static fte_t toc_isprint(const int c) {
-	if ((c >= 0) && (c <= 255) && (isprint(c) || (c >= 160)))
+static fte_t toc_isprint(toc_conn_t *c, const int ch) {
+	if ((ch >= 0) && (ch <= 255) && (isprint(ch) || (ch >= 160)))
 		return(FE_SUCCESS);
 	return(FE_INVALIDFORMAT);
 }
@@ -1122,7 +1121,7 @@ static fte_t toc_internal_send_message(toc_conn_t *c, const char *const dest, co
 		return(FE_PACKETSIZE);
 
 	for (j = i = 0; (i < len) && (j < sizeof(buf)-1); i++)
-		if (toc_isprint(message[i]) == FE_SUCCESS)
+		if (toc_isprint(c, message[i]) == FE_SUCCESS)
 			buf[j++] = message[i];
 		else {
 			char	numbuf[10];

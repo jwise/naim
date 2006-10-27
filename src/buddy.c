@@ -13,15 +13,12 @@ extern faimconf_t faimconf;
 extern time_t	now, awaytime;
 extern double	nowf, changetime;
 extern char	*lastclose;
-extern const char *home;
 extern int	printtitle;
 
 extern int buddyc G_GNUC_INTERNAL,
-	wbuddy_widthy G_GNUC_INTERNAL,
-	colormode G_GNUC_INTERNAL;
+	wbuddy_widthy G_GNUC_INTERNAL;
 int	buddyc = -1,
-	wbuddy_widthy = -1,
-	colormode = COLOR_HONOR_USER;
+	wbuddy_widthy = -1;
 
 static void iupdate(void) {
 	time_t	t;
@@ -696,166 +693,20 @@ void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 		nw_touchwin(&(conn->nwin));
 }
 
-const unsigned char *naim_normalize(const unsigned char *const name) {
-	static char newname[2048];
-	int	i, j = 0;
-
-	for (i = 0; (name[i] != 0) && (j < sizeof(newname)-1); i++)
-		if ((name[i] == '/') || (name[i] == '.'))
-			newname[j++] = '_';
-		else if (name[i] != ' ')
-			newname[j++] = tolower(name[i]);
-	newname[j] = 0;
-	return(newname);
-}
-
-static int makedir(const char *d) {
-	char	*dir;
-
-	if (*d != '/') {
-		static char buf[1024];
-
-		snprintf(buf, sizeof(buf), "%s/%s", home, d);
-		d = buf;
-	}
-	dir = strdup(d);
-	while (chdir(d) != 0) {
-		strcpy(dir, d);
-		while (chdir(dir) != 0) {
-			char	*pdir = strrchr(dir, '/');
-
-			if (mkdir(dir, 0700) != 0)
-				if (errno != ENOENT) {
-					chdir(home);
-					free(dir);
-					return(-1);
-				}
-			if (pdir == NULL)
-				break;
-			*pdir = 0;
-		}
-	}
-	chdir(home);
-	free(dir);
-	return(0);
-}
-
-static FILE *playback_fopen(conn_t *const conn, buddywin_t *const bwin, const char *const mode) {
-	FILE	*rfile;
-	char	*n, *nhtml, *ptr,
-		buf[256];
-
-	script_setvar("conn", conn->winname);
-	script_setvar("cur", naim_normalize(bwin->winname));
-
-	n = script_expand(script_getvar("logdir"));
-	snprintf(buf, sizeof(buf), "%s", n);
-	if ((ptr = strrchr(buf, '/')) != NULL) {
-		*ptr = 0;
-		makedir(buf);
-	}
-
-	if (strstr(n, ".html") == NULL) {
-		snprintf(buf, sizeof(buf), "%s.html", n);
-		nhtml = buf;
-	} else {
-		nhtml = n;
-		snprintf(buf, sizeof(buf), "%s", nhtml);
-		if ((ptr = strstr(buf, ".html")) != NULL)
-			*ptr = 0;
-		n = buf;
-	}
-
-	if ((rfile = fopen(n, "r")) != NULL) {
-		fclose(rfile);
-		if ((rfile = fopen(nhtml, "r")) != NULL) {
-			fclose(rfile);
-			status_echof(conn, "Warning: While opening logfile for %s, two versions were found: [%s] and [%s]. I will use [%s], but you may want to look into this discrepency.\n",
-				bwin->winname, n, nhtml, nhtml);
-		} else
-			rename(n, nhtml);
-	}
-
-	return(fopen(nhtml, mode));
-}
-
-void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
-	FILE	*rfile;
-	struct h_t *h = hhandle(&(bwin->nwin));
-
-	assert(bwin->nwin.logfile != NULL);
-	fflush(bwin->nwin.logfile);
-	bwin->nwin.dirty = 0;
-
-	if ((rfile = playback_fopen(conn, bwin, "r")) != NULL) {
-		char	buf[2048];
-		int	maxlen = lines*faimconf.wstatus.widthx;
-		long	filesize, playbackstart, playbacklen, pos;
-		time_t	lastprogress = now;
-
-#ifdef DEBUG_ECHO
-		status_echof(conn, "Redrawing window for %s.", bwin->winname);
-#endif
-
-		nw_statusbarf("Redrawing window for %s.", bwin->winname);
-
-		fseek(rfile, 0, SEEK_END);
-		while (((filesize = ftell(rfile)) == -1) && (errno == EINTR))
-			;
-		assert(filesize >= 0);
-		if (filesize > maxlen) {
-			fseek(rfile, -maxlen, SEEK_CUR);
-			while ((fgetc(rfile) != '\n') && !feof(rfile))
-				;
-		} else
-			fseek(rfile, 0, SEEK_SET);
-		while (((playbackstart = ftell(rfile)) == -1) && (errno == EINTR))
-			;
-		assert(playbackstart >= 0);
-		pos = 0;
-		playbacklen = filesize-playbackstart;
-		if (script_getvar_int("color"))
-			colormode = COLOR_FORCE_ON;
-		else
-			colormode = COLOR_FORCE_OFF;
-		while (fgets(buf, sizeof(buf), rfile) != NULL) {
-			long	len = strlen(buf);
-
-			pos += len;
-			//hwprintf(&(bwin->nwin), -C(IMWIN,TEXT)-1, "%s", buf);
-			if (buf[len-1] == '\n') {
-				hhprint(h, buf, len-1);
-				hendblock(h);
-			} else
-				hhprint(h, buf, len);
-
-			if ((now = time(NULL)) > lastprogress) {
-				nw_statusbarf("Redrawing window for %s (%li lines left).",
-					bwin->winname, lines*(playbacklen-pos)/playbacklen);
-				lastprogress = now;
-			}
-		}
-		colormode = COLOR_HONOR_USER;
-		fclose(rfile);
-	}
-}
-
 void	bnewwin(conn_t *conn, const char *name, et_t et) {
 	buddywin_t *bwin;
 	int	i;
+	struct tm *tmptr;
 
 	assert(name != NULL);
 
 	if (bgetwin(conn, name, et) != NULL)
 		return;
 
+	tmptr = localtime(&now);
+
 	bwin = calloc(1, sizeof(buddywin_t));
 	assert(bwin != NULL);
-
-	nw_newwin(&(bwin->nwin));
-	nw_initwin(&(bwin->nwin), cIMWIN);
-	for (i = 0; i < faimconf.wstatus.pady; i++)
-		nw_printf(&(bwin->nwin), 0, 0, "\n");
 
 	bwin->winname = strdup(name);
 	assert(bwin->winname != NULL);
@@ -899,26 +750,27 @@ void	bnewwin(conn_t *conn, const char *name, et_t et) {
 		srchbwin->next = bwin;
 	}
 
-	{
-		if ((bwin->nwin.logfile = playback_fopen(conn, bwin, "a")) == NULL)
-			status_echof(conn, "Unable to open scrollback buffer file: %s\n",
-				strerror(errno));
-		else {
-			struct tm *tmptr;
-
-			fchmod(fileno(bwin->nwin.logfile), 0600);
-			tmptr = localtime(&now);
-			fprintf(bwin->nwin.logfile, "&nbsp;<br>\n<I>-----</I> <font color=\"#FFFFFF\">Log file opened %04i-%02i-%02iT%02i:%02i</font> <I>-----</I><br>\n",
-				1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday, tmptr->tm_hour, tmptr->tm_min);
-			if (firetalk_compare_nicks(conn->conn, name, "naim help") == FE_SUCCESS) {
-				fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">Once you have signed on, anything you type that does not start with a slash is sent as a private message to whoever's window you are in.</font><br>\n");
-				fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">Right now you are \"in\" a window for <font color=\"#00FF00\">naim help</font>, which is the screen name of naim's maintainer, <font color=\"#00FFFF\">Daniel Reed</font>.</font><br>\n");
-				fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">If you would like help, first try using naim's online help by typing <font color=\"#00FF00\">/help</font>. If you need further help, feel free to ask your question here, and Mr. Reed will get back to you as soon as possible.</font><br>\n");
-				fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#800000\">If you are using Windows telnet to connect to a shell account to run naim, you may notice severe screen corruption. You may wish to try PuTTy, available for free from www.tucows.com. PuTTy handles both telnet and SSH.</font><br>\n");
-			}
-			nw_resize(&(bwin->nwin), 1, 1);
-			bwin->nwin.dirty = 1;
+	if ((bwin->nwin.logfile = logging_open(conn, bwin)) == NULL) {
+		nw_newwin(&(bwin->nwin), faimconf.wstatus.pady, faimconf.wstatus.widthx);
+		nw_initwin(&(bwin->nwin), cIMWIN);
+		for (i = 0; i < faimconf.wstatus.pady; i++)
+			nw_printf(&(bwin->nwin), 0, 0, "\n");
+		hwprintf(&(bwin->nwin), C(IMWIN,TEXT), "<I>-----</I> <font color=\"#FFFFFF\">Session started %04i-%02i-%02iT%02i:%02i</font> <I>-----</I><br>\n",
+			1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday, tmptr->tm_hour, tmptr->tm_min);
+	} else {
+		fchmod(fileno(bwin->nwin.logfile), 0600);
+		fprintf(bwin->nwin.logfile, "&nbsp;<br>\n<I>-----</I> <font color=\"#FFFFFF\">Log file opened %04i-%02i-%02iT%02i:%02i</font> <I>-----</I><br>\n",
+			1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday, tmptr->tm_hour, tmptr->tm_min);
+		if (firetalk_compare_nicks(conn->conn, name, "naim help") == FE_SUCCESS) {
+			fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">Once you have signed on, anything you type that does not start with a slash is sent as a private message to whoever's window you are in.</font><br>\n");
+			fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">Right now you are \"in\" a window for <font color=\"#00FF00\">naim help</font>, which is the screen name of naim's maintainer, <font color=\"#00FFFF\">Daniel Reed</font>.</font><br>\n");
+			fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">If you would like help, first try using naim's online help by typing <font color=\"#00FF00\">/help</font>. If you need further help, visit the naim documentation site online at http://naimdoc.net/. If all else fails, feel free to ask your question here and wait patiently :).</font><br>\n");
+			fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#800000\">If you are using Windows telnet to connect to a shell account to run naim, you may notice severe screen corruption. You may wish to try PuTTy, available for free from www.tucows.com. PuTTy handles both telnet and SSH.</font><br>\n");
 		}
+		nw_newwin(&(bwin->nwin), 1, 1);
+		nw_initwin(&(bwin->nwin), cIMWIN);
+		bwin->nwin.dirty = 1;
+		bwin->nwin.logfilelines = 0;
 	}
 
 	bwin->conn = conn;

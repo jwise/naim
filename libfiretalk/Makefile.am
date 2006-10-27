@@ -10,12 +10,17 @@ libfiretalk_a_SOURCES = \
 	toc2.c \
 	toc2_uuids.h
 
-check_PROGRAMS = tester
+check_PROGRAMS = tester toctest
 tester_SOURCES = \
 	tester.c
 tester_LDADD = \
 	libfiretalk.a
+toctest_SOURCES = \
+	toctest.c
+toctest_LDADD = \
+	libfiretalk.a
 
-TESTS = ${check_PROGRAMS}
+#TESTS = ${check_PROGRAMS}
+TESTS = tester
 
 include_HEADERS = firetalk.h

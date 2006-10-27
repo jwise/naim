@@ -13,10 +13,7 @@ Build procedure:
 Packaging procedure:
   To create a Slackware pkgtool-compatible tarball, simply run:
   ./configure \
-	'CFLAGS=-Wall -O1' \
-	'CPPFLAGS=-D_FORTIFY_SOURCE=2' \
-	'--enable-debug' \
-	'--enable-ltdl-convenience' \
+	--enable-ltdl-convenience
 	&& make tgz
   If configure is run under Cygwin, make tgz will adjust itself to conform to
   Cygwin standards. Use make cyg instead of make tgz to produce a complete

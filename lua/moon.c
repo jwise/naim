@@ -128,7 +128,8 @@ static void _loadfunctions(void) {
 		naim_prototypes_windowslib[],
 		naim_prototypes_buddieslib[],
 		naim_hookslib[],
-		naim_pdlib[];
+		naim_pdlib[],
+		naim_pd_internallib[];
 	extern void naim_commandsreg(lua_State *L);
 
 	luaL_register(lua, "naim", naimlib);
@@ -138,6 +139,7 @@ static void _loadfunctions(void) {
 	luaL_register(lua, "naim.prototypes.buddies", naim_prototypes_buddieslib);
 	luaL_register(lua, "naim.hooks", naim_hookslib);
 	luaL_register(lua, "naim.pd", naim_pdlib);
+	luaL_register(lua, "naim.pd.internal", naim_pd_internallib);
 	naim_commandsreg(lua);
 }
 

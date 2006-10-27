@@ -1944,7 +1944,7 @@ UAAOPT(string,protocol)
 	newconn = naim_newconn(proto);
 	assert(newconn != NULL);
 
-	nw_newwin(&(newconn->nwin));
+	nw_newwin(&(newconn->nwin), faimconf.wstatus.pady, faimconf.wstatus.widthx);
 	nw_initwin(&(newconn->nwin), cCONN);
 	nw_erase(&(newconn->nwin));
 	for (i = 0; i < faimconf.wstatus.pady; i++)
@@ -2601,10 +2601,7 @@ void	ua_handlecmd(const char *buf) {
 			return;
 	}
 
-	if (script_cmd(c, cmd, arg))
-		return;
-
-	echof(c, cmd, "Unknown command.\n");
+	script_cmd(c, cmd, arg);
 }
 
 void	(*script_client_cmdhandler)(const char *) = ua_handlecmd;

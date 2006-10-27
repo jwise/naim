@@ -37,6 +37,7 @@ NAIM_CORE = \
 	hamster.c \
 	hwprintf.c \
 	linux_vsprintf.c \
+	logging.c \
 	main.c \
 	naim-int.h \
 	rc.c \

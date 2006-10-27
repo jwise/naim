@@ -205,7 +205,7 @@ static lily_chat_t *lily_chat_find_name(lily_conn_t *c, const char *name) {
 	return(NULL);
 }
 
-static const char *lily_normalize_room_name(const char *const name) {
+static const char *lily_normalize_room_name(lily_conn_t *c, const char *const name) {
 	static char	newname[2048];
 
 	if (strchr(ROOMSTARTS, *name))
@@ -230,7 +230,7 @@ static void lily_chat_add(lily_conn_t *c, int handle, const char *const name, co
 	}
 
 	lily_chat->handle = handle;
-	lily_chat->name = strdup(lily_normalize_room_name(name));
+	lily_chat->name = strdup(lily_normalize_room_name(c, name));
 	if (lily_chat->name == NULL)
 		abort();
 	lily_chat->title = strdup(title);
@@ -822,7 +822,7 @@ static char lily_tolower(const char c) {
 	return(tolower(c));
 }
 
-static fte_t lily_compare_nicks(const char *const nick1, const char *const nick2) {
+static fte_t lily_compare_nicks(lily_conn_t *c, const char *const nick1, const char *const nick2) {
 	int	i = 0;
 
         assert(nick1 != NULL);
@@ -1050,7 +1050,7 @@ static fte_t lily_got_notify(lily_conn_t *c) {
 #ifdef DEBUG_ECHO
 			lily_echof(c, __FUNCTION__, "rename %s -> %s", source, _value);
 #endif
-			if (lily_compare_nicks(c->nickname, source) == 0) {
+			if (lily_compare_nicks(c, c->nickname, source) == 0) {
 				STRREPLACE(c->nickname, _value);
 				firetalk_callback_newnick(c, c->nickname);
 			}
@@ -1380,7 +1380,7 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 						while (isspace(*sp))
 							sp++;
 
-						if ((lily_chat = lily_chat_find_name(c, lily_normalize_room_name(sp))) == NULL)
+						if ((lily_chat = lily_chat_find_name(c, lily_normalize_room_name(c, sp))) == NULL)
 							abort();
 
 						lily_chat_joined(c, lily_chat);
@@ -1530,8 +1530,8 @@ static fte_t lily_got_data_connecting(lily_conn_t *c, firetalk_buffer_t *buffer)
 	return(FE_SUCCESS);
 }
 
-static fte_t lily_isprint(const int c) {
-	if (isprint(c))
+static fte_t lily_isprint(lily_conn_t *c, const int ch) {
+	if (isprint(ch))
 		return(FE_SUCCESS);
 	return(FE_INVALIDFORMAT);
 }

@@ -121,7 +121,7 @@ int	script_setvar(const char *name, const char *val);
 int	script_setvar_int(const char *name, const long val);
 char	*script_expand(const char *instr);
 int	script_script_parse(const char *line);
-int	script_cmd(conn_t *conn, char *cmd, char *arg);
+void	script_cmd(conn_t *conn, char *cmd, char *arg);
 void	script_listvars_start(void);
 char	*script_listvars_next(void);
 void	script_listvars_stop(void);
@@ -273,7 +273,6 @@ char	*firstwhite(char *string) G_GNUC_INTERNAL;
 char	*atom(char *string) G_GNUC_INTERNAL;
 
 /* buddy.c */
-const unsigned char *naim_normalize(const unsigned char *const name) G_GNUC_INTERNAL;
 void	playback(conn_t *const conn, buddywin_t *const, const int) G_GNUC_INTERNAL;
 void	bcoming(conn_t *conn, const char *) G_GNUC_INTERNAL;
 void	bgoing(conn_t *conn, const char *) G_GNUC_INTERNAL;
@@ -359,7 +358,7 @@ void	nw_addstr(win_t *win, const unsigned char *) G_GNUC_INTERNAL;
 void	nw_move(win_t *win, int row, int col) G_GNUC_INTERNAL;
 void	nw_delwin(win_t *win) G_GNUC_INTERNAL;
 void	nw_touchwin(win_t *win) G_GNUC_INTERNAL;
-void	nw_newwin(win_t *win) G_GNUC_INTERNAL;
+void	nw_newwin(win_t *win, const int height, const int width) G_GNUC_INTERNAL;
 void	nw_hline(win_t *win, unsigned long ch, int row) G_GNUC_INTERNAL;
 void	nw_vline(win_t *win, unsigned long ch, int col) G_GNUC_INTERNAL;
 void	nw_mvwin(win_t *win, int row, int col) G_GNUC_INTERNAL;

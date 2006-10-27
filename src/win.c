@@ -32,6 +32,9 @@ int	wsetup_called = 0,
 	intextedit = 0;
 char	*statusbar_text = NULL;
 
+struct winwin_t {
+	WINDOW	win;
+} winwin_t;
 
 void	do_resize(conn_t *conn, buddywin_t *bwin) {
 	int	small, height;
@@ -44,12 +47,12 @@ void	do_resize(conn_t *conn, buddywin_t *bwin) {
 		height = faimconf.wstatus.pady;
 	}
 
-	assert(bwin->nwin.win != NULL);
+	assert(bwin->nwin._win != NULL);
 	nw_resize(&(bwin->nwin), height, faimconf.wstatus.widthx);
-	werase(bwin->nwin.win);
+	werase(&(bwin->nwin._win->win));
 	nw_move(&(bwin->nwin), height-1, 0);
 	nw_printf(&(bwin->nwin), 0, 0, "\n\n\n");
-	playback(conn, bwin, height);
+	logging_playback(conn, bwin, height);
 	bwin->nwin.small = small;
 }
 
@@ -60,16 +63,16 @@ void	statrefresh(void) {
 		return;
 
 	if (inconn) {
-		if ((curconn->curbwin->nwin.dirty != 0) || ((scrollbackoff > 0) && (curconn->curbwin->nwin.small != 0)))
+		if (curconn->curbwin->nwin.dirty || ((scrollbackoff > 0) && curconn->curbwin->nwin.small))
 			do_resize(curconn, curconn->curbwin);
-		assert(curconn->curbwin->nwin.dirty == 0);
+		assert(!curconn->curbwin->nwin.dirty);
 		curconn->curbwin->viewtime = nowf;
 	}
 
 	bupdate();
 
 	if (inconn_real) {
-		pnoutrefresh(curconn->curbwin->nwin.win,
+		pnoutrefresh(&(curconn->curbwin->nwin._win->win),
 			curconn->curbwin->nwin.height-faimconf.wstatus.widthy-1-scrollbackoff-quakeoff,
 			0,
 			faimconf.wstatus.starty,
@@ -77,7 +80,7 @@ void	statrefresh(void) {
 			faimconf.wstatus.starty+faimconf.wstatus.widthy-1+quakeoff,
 			faimconf.wstatus.startx+faimconf.wstatus.widthx-1);
 		if (inconsole)
-			pnoutrefresh(curconn->nwin.win,
+			pnoutrefresh(&(curconn->nwin._win->win),
 				faimconf.wstatus.pady-2*faimconf.wstatus.widthy/3-1-consolescroll,
 				0,
 				faimconf.wstatus.starty,
@@ -95,7 +98,7 @@ void	statrefresh(void) {
 				sneak = sheight*(autohide - (nowf - curconn->lastupdate))/SLIDETIME+.5;
 			else
 				sneak = sheight;
-			pnoutrefresh(curconn->nwin.win,
+			pnoutrefresh(&(curconn->nwin._win->win),
 				faimconf.wstatus.pady-sneak-1,
 				0,
 				faimconf.wstatus.starty,
@@ -104,7 +107,7 @@ void	statrefresh(void) {
 				faimconf.wstatus.startx+faimconf.wstatus.widthx-1);
 		}
 	} else
-		pnoutrefresh(curconn->nwin.win,
+		pnoutrefresh(&(curconn->nwin._win->win),
 			faimconf.wstatus.pady-faimconf.wstatus.widthy-1-scrollbackoff,
 			0,
 			faimconf.wstatus.starty,
@@ -134,7 +137,7 @@ void	statrefresh(void) {
 			sneak = sheight*(autohide - (nowf - changetime))/SLIDETIME+.5;
 		else
 			sneak = sheight;
-		pnoutrefresh(win_buddy.win,
+		pnoutrefresh(&(win_buddy._win->win),
 			0, 0,
 			faimconf.wstatus.starty,
 			faimconf.wstatus.startx+faimconf.wstatus.widthx-sneak-1,
@@ -176,15 +179,15 @@ void	statrefresh(void) {
 					"This is a special naim window. You may /close this if it is not needed.");
 		}
 	}
-	wnoutrefresh(win_info.win);
-	wnoutrefresh(win_input.win);
+	wnoutrefresh(&(win_info._win->win));
+	wnoutrefresh(&(win_input._win->win));
 	if ((awaytime > 0) && (script_getvar_int("autounaway") != 0)) {
 		nw_touchwin(&win_away);
-		wnoutrefresh(win_away.win);
+		wnoutrefresh(&(win_away._win->win));
 	}
 	if (intextedit) {
 		nw_touchwin(&win_textedit);
-		wnoutrefresh(win_textedit.win);
+		wnoutrefresh(&(win_textedit._win->win));
 	}
 	if (doredraw)
 		clearok(curscr, TRUE);
@@ -258,10 +261,6 @@ static void wsetup_colors(void) {
 	fprintf(stderr, " done\r\n");
 }
 
-#define NWIN(WIN)	newwin(faimconf.WIN.widthy, faimconf.WIN.widthx, \
-	faimconf.WIN.starty, faimconf.WIN.startx);
-#define NPAD(WIN)	newpad(faimconf.WIN.pady, faimconf.WIN.widthx);
-
 void	whidecursor(void) {
 	if (curs_set(0) != ERR)
 		leaveok(stdscr, TRUE);
@@ -302,41 +301,41 @@ void	wsetup(void) {
 	{
 		win_t	dummy = { 0 };
 
-		assert(dummy.win == NULL);
-		dummy.win = stdscr;
+		assert(&(dummy._win->win) == NULL);
+		dummy._win = (struct winwin_t *)stdscr;
 		nw_initwin(&dummy, 0);
 		nw_refresh(&dummy);
 	}
 
-	assert(win_input.win == NULL);
-	win_input.win = NWIN(winput);
-	assert(win_input.win != NULL);
+	assert(&(win_input._win->win) == NULL);
+	win_input._win = (struct winwin_t *)newwin(faimconf.winput.widthy, faimconf.winput.widthx, faimconf.winput.starty, faimconf.winput.startx);
+	assert(&(win_input._win->win) != NULL);
 	nw_initwin(&win_input, cINPUT);
-	scrollok(win_input.win, FALSE);
+	scrollok(&(win_input._win->win), FALSE);
 
-	assert(win_buddy.win == NULL);
-	win_buddy.win = NPAD(wstatus);
-	assert(win_buddy.win != NULL);
+	assert(&(win_buddy._win->win) == NULL);
+	win_buddy._win = (struct winwin_t *)newpad(faimconf.wstatus.pady, faimconf.wstatus.widthx);
+	assert(&(win_buddy._win->win) != NULL);
 	nw_initwin(&win_buddy, cWINLIST);
-	scrollok(win_buddy.win, FALSE);
+	scrollok(&(win_buddy._win->win), FALSE);
 
-	assert(win_info.win == NULL);
-	win_info.win = NWIN(winfo);
-	assert(win_info.win != NULL);
+	assert(&(win_info._win->win) == NULL);
+	win_info._win = (struct winwin_t *)newwin(faimconf.winfo.widthy, faimconf.winfo.widthx, faimconf.winfo.starty, faimconf.winfo.startx);
+	assert(&(win_info._win->win) != NULL);
 	nw_initwin(&win_info, cTEXT);
-	scrollok(win_info.win, FALSE);
+	scrollok(&(win_info._win->win), FALSE);
 
-	assert(win_away.win == NULL);
-	win_away.win = NWIN(waway);
-	assert(win_away.win != NULL);
+	assert(&(win_away._win->win) == NULL);
+	win_away._win = (struct winwin_t *)newwin(faimconf.waway.widthy, faimconf.waway.widthx, faimconf.waway.starty, faimconf.waway.startx);
+	assert(&(win_away._win->win) != NULL);
 	nw_initwin(&win_away, cWINLIST-1);
-	scrollok(win_away.win, FALSE);
+	scrollok(&(win_away._win->win), FALSE);
 
-	assert(win_textedit.win == NULL);
-	win_textedit.win = NWIN(wtextedit);
-	assert(win_textedit.win != NULL);
+	assert(&(win_textedit._win->win) == NULL);
+	win_textedit._win = (struct winwin_t *)newwin(faimconf.wtextedit.widthy, faimconf.wtextedit.widthx, faimconf.wtextedit.starty, faimconf.wtextedit.startx);
+	assert(&(win_textedit._win->win) != NULL);
 	nw_initwin(&win_textedit, cWINLIST-1);
-	scrollok(win_textedit.win, FALSE);
+	scrollok(&(win_textedit._win->win), FALSE);
 
 	nw_printf(&win_away, CI(INPUT,TEXT), 0, "%44s  ", "");
 	nw_printf(&win_away, C(CONN,BUDDY_AWAY), 1, " You are away. ");
@@ -378,7 +377,7 @@ void	win_resize(void) {
 		buddywin_t *bwin = conn->curbwin;
 
 		naim_setversion(conn);
-		assert(conn->nwin.win != NULL);
+		assert(&(conn->nwin._win->win) != NULL);
 		nw_resize(&(conn->nwin), faimconf.wstatus.pady,
 			faimconf.wstatus.widthx);
 		nw_move(&(conn->nwin), faimconf.wstatus.pady-1, 0);
@@ -394,7 +393,7 @@ int	nw_printf(win_t *win, int pair, int bold, const unsigned char *format, ...) 
 	va_list	msg;
 
 	assert(win != NULL);
-	assert(win->win != NULL);
+	assert(&(win->_win->win) != NULL);
 	assert(format != NULL);
 
 	if (pair >= 2*COLOR_PAIRS) {
@@ -406,9 +405,9 @@ int	nw_printf(win_t *win, int pair, int bold, const unsigned char *format, ...) 
 	}
 
 	va_start(msg, format);
-	wattrset((WINDOW *)win->win, (bold?A_BOLD:0) | COLOR_PAIR(pair));
-	vwprintw((WINDOW *)win->win, (char *)format, msg);
-	wattrset((WINDOW *)win->win, 0);
+	wattrset(&(win->_win->win), (bold?A_BOLD:0) | COLOR_PAIR(pair));
+	vwprintw(&(win->_win->win), (char *)format, msg);
+	wattrset(&(win->_win->win), 0);
 	va_end(msg);
 	return(0);
 }
@@ -449,21 +448,21 @@ int	nw_statusbarf(const unsigned char *format, ...) {
 void	nw_initwin(win_t *win, int bg) {
 	assert(win != NULL);
 
-	idlok((WINDOW *)win->win, TRUE);
-	scrollok((WINDOW *)win->win, TRUE);
-	intrflush((WINDOW *)win->win, FALSE);
-	keypad((WINDOW *)win->win, TRUE);
-	meta((WINDOW *)win->win, TRUE);
-	wbkgd((WINDOW *)win->win, COLOR_PAIR(nw_COLORS*faimconf.b[bg]));
-	werase((WINDOW *)win->win);
+	idlok(&(win->_win->win), TRUE);
+	scrollok(&(win->_win->win), TRUE);
+	intrflush(&(win->_win->win), FALSE);
+	keypad(&(win->_win->win), TRUE);
+	meta(&(win->_win->win), TRUE);
+	wbkgd(&(win->_win->win), COLOR_PAIR(nw_COLORS*faimconf.b[bg]));
+	werase(&(win->_win->win));
 }
 
 void	nw_erase(win_t *win) {
-	werase((WINDOW *)win->win);
+	werase(&(win->_win->win));
 }
 
 void	nw_refresh(win_t *win) {
-	wrefresh((WINDOW *)win->win);
+	wrefresh(&(win->_win->win));
 }
 
 void	nw_attr(win_t *win, char B, char I, char U, char EM, char STRONG, char CODE) {
@@ -475,70 +474,70 @@ void	nw_attr(win_t *win, char B, char I, char U, char EM, char STRONG, char CODE
 		attrs |= A_STANDOUT;
 	if (U)
 		attrs |= A_UNDERLINE;
-	wattrset((WINDOW *)win->win, attrs);
+	wattrset(&(win->_win->win), attrs);
 }
 
 void	nw_color(win_t *win, int pair) {
-	wcolor_set((WINDOW *)win->win, pair, NULL);
+	wcolor_set(&(win->_win->win), pair, NULL);
 }
 
 void	nw_flood(win_t *win, int pair) {
-	wbkgd((WINDOW *)win->win, COLOR_PAIR(pair));
+	wbkgd(&(win->_win->win), COLOR_PAIR(pair));
 }
 
 void	nw_addch(win_t *win, const unsigned long ch) {
-	waddch((WINDOW *)win->win, ch);
+	waddch(&(win->_win->win), ch);
 }
 
 void	nw_addstr(win_t *win, const unsigned char *str) {
-	waddstr((WINDOW *)win->win, str);
+	waddstr(&(win->_win->win), str);
 }
 
 void	nw_move(win_t *win, int row, int col) {
-	wmove((WINDOW *)win->win, row, col);
+	wmove(&(win->_win->win), row, col);
 }
 
 void	nw_delwin(win_t *win) {
-	if (win->win != NULL) {
-		delwin((WINDOW *)win->win);
-		win->win = NULL;
+	if (&(win->_win->win) != NULL) {
+		delwin(&(win->_win->win));
+		win->_win = NULL;
 	}
 }
 
 void	nw_touchwin(win_t *win) {
-	touchwin((WINDOW *)win->win);
+	touchwin(&(win->_win->win));
 }
 
-void	nw_newwin(win_t *win) {
+void	nw_newwin(win_t *win, const int height, const int width) {
 	nw_delwin(win);
 	win->height = faimconf.wstatus.pady;
-	win->win = NPAD(wstatus);
-	assert(win->win != NULL);
+	win->_win = (struct winwin_t *)newpad(height, width);
+	assert(&(win->_win->win) != NULL);
 }
 
 void	nw_hline(win_t *win, unsigned long ch, int row) {
-	whline((WINDOW *)win->win, ch, row);
+	whline(&(win->_win->win), ch, row);
 }
 
 void	nw_vline(win_t *win, unsigned long ch, int col) {
-	wvline((WINDOW *)win->win, ch, col);
+	wvline(&(win->_win->win), ch, col);
 }
 
 void	nw_mvwin(win_t *win, int row, int col) {
-	mvwin((WINDOW *)win->win, row, col);
+	mvwin(&(win->_win->win), row, col);
 }
 
-void	nw_resize(win_t *win, int row, int col) {
-	win->height = row;
-	wresize((WINDOW *)win->win, row, col);
+void	nw_resize(win_t *win, int height, int width) {
+	win->height = height;
+	wresize(&(win->_win->win), height, width);
 }
 
 int	nw_getcol(win_t *win) {
-	return(getcurx((WINDOW *)win->win));
+	return(getcurx(&(win->_win->win)));
 }
 
 int	nw_getrow(win_t *win) {
-	return(getcury((WINDOW *)win->win));
+	return(getcury(&(win->_win->win)));
 }
 
 void	nw_getline(win_t *win, char *buf, int buflen) {
@@ -548,7 +547,7 @@ void	nw_getline(win_t *win, char *buf, int buflen) {
 
 	if (max >= buflen)
 		max = buflen-1;
-	mvwinnstr((WINDOW *)win->win, row, 0, buf, max);
+	mvwinnstr(&(win->_win->win), row, 0, buf, max);
 	buf[max] = 0;
 	nw_move(win, row, col);
 }

@@ -244,6 +244,9 @@
 /* Define if you have use_default_colors() */
 #undef HAVE_USE_DEFAULT_COLORS
 
+/* Define to 1 if you have the `utime' function. */
+#undef HAVE_UTIME
+
 /* Define to 1 if you have the `vfork' function. */
 #undef HAVE_VFORK
 
