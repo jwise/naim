@@ -7,10 +7,8 @@ libfiretalk_a_SOURCES = \
 	irc.c \
 	pdutil.c \
 	toc2.c \
-	toc2_uuids.h
-	
-#	lily.c \
-# foo
+	toc2_uuids.h \
+	lily.c
 
 check_PROGRAMS = tester toctest
 tester_SOURCES = \

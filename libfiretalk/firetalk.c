@@ -56,11 +56,8 @@ static void firetalk_register_default_protocols(void) {
 
 	if (firetalk_register_protocol(&firetalk_protocol_irc) != FE_SUCCESS)
 		abort();
-#warning un if 0 this later
-#if 0
 	if (firetalk_register_protocol(&firetalk_protocol_slcp) != FE_SUCCESS)
 		abort();
-#endif
 	if (firetalk_register_protocol(&firetalk_protocol_toc2) != FE_SUCCESS)
 		abort();
 }

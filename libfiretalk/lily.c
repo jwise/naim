@@ -7,11 +7,14 @@
 #include <stdio.h>	/* vsnprintf() */
 #include <stdlib.h>
 #include <time.h>	/* time_t */
+#include <errno.h>
 
 #include "firetalk-int.h"
 #include "firetalk.h"
 
 #define ROOMSTARTS "-"
+
+#define BUFFER_LENGTH (8*1024)
 
 typedef enum {
 	UNKNOWN,
@@ -76,9 +79,16 @@ typedef struct firetalk_driver_connection_t {
 		char	str[1024];
 	}	*qar;
 	int	 qc;
+	firetalk_sock_t sock;
+	firetalk_buffer_t buffer;
 } lily_conn_t;
 
-ZERO_CTOR(lily_conn_t);
+static inline void lily_conn_t_ctor(lily_conn_t *this) {
+	memset(this, 0, sizeof(*this));
+	firetalk_sock_t_ctor(&(this->sock));
+	firetalk_buffer_t_ctor(&(this->buffer));
+	firetalk_buffer_alloc(&(this->buffer), BUFFER_LENGTH);
+}
 TYPE_NEW(lily_conn_t);
 static inline void lily_conn_t_dtor(lily_conn_t *this) {
 	int	i;
@@ -92,6 +102,8 @@ static inline void lily_conn_t_dtor(lily_conn_t *this) {
 		lily_chat_t_dtor(&(this->lily_chatar[i]));
 	free(this->lily_chatar);
 	free(this->qar);
+	firetalk_sock_t_dtor(&(this->sock));
+	firetalk_buffer_t_dtor(&(this->buffer));
 	memset(this, 0, sizeof(*this));
 }
 TYPE_DELETE(lily_conn_t);
@@ -469,8 +481,12 @@ static char *lily_lily_to_html(const char *const string) {
 }
 
 static fte_t lily_internal_disconnect(lily_conn_t *c, const int error) {
+	if (c->sock.state != FCS_NOTCONNECTED)
+		firetalk_callback_disconnect(c, error);
+	firetalk_sock_close(&(c->sock));
+	
 	lily_conn_t_dtor(c);
-	firetalk_callback_disconnect(c, error);
+	lily_conn_t_ctor(c);
 
 	return(FE_SUCCESS);
 }
@@ -522,12 +538,8 @@ static fte_t lily_send_printf(lily_conn_t *c, const char *const format, ...) {
 
 	strcpy(data+datai, "\r\n");
 	datai += 2;
-
-	{
-		firetalk_connection_t *fchandle = firetalk_find_conn(c);
-
-		firetalk_internal_send_data(fchandle, data, datai);
-	}
+	
+	firetalk_sock_send(&(c->sock), data, datai);
 
 	return(FE_SUCCESS);
 }
@@ -740,14 +752,9 @@ static void lily_destroy_conn(lily_conn_t *c) {
 }
 
 static fte_t lily_disconnect(lily_conn_t *c) {
-	if (firetalk_internal_get_connectstate(c) != FCS_NOTCONNECTED)
+	if (c->sock.state != FCS_NOTCONNECTED)
 		lily_send_printf(c, "/detach");
 	return(lily_internal_disconnect(c, FE_USERDISCONNECT));
-}
-
-static fte_t lily_disconnected(lily_conn_t *c, const fte_t reason) {
-	assert(firetalk_internal_get_connectstate(c) == FCS_NOTCONNECTED);
-	return(lily_internal_disconnect(c, reason));
 }
 
 static lily_conn_t *lily_create_conn(struct firetalk_driver_cookie_t *cookie) {
@@ -758,9 +765,7 @@ static lily_conn_t *lily_create_conn(struct firetalk_driver_cookie_t *cookie) {
 	return(c);
 }
 
-static fte_t lily_signon(lily_conn_t *c, const char *const nickname) {
-	STRREPLACE(c->nickname, nickname);
-
+static fte_t lily_signon(lily_conn_t *c) {
 	if (lily_send_printf(c, "#$# options +sender +recip +usertype +whoami +slcp +sendgroup +connected +leaf-msg +prompt +leaf-cmd +leaf +prompt2") != FE_SUCCESS)
 		return(FE_PACKET);
 
@@ -768,7 +773,7 @@ static fte_t lily_signon(lily_conn_t *c, const char *const nickname) {
 		char	password[128];
 
 		firetalk_callback_needpass(c, password, sizeof(password));
-		if (lily_send_printf(c, "%s %s", nickname, password) != FE_SUCCESS)
+		if (lily_send_printf(c, "%s %s", c->nickname, password) != FE_SUCCESS)
 			return(FE_PACKET);
 		c->password = strdup(password);
 		if (c->password == NULL)
@@ -798,23 +803,31 @@ static fte_t lily_signon(lily_conn_t *c, const char *const nickname) {
 	return(FE_SUCCESS);
 }
 
+static fte_t lily_connect(lily_conn_t *c, const char *server, uint16_t port, const char *const nickname) {
+	STRREPLACE(c->nickname, nickname);
+	if (c->nickname == NULL)
+		abort();	// OH NOOOOOOOOOOO
+	return(firetalk_sock_connect_host(&(c->sock), server, port));
+}
+
 static fte_t lily_set_privacy(lily_conn_t *c, const char *const mode) {
 	return(FE_SUCCESS);
 }
 
 static fte_t lily_preselect(lily_conn_t *c, fd_set *read, fd_set *write, fd_set *except, int *n) {
 	int	i;
-
+	
 	for (i = 0; i < c->qc; i++)
 		lily_send_printf(c, "%s", c->qar[i].str);
 	free(c->qar);
 	c->qar = NULL;
 	c->qc = 0;
+	
+	if (c->sock.state == FCS_NOTCONNECTED)
+		return(FE_SUCCESS);
+	
+	firetalk_sock_preselect(&(c->sock), read, write, except, n);
 
-	return(FE_SUCCESS);
-}
-
-static fte_t lily_postselect(lily_conn_t *c, fd_set *read, fd_set *write, fd_set *except) {
 	return(FE_SUCCESS);
 }
 
@@ -1530,6 +1543,30 @@ static fte_t lily_got_data_connecting(lily_conn_t *c, firetalk_buffer_t *buffer)
 	return(FE_SUCCESS);
 }
 
+static fte_t lily_postselect(lily_conn_t *c, fd_set *read, fd_set *write, fd_set *except) {
+	fte_t e;
+	
+	if ((e = firetalk_sock_postselect(&(c->sock), read, write, except, &(c->buffer))) != FE_SUCCESS) {
+		if (c->sock.state == FCS_ACTIVE)
+			firetalk_callback_disconnect(c, e);
+		else
+			firetalk_callback_connectfailed(c, e, strerror(errno));
+		return (e);
+	}
+	
+	if (c->sock.state == FCS_SEND_SIGNON) {
+		lily_signon(c);
+		c->sock.state = FCS_WAITING_SIGNON;
+	} else if (c->buffer.readdata) {
+		if (c->sock.state == FCS_ACTIVE)
+			lily_got_data(c, &(c->buffer));
+		else
+			lily_got_data_connecting(c, &(c->buffer));
+	}
+		
+	return(FE_SUCCESS);
+}
+
 static fte_t lily_isprint(lily_conn_t *c, const int ch) {
 	if (isprint(ch))
 		return(FE_SUCCESS);
@@ -1801,17 +1838,13 @@ const firetalk_driver_t firetalk_protocol_slcp = {
 	strprotocol:		"SLCP",
 	default_server:		"slcp.n.ml.org",
 	default_port:		7777,
-	default_buffersize:	1024*8,
 	periodic:		lily_periodic,
 	preselect:		lily_preselect,
 	postselect:		lily_postselect,
-	got_data:		lily_got_data,
-	got_data_connecting:	lily_got_data_connecting,
 	comparenicks:		lily_compare_nicks,
 	isprintable:		lily_isprint,
 	disconnect:		lily_disconnect,
-	disconnected:		lily_disconnected,
-	signon:			lily_signon,
+	connect:		lily_connect,
 	get_info:		lily_get_info,
 	set_info:		lily_set_info,
 	set_away:		lily_set_away,
