@@ -671,7 +671,8 @@ void	firetalk_callback_connectfailed(struct firetalk_driver_connection_t *c, con
 
 	if (conn->connected == FCS_NOTCONNECTED)
 		return;
-
+	conn->connected = FCS_NOTCONNECTED;
+	
 	if (conn->callbacks[FC_CONNECTFAILED])
 		conn->callbacks[FC_CONNECTFAILED](conn, conn->clientstruct, error, description);
 }
@@ -697,8 +698,9 @@ void	firetalk_callback_disconnect(struct firetalk_driver_connection_t *c, const 
 	firetalk_queue_t_dtor(&(conn->subcode_requests));
 	firetalk_queue_t_dtor(&(conn->subcode_replies));
 
-	if (conn->callbacks[FC_DISCONNECT])
+	if ((conn->connected == FCS_ACTIVE) && conn->callbacks[FC_DISCONNECT])
 		conn->callbacks[FC_DISCONNECT](conn, conn->clientstruct, error);
+	conn->connected = FCS_NOTCONNECTED;
 }
 
 void	firetalk_callback_gotinfo(struct firetalk_driver_connection_t *c, const char *const nickname, const char *const info, const int warning, const long online, const long idle, const int flags) {
@@ -725,6 +727,7 @@ void	firetalk_callback_idleinfo(struct firetalk_driver_connection_t *c, char con
 void	firetalk_callback_doinit(struct firetalk_driver_connection_t *c, const char *const nickname) {
 	firetalk_connection_t *conn = firetalk_find_conn(c);
 
+	conn->connected = FCS_WAITING_SIGNON;
 	if (conn->callbacks[FC_DOINIT])
 		conn->callbacks[FC_DOINIT](conn, conn->clientstruct, nickname);
 }
@@ -1311,6 +1314,7 @@ firetalk_connection_t *firetalk_create_conn(const int protocol, struct firetalk_
 	conn->clientstruct = clientstruct;
 	conn->protocol = protocol;
 	conn->handle = firetalk_protocols[protocol]->create_conn(firetalk_protocols[protocol]->cookie);
+	conn->connected = FCS_NOTCONNECTED;
 	return(conn);
 }
 
@@ -1331,6 +1335,8 @@ fte_t	firetalk_disconnect(firetalk_connection_t *conn) {
 
 	if (conn->connected == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
+	
+	conn->connected = FCS_NOTCONNECTED;
 
 	return(firetalk_protocols[conn->protocol]->disconnect(conn->handle));
 }
