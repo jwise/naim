@@ -123,6 +123,26 @@ static const struct luaL_reg naim_internallib[] = {
 	{ NULL,		NULL } /* sentinel */
 };
 
+#define OPERATION(name, function) \
+	static int _nlua_##name(lua_State *L) {\
+		unsigned int i,j;\
+		i = luaL_checkint(L, 1);\
+		j = luaL_checkint(L, 2);\
+		lua_pushnumber(L, function);\
+		return 1;\
+	}
+
+OPERATION(and, i&j)
+OPERATION(or, i|j)
+OPERATION(xor, i^j)
+
+static const struct luaL_reg naim_bitlib[] = {
+	{ "and",	_nlua_and },
+	{ "or",		_nlua_or },
+	{ "xor",	_nlua_xor },
+	{ NULL,		NULL },	/* sentinel */
+};
+
 static void _loadfunctions(void) {
 	extern const struct luaL_reg naim_prototypes_connectionslib[],
 		naim_prototypes_windowslib[],
@@ -138,6 +158,7 @@ static void _loadfunctions(void) {
 	luaL_register(lua, "naim.prototypes.windows", naim_prototypes_windowslib);
 	luaL_register(lua, "naim.prototypes.buddies", naim_prototypes_buddieslib);
 	luaL_register(lua, "naim.hooks", naim_hookslib);
+	luaL_register(lua, "naim.bit", naim_bitlib);
 	luaL_register(lua, "naim.pd", naim_pdlib);
 	luaL_register(lua, "naim.pd.internal", naim_pd_internallib);
 	naim_commandsreg(lua);
