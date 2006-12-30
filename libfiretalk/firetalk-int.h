@@ -314,8 +314,7 @@ typedef struct firetalk_connection_t {
 	void	*magic;
 	struct firetalk_driver_connection_t *handle;
 	struct firetalk_useragent_connection_t *clientstruct;
-	firetalk_sock_t sock;
-	firetalk_buffer_t buffer;
+	int	connected;
 	uint32_t localip;
 	int	protocol;
 	char	*username;
@@ -341,8 +340,6 @@ static inline void firetalk_connection_t_ctor(firetalk_connection_t *this) {
 	memset(this, 0, sizeof(*this));
 	this->magic = &firetalk_connection_t_magic;
 	this->canary = &firetalk_connection_t_canary;
-	firetalk_sock_t_ctor(&(this->sock));
-	firetalk_buffer_t_ctor(&(this->buffer));
 	firetalk_queue_t_ctor(&(this->subcode_requests));
 	firetalk_queue_t_ctor(&(this->subcode_replies));
 }
@@ -351,8 +348,6 @@ int	firetalk_connection_t_valid(const firetalk_connection_t *this);
 static inline void firetalk_connection_t_dtor(firetalk_connection_t *this) {
 	assert(this != NULL);
 	assert(firetalk_connection_t_valid(this));
-	firetalk_sock_t_dtor(&(this->sock));
-	firetalk_buffer_t_dtor(&(this->buffer));
 	free(this->username);
 	firetalk_buddy_t_list_delete(this->buddy_head);
 	firetalk_deny_t_list_delete(this->deny_head);
@@ -378,17 +373,14 @@ typedef struct {
 	const char *strprotocol;
 	const char *default_server;
 	uint16_t default_port;
-	uint16_t default_buffersize;
 	struct firetalk_driver_cookie_t *cookie;
 	fte_t	(*periodic)(firetalk_connection_t *const conn);
 	fte_t	(*preselect)(struct firetalk_driver_connection_t *c, fd_set *read, fd_set *write, fd_set *except, int *n);
 	fte_t	(*postselect)(struct firetalk_driver_connection_t *c, fd_set *read, fd_set *write, fd_set *except);
-	fte_t	(*got_data)(struct firetalk_driver_connection_t *c, firetalk_buffer_t *buffer);
-	fte_t	(*got_data_connecting)(struct firetalk_driver_connection_t *c, firetalk_buffer_t *buffer);
 	fte_t	(*comparenicks)(struct firetalk_driver_connection_t *c, const char *const s1, const char *const s2);
 	fte_t	(*isprintable)(struct firetalk_driver_connection_t *c, const int key);
 	fte_t	(*disconnect)(struct firetalk_driver_connection_t *c);
-	fte_t	(*disconnected)(struct firetalk_driver_connection_t *c, const fte_t reason);
+	fte_t	(*connect)(struct firetalk_driver_connection_t *c, const char *server, uint16_t port, const char *const username);
 	fte_t	(*signon)(struct firetalk_driver_connection_t *c, const char *const account);
 	fte_t	(*get_info)(struct firetalk_driver_connection_t *c, const char *const account);
 	fte_t	(*set_info)(struct firetalk_driver_connection_t *c, const char *const text);

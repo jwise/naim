@@ -15,6 +15,8 @@ struct firetalk_driver_cookie_t {
 	int pdtref;
 };
 
+#if 0
+
 struct firetalk_driver_connection_t {
 	struct firetalk_driver_cookie_t *pd;
 	int conntref;
@@ -439,7 +441,10 @@ static const firetalk_driver_t firetalk_protocol_template = {
 #warning No further warnings are harmless, unless you're using gcc 4.
 };
 
+#endif
+
 static int _nlua_create(lua_State *L) {
+#if 0
 	struct firetalk_driver_cookie_t *ck;
 	
 	ck = malloc(sizeof(*ck));
@@ -476,7 +481,7 @@ static int _nlua_create(lua_State *L) {
 	lua_pop(L, 2);
 
 	firetalk_register_protocol(ck->pd);
-
+#endif
 	return(0);
 }
 
@@ -622,3 +627,4 @@ const struct luaL_reg naim_pd_internallib[] = {
 	{ "buddyadded",		_nlua_buddyadded },
 	{ NULL,			NULL },
 };
+
