@@ -60,9 +60,9 @@ static void firetalk_register_default_protocols(void) {
 #if 0
 	if (firetalk_register_protocol(&firetalk_protocol_slcp) != FE_SUCCESS)
 		abort();
+#endif
 	if (firetalk_register_protocol(&firetalk_protocol_toc2) != FE_SUCCESS)
 		abort();
-#endif
 }
 
 int	firetalk_find_protocol(const char *strprotocol) {

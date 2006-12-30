@@ -1597,7 +1597,7 @@ static char *irc_ctcp_encode(irc_conn_t *c, const char *const command, const cha
 }
 
 const firetalk_driver_t firetalk_protocol_irc = {
-	strprotocol:		"TOC2",
+	strprotocol:		"IRC",
 	default_server:		"irc.n.ml.org",
 	default_port:		6667,
 	periodic:		irc_periodic,
