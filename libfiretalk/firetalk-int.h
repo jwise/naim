@@ -222,7 +222,7 @@ TYPE_DELETE(firetalk_sock_t);
 
 typedef struct {
 	void	*magic;
-	uint16_t size, pos;
+	uint32_t size, pos;
 	uint8_t	*buffer,
 		readdata:1;
 	void	*canary;
@@ -545,7 +545,7 @@ fte_t	firetalk_sock_send(firetalk_sock_t *sock, const void *const buffer, const 
 void	firetalk_sock_preselect(firetalk_sock_t *sock, fd_set *my_read, fd_set *my_write, fd_set *my_except, int *n);
 fte_t	firetalk_sock_postselect(firetalk_sock_t *sock, fd_set *my_read, fd_set *my_write, fd_set *my_except, firetalk_buffer_t *buffer);
 
-fte_t	firetalk_buffer_alloc(firetalk_buffer_t *buffer, uint16_t size);
+fte_t	firetalk_buffer_alloc(firetalk_buffer_t *buffer, uint32_t size);
 
 char	*firetalk_htmlclean(const char *str);
 const char *firetalk_nhtmlentities(const char *str, int len);
