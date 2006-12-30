@@ -787,8 +787,8 @@ static fte_t toc_postselect(toc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 	}
 	
 	if (c->sock.state == FCS_SEND_SIGNON) {
-		toc_signon(c);
 		c->sock.state = FCS_WAITING_SIGNON;
+		toc_signon(c);
 	} else if (c->buffer.readdata) {
 		if (c->sock.state == FCS_ACTIVE)
 		 	toc_got_data(c, &(c->buffer));
@@ -2629,6 +2629,7 @@ got_data_connecting_start:
 			}
 #endif
 
+			c->sock.state = FCS_ACTIVE;
 			firetalk_callback_connected(c);
 			return(FE_SUCCESS);
 		}
