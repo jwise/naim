@@ -31,6 +31,8 @@ libnlua_la_SOURCES = \
 	moon.c \
 	moon-int.h \
 	pd.c \
+	buffer.c \
+	socket.c \
 	script.c \
 	util.c \
 	variables.c
