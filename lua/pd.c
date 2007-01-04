@@ -371,7 +371,7 @@ static const firetalk_driver_t firetalk_protocol_template = {
 	room_normalize:		_nlua_pd_room_normalize,
 	create_conn:		_nlua_pd_create_conn,
 	destroy_conn:		_nlua_pd_destroy_conn,
-#warning No further warnings are harmless, unless you're using gcc 4.
+#warning No further warnings are harmless, unless you are using gcc 4.
 };
 
 static int _nlua_create(lua_State *L) {
