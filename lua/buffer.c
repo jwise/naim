@@ -34,21 +34,6 @@ const struct luaL_reg naim_bufferlib[] = {
 	{ NULL,		NULL }
 };
 
-#define STACK_TO_BUFFER(L, stack, buffer) \
-	do {\
-		lua_pushvalue(L, stack);\
-		if (!lua_istable(L, -1))\
-			return luaL_error(L, "argument 1 was not a table");\
-		lua_pushstring(L, "userdata");\
-		lua_gettable(L, -2);\
-		if (!lua_isuserdata(L, -1))\
-			return luaL_error(L, "argument 1 did not have a userdata");\
-		buf = lua_touserdata(L, -1);\
-		lua_pop(L, 2);\
-		if (!firetalk_buffer_t_valid(buffer))\
-			return luaL_error(L, "argument 1's userdata wasn't a firetalk_buffer_t");\
-	} while(0)
-
 static int _nlua_delete(lua_State *L) {
 	firetalk_buffer_t *buf;
 	
@@ -122,10 +107,19 @@ static int _nlua_take(lua_State *L) {
 	return 1;
 }
 
+static int _nlua_readdata(lua_State *L) {
+	firetalk_buffer_t *buf;
+	
+	STACK_TO_BUFFER(L, 1, buf);
+	lua_pushboolean(L, buf->readdata);
+	return 1;
+}
+
 const struct luaL_reg naim_buffer_internallib[] = {
 	{ "delete",	_nlua_delete },
 	{ "resize",	_nlua_resize },
 	{ "peek",	_nlua_peek },
 	{ "take",	_nlua_take },
+	{ "readdata",	_nlua_readdata },
 	{ NULL,		NULL }
 };

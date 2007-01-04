@@ -34,21 +34,6 @@ const struct luaL_reg naim_socketlib[] = {
 	{ NULL,		NULL }
 };
 
-#define STACK_TO_SOCKET(L, stack, sock) \
-	do {\
-		lua_pushvalue(L, stack);\
-		if (!lua_istable(L, -1))\
-			return luaL_error(L, "argument 1 was not a table");\
-		lua_pushstring(L, "userdata");\
-		lua_gettable(L, -2);\
-		if (!lua_isuserdata(L, -1))\
-			return luaL_error(L, "argument 1 did not have a userdata");\
-		sock = lua_touserdata(L, -1);\
-		lua_pop(L, 2);\
-		if (!firetalk_sock_t_valid(sock))\
-			return luaL_error(L, "argument 1's userdata wasn't a firetalk_sock_t");\
-	} while(0)
-
 static int _nlua_delete(lua_State *L) {
 	firetalk_sock_t *sock;
 	
@@ -93,7 +78,10 @@ static int _nlua_send(lua_State *L) {
         if (!lua_isstring(L, 2))
         	return luaL_error(L, "argument 2 was not a string");
 	data = lua_tolstring(L, 2, &len);
-	error = firetalk_sock_send(sock, data, len);
+	if (sock->state != FCS_NOTCONNECTED)
+		error = firetalk_sock_send(sock, data, len);
+	else
+		error = FE_NOTCONNECTED;
 	if (error == FE_SUCCESS)
 		return 0;
 	lua_pushstring(L, firetalk_strerror(error));
@@ -108,10 +96,75 @@ static int _nlua_close(lua_State *L) {
 	return 0;
 }
 
+static int _nlua_preselect(lua_State *L) {
+	firetalk_sock_t *sock;
+	fd_set *rd, *wr, *ex;
+	int n;
+	
+	STACK_TO_SOCKET(L, 1, sock);
+	if (!lua_islightuserdata(L, 2))
+		return luaL_error(L, "argument 2 was not a light userdata");	/* XXX do more checks later to make sure it's a fd_set */
+	if (!lua_islightuserdata(L, 3))
+		return luaL_error(L, "argument 3 was not a light userdata");	/* XXX do more checks later to make sure it's a fd_set */
+	if (!lua_islightuserdata(L, 4))
+		return luaL_error(L, "argument 4 was not a light userdata");	/* XXX do more checks later to make sure it's a fd_set */
+	if (!lua_isnumber(L, 5))
+		return luaL_error(L, "argument 5 was not a number");
+	rd = lua_touserdata(L, 2);
+	wr = lua_touserdata(L, 3);
+	ex = lua_touserdata(L, 4);
+	n = lua_tonumber(L, 5);
+	
+	if (sock->state != FCS_NOTCONNECTED)
+		firetalk_sock_preselect(sock, rd, wr, ex, &n);
+
+	lua_pushnumber(L, n);
+	return 1;
+}
+
+static int _nlua_postselect(lua_State *L) {
+	firetalk_sock_t *sock;
+	fd_set *rd, *wr, *ex;
+	firetalk_buffer_t *buf;
+	fte_t e = FE_SUCCESS;
+	
+	STACK_TO_SOCKET(L, 1, sock);
+	if (!lua_islightuserdata(L, 2))
+		return luaL_error(L, "argument 2 was not a light userdata");	/* XXX do more checks later to make sure it's a fd_set */
+	if (!lua_islightuserdata(L, 3))
+		return luaL_error(L, "argument 3 was not a light userdata");	/* XXX do more checks later to make sure it's a fd_set */
+	if (!lua_islightuserdata(L, 4))
+		return luaL_error(L, "argument 4 was not a light userdata");	/* XXX do more checks later to make sure it's a fd_set */
+	rd = lua_touserdata(L, 2);
+	wr = lua_touserdata(L, 3);
+	ex = lua_touserdata(L, 4);
+	STACK_TO_BUFFER(L, 5, buf);
+	
+	if (sock->state != FCS_NOTCONNECTED)
+		e = firetalk_sock_postselect(sock, rd, wr, ex, buf);
+	if (sock->state == FCS_SEND_SIGNON)
+		sock->state = FCS_ACTIVE;
+	if (e == FE_SUCCESS)
+		return 0;
+	lua_pushstring(L, firetalk_strerror(e));
+	return 1;
+}
+
+static int _nlua_connected(lua_State *L) {
+	firetalk_sock_t *sock;
+	
+	STACK_TO_SOCKET(L, 1, sock);
+	lua_pushboolean(L, sock->state == FCS_ACTIVE);
+	return 1;
+}
+
 const struct luaL_reg naim_socket_internallib[] = {
 	{ "delete",	_nlua_delete },
 	{ "connect",	_nlua_connect },
 	{ "close",	_nlua_close },
 	{ "send",	_nlua_send },
+	{ "preselect",	_nlua_preselect },
+	{ "postselect",	_nlua_postselect },
+	{ "connected",	_nlua_connected },
 	{ NULL,		NULL }
 };
