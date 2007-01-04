@@ -16,7 +16,13 @@
 
 sock = naim.socket.create()
 buf = naim.buffer.create()
-naim.hooks.add('preselect', function(rd, wr, ex, n) n = sock:preselect(rd, wr, ex, n) return true,n end, 100)
+buf:resize(16384)
+
+naim.hooks.add('preselect',
+	function(rd, wr, ex, n)
+		n = sock:preselect(rd, wr, ex, n)
+		return true, n
+	end, 100)
 naim.hooks.add('postselect',
 	function(rd, wr, ex)
 		e = sock:postselect(rd, wr, ex, buf)
@@ -35,26 +41,19 @@ naim.hooks.add('postselect',
 			end
 		end
 	end, 100)
-buf:resize(16384)
-
-function askxkcd()
-	sock:connect("xkcd.com", 80)
-	naim.echo("Connecting...");
-	ref = naim.hooks.add('postselect',
-		function(rd, wr, ex)
-			if sock:connected() then
-				naim.echo("Sending the GET...")
-				sock:send("GET /rss.xml HTTP/1.1\nHost: xkcd.com\n\n")
-				naim.hooks.del('postselect', ref)
-			end
-		end, 150)
-end
 
 naim.hooks.add('proto_recvfrom', function (conn, sn, dest, text, flags)
 	theconn = conn
 	thesn = sn
 	thedest = dest
 	if text:match("^!xkcd") then
-		askxkcd()
+		sock:connect("xkcd.com", 80)
+		ref = naim.hooks.add('postselect',
+			function(rd, wr, ex)
+				if sock:connected() then
+					sock:send("GET /rss.xml HTTP/1.1\nHost: xkcd.com\n\n")
+					naim.hooks.del('postselect', ref)
+				end
+			end, 150)
 	end
 end, 100)
