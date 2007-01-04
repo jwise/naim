@@ -11,7 +11,8 @@ EXTRA_DIST = \
 	examples/lseen.lua \
 	examples/printtree.lua \
 	examples/stats.lua \
-	examples/xkcd.lua
+	examples/xkcd.lua \
+	examples/localpd.lua
 
 noinst_LTLIBRARIES = liblua.la libnlua.la
 liblua_la_SOURCES = \

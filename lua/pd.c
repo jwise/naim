@@ -46,7 +46,7 @@ struct firetalk_driver_connection_t *_nlua_pd_lua_to_driverconn(lua_State *L, in
                 
 
 static int _nlua_pdvcall(multival_t *ret, struct firetalk_driver_connection_t *c, const char *call, const char *signature, va_list msg) {
-	int	i, args = 0, top = lua_gettop(lua), buffers = 0;
+	int	i, args = 0, top = lua_gettop(lua);
 
 	if (!c)
 	{
@@ -118,30 +118,6 @@ static int _nlua_pdvcall(multival_t *ret, struct firetalk_driver_connection_t *c
 				lua_pushnumber(lua, *val);
 				break;
 			}
-		  case HOOK_T_BUFFERc: {
-		  		/* this is nasty, but functional. */
-		  		firetalk_buffer_t *val = va_arg(msg, firetalk_buffer_t *);
-		  		
-		  		lua_newtable(lua);
-		  		
-		  		lua_pushstring(lua, "data");
-		  		lua_pushlstring(lua, val->buffer, val->pos);
-		  		lua_settable(lua, -3);
-		  		
-		  		lua_pushstring(lua, "taken");
-		  		lua_pushnumber(lua, 0);
-		  		lua_settable(lua, -3);
-		  		
-		  		lua_pushstring(lua, "userdata");
-		  		lua_pushlightuserdata(lua, (void*)val);
-		  		lua_settable(lua, -3);
-		  		
-		  		lua_pushvalue(lua, -1);
-		  		lua_insert(lua, -(args+2));	/* +1 for the function and +1 to get to the buffer */
-		  		buffers++;
-		  		top++;
-		  		break;
-			}
 		  default:
 			lua_pushlightuserdata(lua, va_arg(msg, void *));
 			break;
@@ -152,7 +128,7 @@ static int _nlua_pdvcall(multival_t *ret, struct firetalk_driver_connection_t *c
 		extern conn_t *curconn;
 
 		status_echof(curconn, "[pdlua] [%s:%s] run error: %s\n", c->pd->pd->strprotocol, call, lua_tostring(lua, -1));
-		lua_pop(lua, 1+buffers);
+		lua_pop(lua, 1);
 		return(-1);
 	}
 
@@ -187,31 +163,7 @@ static int _nlua_pdvcall(multival_t *ret, struct firetalk_driver_connection_t *c
 		lua_pop(lua, 1);
 	}
 
-	for (i = 0; i < buffers; i++)
-	{
-		firetalk_buffer_t *val;
-		int taken;
-		
-		lua_getfield(lua, -1, "taken");
-		taken = lua_tonumber(lua, -1);
-		lua_pop(lua, 1);
-		
-		lua_getfield(lua, -1, "userdata");
-		val = (firetalk_buffer_t*)lua_touserdata(lua, -1);
-		lua_pop(lua, 2);
-		
-		if (taken > (val->pos))
-		{
-			extern conn_t *curconn;
-			
-			status_echof(curconn, "[pdlua] [%s:%s] Oh no! Took %d bytes, but only %d bytes were available!", c->pd->pd->strprotocol, call, taken, val->pos);
-			taken = val->pos;
-		}
-		memmove(val->buffer, val->buffer + taken, val->size - taken);
-		val->pos -= taken;
-	}
-
-	assert(lua_gettop(lua) == (top - buffers));
+	assert(lua_gettop(lua) == top);
 
 	return(0);
 }
@@ -247,8 +199,6 @@ PD_CALL_WRAPPER(comparenicks, HOOK_T_STRING HOOK_T_STRING) /* const char *const 
 PD_CALL_WRAPPER(isprintable, HOOK_T_UINT32) /* const int key */
 PD_CALL_WRAPPER(preselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET HOOK_T_WRUINT32) /* fd_set *read, fd_set *write, fd_set *except, int *n */
 PD_CALL_WRAPPER(postselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET) /* fd_set *read, fd_set *write, fd_set *except */
-PD_CALL_WRAPPER(got_data, HOOK_T_BUFFER) /* firetalk_buffer_t *buffer */
-PD_CALL_WRAPPER(got_data_connecting, HOOK_T_BUFFER) /* firetalk_buffer_t *buffer */
 PD_CALL_WRAPPER(disconnect, "") /* */
 PD_CALL_WRAPPER(connect, HOOK_T_STRING HOOK_T_UINT32 HOOK_T_STRING) /* const char *server, uint16_t port, const char *const username */
 PD_CALL_WRAPPER(get_info, HOOK_T_STRING) /* const char *const account */
@@ -537,6 +487,20 @@ static int _nlua_chat_joined(lua_State *L) {
 	return(0);
 }
 
+static int _nlua_chat_left(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *room;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	room = luaL_checkstring(L, 2);
+	
+	firetalk_callback_chat_left(c, room);
+	
+	return(0);
+}
+
 static int _nlua_im_buddyonline(lua_State *L) {
 	struct firetalk_driver_connection_t *c;
 	const char *buddy;
@@ -576,6 +540,7 @@ const struct luaL_reg naim_pd_internallib[] = {
 	{ "im_get_message", 	_nlua_im_getmessage },
 	{ "chat_get_message", 	_nlua_chat_getmessage },
 	{ "chat_joined",	_nlua_chat_joined },
+	{ "chat_left",		_nlua_chat_left },
 	{ "im_buddyonline",	_nlua_im_buddyonline },
 	{ "buddyadded",		_nlua_buddyadded },
 	{ NULL,			NULL },
