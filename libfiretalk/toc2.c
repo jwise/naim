@@ -1027,11 +1027,6 @@ static fte_t toc_disconnect(toc_conn_t *c) {
 	return(toc_internal_disconnect(c, FE_USERDISCONNECT));
 }
 
-static fte_t toc_disconnected(toc_conn_t *c, const fte_t reason) {
-	assert(firetalk_internal_get_connectstate(c) == FCS_NOTCONNECTED);
-	return(toc_internal_disconnect(c, reason));
-}
-
 static fte_t toc_signon(toc_conn_t *c) {
 	/* fill & send the flap signon packet */
 
