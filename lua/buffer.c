@@ -102,8 +102,17 @@ static int _nlua_take(lua_State *L) {
 	if (size > buf->pos)
 		size = buf->pos;
 	lua_pushlstring(L, buf->buffer, size);
-	memmove(buf->buffer, buf->buffer + buf->pos, buf->size - buf->pos);
-	buf->pos = 0;
+	memmove(buf->buffer, buf->buffer + size, buf->size - buf->pos);
+	buf->pos -= size;
+	return 1;
+}
+
+static int _nlua_pos(lua_State *L) {
+	firetalk_buffer_t *buf;
+	int size;
+	
+	STACK_TO_BUFFER(L, 1, buf);
+	lua_pushnumber(L, buf->pos);
 	return 1;
 }
 
@@ -120,6 +129,7 @@ const struct luaL_reg naim_buffer_internallib[] = {
 	{ "resize",	_nlua_resize },
 	{ "peek",	_nlua_peek },
 	{ "take",	_nlua_take },
+	{ "pos",	_nlua_pos },
 	{ "readdata",	_nlua_readdata },
 	{ NULL,		NULL }
 };
