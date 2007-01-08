@@ -9,45 +9,6 @@
 #include "firetalk-int.h"
 #include "moon-int.h"
 
-static int _nlua_create(lua_State *L) {
-	firetalk_sock_t *sock;
-	sock = firetalk_sock_t_new();
-	
-	lua_newtable(L);
-	
-	lua_pushstring(L, "userdata");
-	lua_pushlightuserdata(L, (void*)sock);
-	lua_settable(L, -3);
-	
-	lua_newtable(L);
-	lua_pushstring(L, "__index");
-	if (luaL_findtable(lua, LUA_GLOBALSINDEX, "naim.socket.internal", 1) != NULL)
-		return luaL_error(L, "failed to look up metatable for buffer library");
-	lua_settable(L, -3);
-	lua_setmetatable(L, -2);
-	
-	return 1;
-}
-
-const struct luaL_reg naim_socketlib[] = {
-	{ "create",	_nlua_create },
-	{ NULL,		NULL }
-};
-
-static int _nlua_delete(lua_State *L) {
-	firetalk_sock_t *sock;
-	
-	STACK_TO_SOCKET(L, 1, sock);
-	firetalk_sock_t_delete(sock);
-	lua_pushvalue(L, 1);
-	lua_pushstring(L, "userdata");
-	lua_pushnil(L);
-	lua_settable(L, -3);
-	lua_pop(L, 1);
-	
-	return 0;
-}
-
 static int _nlua_connect(lua_State *L) {
 	firetalk_sock_t *sock;
 	const char *host;
@@ -158,13 +119,55 @@ static int _nlua_connected(lua_State *L) {
 	return 1;
 }
 
-const struct luaL_reg naim_socket_internallib[] = {
-	{ "delete",	_nlua_delete },
+const static struct luaL_reg socket_internallib[] = {
 	{ "connect",	_nlua_connect },
 	{ "close",	_nlua_close },
 	{ "send",	_nlua_send },
 	{ "preselect",	_nlua_preselect },
 	{ "postselect",	_nlua_postselect },
 	{ "connected",	_nlua_connected },
+	{ NULL,		NULL }
+};
+
+static int _nlua___gc(lua_State *L) {
+	firetalk_sock_t *sock;
+	
+	STACK_TO_SOCKET(L, 1, sock);
+	firetalk_sock_t_delete(sock);
+	
+	return 0;
+}
+
+static int _nlua_new(lua_State *L) {
+	firetalk_sock_t **sock;
+	static int hascreatedmetatable = 0;
+	
+	if (!hascreatedmetatable)
+	{
+		luaL_newmetatable(L, "naim.socket");
+		
+		lua_pushstring(L, "__index");
+		lua_pushvalue(L, -2);
+		lua_settable(L, -3);
+		luaL_openlib(L, NULL, socket_internallib, 0);
+		
+		lua_pushstring(L, "__gc");
+		lua_pushcfunction(L, _nlua___gc);
+		lua_settable(L, -3);
+		
+		lua_pop(L, 1);
+		
+		hascreatedmetatable = 1;
+	}
+	sock = lua_newuserdata(L, sizeof(firetalk_sock_t*));
+	*sock = firetalk_sock_t_new();
+	luaL_getmetatable(L, "naim.socket");
+	lua_setmetatable(L, -2);
+	
+	return 1;
+}
+
+const struct luaL_reg naim_socketlib[] = {
+	{ "new",	_nlua_new },
 	{ NULL,		NULL }
 };

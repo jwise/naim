@@ -32,32 +32,19 @@ void	_get_global_ent(lua_State *L, const char *name, ...);
 /* socket.c */
 #define STACK_TO_SOCKET(L, stack, sock) \
 	do {\
-		lua_pushvalue(L, stack);\
-		if (!lua_istable(L, -1))\
-			return luaL_error(L, "argument 1 was not a table");\
-		lua_pushstring(L, "userdata");\
-		lua_gettable(L, -2);\
-		if (!lua_isuserdata(L, -1))\
-			return luaL_error(L, "argument 1 did not have a userdata");\
-		sock = lua_touserdata(L, -1);\
-		lua_pop(L, 2);\
-		if (!firetalk_sock_t_valid(sock))\
-			return luaL_error(L, "argument 1's userdata wasn't a firetalk_sock_t");\
+		firetalk_sock_t **ss;\
+		ss = (firetalk_sock_t**)luaL_checkudata(L, stack, "naim.socket");\
+		luaL_argcheck(L, ss != NULL, stack, "`socket' expected");\
+		sock = *ss;\
+		luaL_argcheck(L, firetalk_sock_t_valid(sock), stack, "invalid firetalk_sock_t (this should never happen)");\
 	} while(0)
 
 /* buffer.c */
-#define STACK_TO_BUFFER(L, stack, buffer) \
+#define STACK_TO_BUFFER(L, stack, buf) \
 	do {\
-		lua_pushvalue(L, stack);\
-		if (!lua_istable(L, -1))\
-			return luaL_error(L, "argument 1 was not a table");\
-		lua_pushstring(L, "userdata");\
-		lua_gettable(L, -2);\
-		if (!lua_isuserdata(L, -1))\
-			return luaL_error(L, "argument 1 did not have a userdata");\
-		buffer = lua_touserdata(L, -1);\
-		lua_pop(L, 2);\
-		if (!firetalk_buffer_t_valid(buffer))\
-			return luaL_error(L, "argument 1's userdata wasn't a firetalk_buffer_t");\
+		firetalk_buffer_t **bb;\
+		bb = (firetalk_buffer_t**)luaL_checkudata(L, stack, "naim.buffer");\
+		luaL_argcheck(L, bb != NULL, stack, "`buffer' expected");\
+		buf = *bb;\
+		luaL_argcheck(L, firetalk_buffer_t_valid(buf), stack, "invalid firetalk_buffer_t (this should never happen)");\
 	} while(0)
-

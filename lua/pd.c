@@ -422,6 +422,19 @@ static int _nlua_connected(lua_State *L) {
 	return(0);
 }
 
+static int _nlua_disconnect(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	int error;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	error = luaL_checknumber(L, 2);
+	firetalk_callback_disconnect(c, error);
+	
+	return(0);
+}
+
 static int _nlua_needpass(lua_State *L) {
 	struct firetalk_driver_connection_t *c;
 	char pass[512];
@@ -534,8 +547,30 @@ static int _nlua_buddyadded(lua_State *L) {
 	return(0);
 }
 
+static int _nlua_gotinfo(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *nick, *info;
+	int warning, online, idle, flags;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+
+	nick = luaL_checkstring(L, 2);
+	info = luaL_checkstring(L, 3);
+	warning = luaL_checknumber(L, 4);
+	online = luaL_checknumber(L, 4);
+	idle = luaL_checknumber(L, 4);
+	flags = luaL_checknumber(L, 4);
+	
+	firetalk_callback_gotinfo(c, nick, info, warning, online, idle, flags);
+	
+	return(0);
+}
+
 const struct luaL_reg naim_pd_internallib[] = {
 	{ "connected",		_nlua_connected },
+	{ "disconnect",		_nlua_disconnect },
 	{ "needpass",		_nlua_needpass },
 	{ "im_get_message", 	_nlua_im_getmessage },
 	{ "chat_get_message", 	_nlua_chat_getmessage },
@@ -543,6 +578,7 @@ const struct luaL_reg naim_pd_internallib[] = {
 	{ "chat_left",		_nlua_chat_left },
 	{ "im_buddyonline",	_nlua_im_buddyonline },
 	{ "buddyadded",		_nlua_buddyadded },
+	{ "gotinfo",		_nlua_gotinfo },
 	{ NULL,			NULL },
 };
 

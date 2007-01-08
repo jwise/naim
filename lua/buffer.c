@@ -9,45 +9,6 @@
 #include "firetalk-int.h"
 #include "moon-int.h"
 
-static int _nlua_create(lua_State *L) {
-	firetalk_buffer_t *buf;
-	buf = firetalk_buffer_t_new();
-	
-	lua_newtable(L);
-	
-	lua_pushstring(L, "userdata");
-	lua_pushlightuserdata(L, (void*)buf);
-	lua_settable(L, -3);
-	
-	lua_newtable(L);
-	lua_pushstring(L, "__index");
-	if (luaL_findtable(lua, LUA_GLOBALSINDEX, "naim.buffer.internal", 1) != NULL)
-		return luaL_error(L, "failed to look up metatable for buffer library");
-	lua_settable(L, -3);
-	lua_setmetatable(L, -2);
-	
-	return 1;
-}
-
-const struct luaL_reg naim_bufferlib[] = {
-	{ "create",	_nlua_create },
-	{ NULL,		NULL }
-};
-
-static int _nlua_delete(lua_State *L) {
-	firetalk_buffer_t *buf;
-	
-	STACK_TO_BUFFER(L, 1, buf);
-	firetalk_buffer_t_delete(buf);
-	lua_pushvalue(L, 1);
-	lua_pushstring(L, "userdata");
-	lua_pushnil(L);
-	lua_settable(L, -3);
-	lua_pop(L, 1);
-	
-	return 0;
-}
-
 static int _nlua_resize(lua_State *L) {
 	firetalk_buffer_t *buf;
 	int newsize;
@@ -124,12 +85,60 @@ static int _nlua_readdata(lua_State *L) {
 	return 1;
 }
 
-const struct luaL_reg naim_buffer_internallib[] = {
-	{ "delete",	_nlua_delete },
+const static struct luaL_reg buffer_internallib[] = {
 	{ "resize",	_nlua_resize },
 	{ "peek",	_nlua_peek },
 	{ "take",	_nlua_take },
 	{ "pos",	_nlua_pos },
 	{ "readdata",	_nlua_readdata },
+	{ NULL,		NULL }
+};
+
+static int _nlua___gc(lua_State *L) {
+	firetalk_buffer_t *buf;
+	
+	STACK_TO_BUFFER(L, 1, buf);
+	firetalk_buffer_t_delete(buf);
+	lua_pop(L, 1);
+	
+	return 0;
+}
+
+static int _nlua_new(lua_State *L) {
+	firetalk_buffer_t **buf;
+	static int hascreatedmetatable = 0;
+	
+	if (!hascreatedmetatable)	/* we have to do it like this because we aren't given an opportunity to do this at startup */
+	{
+		luaL_newmetatable(L, "naim.buffer");
+		
+		lua_pushstring(L, "__index");
+		lua_pushvalue(L, -2);
+		lua_settable(L, -3);
+		luaL_openlib(L, NULL, buffer_internallib, 0);
+		
+		lua_pushstring(L, "__gc");
+		lua_pushcfunction(L, _nlua___gc);
+		lua_settable(L, -3);
+		
+		lua_pushstring(L, "__tostring");
+		lua_pushcfunction(L, _nlua_peek);
+		lua_settable(L, -3);
+		
+		lua_pop(L, 1);
+		
+		hascreatedmetatable = 1;
+	}
+	
+	buf = lua_newuserdata(L, sizeof(firetalk_buffer_t*));
+	*buf = firetalk_buffer_t_new();
+	luaL_getmetatable(L, "naim.buffer");
+	lua_setmetatable(L, -2);
+	
+	return 1;
+}
+
+const struct luaL_reg naim_bufferlib[] = {
+	{ "new",	_nlua_new },
 	{ NULL,		NULL }
 };

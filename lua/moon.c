@@ -137,8 +137,8 @@ OPERATION(or, i|j)
 OPERATION(xor, i^j)
 
 static const struct luaL_reg naim_bitlib[] = {
-	{ "and",	_nlua_and },
-	{ "or",		_nlua_or },
+	{ "_and",	_nlua_and },
+	{ "_or",	_nlua_or },
 	{ "xor",	_nlua_xor },
 	{ NULL,		NULL },	/* sentinel */
 };
@@ -151,9 +151,7 @@ static void _loadfunctions(void) {
 		naim_pdlib[],
 		naim_pd_internallib[],
 		naim_bufferlib[],
-		naim_buffer_internallib[],
-		naim_socketlib[],
-		naim_socket_internallib[];
+		naim_socketlib[];
 	extern void naim_commandsreg(lua_State *L);
 
 	luaL_register(lua, "naim", naimlib);
@@ -166,9 +164,7 @@ static void _loadfunctions(void) {
 	luaL_register(lua, "naim.pd", naim_pdlib);
 	luaL_register(lua, "naim.pd.internal", naim_pd_internallib);
 	luaL_register(lua, "naim.buffer", naim_bufferlib);
-	luaL_register(lua, "naim.buffer.internal", naim_buffer_internallib);
 	luaL_register(lua, "naim.socket", naim_socketlib);
-	luaL_register(lua, "naim.socket.internal", naim_socket_internallib);
 
 	naim_commandsreg(lua);
 }
