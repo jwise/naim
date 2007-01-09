@@ -14,8 +14,8 @@
 -- may be in the user's best interests to keep Hell as well confined as
 -- possible.
 
-sock = naim.socket.create()
-buf = naim.buffer.create()
+sock = naim.socket.new()
+buf = naim.buffer.new()
 buf:resize(16384)
 
 naim.hooks.add('preselect',

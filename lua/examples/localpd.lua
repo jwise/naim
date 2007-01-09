@@ -45,8 +45,8 @@ function registerpd()
 		server,port = group:match("([a-z0-9\.]*):([0-9]*)")
 		naim.echo("connecting: " .. server .. " , " .. port)
 		self.chats[group] = {}
-		self.chats[group].sock = naim.socket.create()
-		self.chats[group].buf = naim.buffer.create()
+		self.chats[group].sock = naim.socket.new()
+		self.chats[group].buf = naim.buffer.new()
 		self.chats[group].buf:resize(4096)
 		self.chats[group].sock:connect(server, port)
 		self.chats[group].wasconnected = false
@@ -54,8 +54,6 @@ function registerpd()
 	end
 	function myproto:chat_part(group)
 		self.chats[group].sock:close()
-		self.chats[group].sock:delete()
-		self.chats[group].buf:delete()
 		self.chats[group] = nil
 		return 0
 	end
