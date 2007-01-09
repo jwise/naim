@@ -95,7 +95,7 @@ function registerpd()
 				text = text:gsub(" ", "&nbsp;")
 				text = text:gsub("\n", "<br>")
 				
-				self:chat_get_message(k, "remote", 0, text)
+				self:chat_getmessage(k, "remote", 0, text)
 			end
 			if v.wasconnected and not v.sock:connected() then
 				-- blah
