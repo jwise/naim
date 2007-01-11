@@ -463,6 +463,22 @@ static int _nlua_im_buddyonline(lua_State *L) {
 	return(0);
 }
 
+static int _nlua_im_buddyaway(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *buddy;
+	int away;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	buddy = luaL_checkstring(L, 2);
+	away = luaL_checkint(L, 3);
+	
+	firetalk_callback_im_buddyaway(c, buddy, away);
+	
+	return(0);
+}
+
 static int _nlua_buddyadded(lua_State *L) {
 	struct firetalk_driver_connection_t *c;
 	const char *buddy, *group, *friendly;
@@ -476,6 +492,22 @@ static int _nlua_buddyadded(lua_State *L) {
 	friendly = lua_tostring(L, 4);
 	
 	firetalk_callback_buddyadded(c, buddy, group, friendly);
+	
+	return(0);
+}
+
+static int _nlua_buddyremoved(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *buddy, *group;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+
+	buddy = luaL_checkstring(L, 2);
+	group = lua_tostring(L, 3);
+	
+	firetalk_callback_buddyremoved(c, buddy, group);
 	
 	return(0);
 }
@@ -616,15 +648,14 @@ static int _nlua_chat_left(lua_State *L) {
 	return(0);
 }
 
-
-
 const struct luaL_reg naim_pd_internallib[] = {
 	{ "im_getmessage", 	_nlua_im_getmessage },
 	{ "im_getaction", 	_nlua_im_getaction },
 	{ "im_buddyonline",	_nlua_im_buddyonline },
-	/* im_buddyaway */
+	{ "im_buddyaway",	_nlua_im_buddyaway },
 	{ "buddyadded",		_nlua_buddyadded },
-	/* buddyremoved, denyadded, denyremoved */
+	{ "buddyremoved",	_nlua_buddyremoved },
+	/* denyadded, denyremoved */
 	{ "typing",		_nlua_typing },
 	/* capabilities, warninfo, error, connectfailed */
 	{ "connected",		_nlua_connected },
