@@ -646,7 +646,7 @@ naim.hooks.add('proto_disconnected', function(conn, errorcode)
 	conn.online = nil
 
 	conn.groups = {}
-	setmetatable(naim.connections[name].groups, naim.internal.insensitive_index)
+	setmetatable(conn.groups, naim.internal.insensitive_index)
 
 	for k,buddy in pairs(conn.buddies) do
 		buddy.session = nil
