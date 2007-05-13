@@ -749,6 +749,7 @@ static fte_t toc_im_add_deny_flush(toc_conn_t *c) {
 static fte_t toc_postselect(toc_conn_t *c, fd_set *read, fd_set *write, fd_set *except) {
 	toc_infoget_t *i, *i2;
 	fte_t	e;
+	int origstate;
 
 	for (i = c->infoget_head; i != NULL; i = i2) {
 #ifdef DEBUG_ECHO
@@ -778,8 +779,9 @@ static fte_t toc_postselect(toc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 			toc_infoget_remove(c, i, strerror(errno));
 	}
 	
+	origstate = c->sock.state;
 	if ((e = firetalk_sock_postselect(&(c->sock), read, write, except, &(c->buffer))) != FE_SUCCESS) {
-		if (c->sock.state == FCS_ACTIVE)
+		if (origstate == FCS_ACTIVE)	/* why? because if we're disconnected now, then state will be FCS_DISCONNECTED */
 			firetalk_callback_disconnect(c, e);
 		else
 			firetalk_callback_connectfailed(c, e, strerror(errno));
@@ -790,7 +792,7 @@ static fte_t toc_postselect(toc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 		c->sock.state = FCS_WAITING_SIGNON;
 		toc_signon(c);
 	} else if (c->buffer.readdata) {
-		if (c->sock.state == FCS_ACTIVE)
+		if (origstate == FCS_ACTIVE)
 		 	toc_got_data(c, &(c->buffer));
 		else
 			toc_got_data_connecting(c, &(c->buffer));

@@ -1346,6 +1346,7 @@ static fte_t irc_got_data_connecting(irc_conn_t *c, firetalk_buffer_t *buffer) {
 			  case 376: /* End of MOTD */
 			  case 422: /* MOTD is missing */
 				firetalk_callback_doinit(c, c->nickname);
+				c->sock.state = FCS_ACTIVE;
 				firetalk_callback_connected(c);
 				irc_send_printf(c, "HELP cmode");
 				break;
@@ -1380,9 +1381,10 @@ static fte_t irc_got_data_connecting(irc_conn_t *c, firetalk_buffer_t *buffer) {
 
 static fte_t irc_postselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *except) {
 	fte_t e;
+	int origstate = c->sock.state;
 	
 	if ((e = firetalk_sock_postselect(&(c->sock), read, write, except, &(c->buffer))) != FE_SUCCESS) {
-		if (c->sock.state == FCS_ACTIVE)
+		if (origstate == FCS_ACTIVE)	/* why? because we might've been disconnected by this point. */
 			firetalk_callback_disconnect(c, e);
 		else
 			firetalk_callback_connectfailed(c, e, strerror(errno));
@@ -1393,7 +1395,7 @@ static fte_t irc_postselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 		irc_signon(c);
 		c->sock.state = FCS_WAITING_SIGNON;
 	} else if (c->buffer.readdata) {
-		if (c->sock.state == FCS_ACTIVE)
+		if (origstate == FCS_ACTIVE)
 			irc_got_data(c, &(c->buffer));
 		else
 			irc_got_data_connecting(c, &(c->buffer));

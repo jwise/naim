@@ -1516,6 +1516,7 @@ static fte_t lily_got_data_connecting(lily_conn_t *c, firetalk_buffer_t *buffer)
 			STRREPLACE(c->nickname, buf);
 		} else if (strncmp(str, "%connected ", sizeof("%connected ")-1) == 0) {
 			firetalk_callback_doinit(c, c->nickname);
+			c->sock.state = FCS_ACTIVE;
 			firetalk_callback_connected(c);
 #ifdef ENABLE_FT_LILY_CTCPMAGIC
 /*			if (lily_send_printf(c, "/CREATE ctcpmagic \"For identifying CTCP-aware clients, no discussion\"") != FE_SUCCESS)
@@ -1545,9 +1546,10 @@ static fte_t lily_got_data_connecting(lily_conn_t *c, firetalk_buffer_t *buffer)
 
 static fte_t lily_postselect(lily_conn_t *c, fd_set *read, fd_set *write, fd_set *except) {
 	fte_t e;
+	int origstate = c->sock.state;
 	
 	if ((e = firetalk_sock_postselect(&(c->sock), read, write, except, &(c->buffer))) != FE_SUCCESS) {
-		if (c->sock.state == FCS_ACTIVE)
+		if (origstate == FCS_ACTIVE)
 			firetalk_callback_disconnect(c, e);
 		else
 			firetalk_callback_connectfailed(c, e, strerror(errno));
@@ -1558,7 +1560,7 @@ static fte_t lily_postselect(lily_conn_t *c, fd_set *read, fd_set *write, fd_set
 		lily_signon(c);
 		c->sock.state = FCS_WAITING_SIGNON;
 	} else if (c->buffer.readdata) {
-		if (c->sock.state == FCS_ACTIVE)
+		if (origstate == FCS_ACTIVE)
 			lily_got_data(c, &(c->buffer));
 		else
 			lily_got_data_connecting(c, &(c->buffer));
