@@ -639,10 +639,27 @@ naim.clearinterval = naim.cleartimeout
 
 
 naim.hooks.add('proto_connected', function(conn)
+	if conn.online then
+		conn:echo("WARNING: Lua has just received notice that this connection has connected, but as far as we knew, it was already connected! This is a bug, and Lua scripts may be unstable.")
+	end
 	conn.online = os.time()
 end, 100)
 
 naim.hooks.add('proto_disconnected', function(conn, errorcode)
+	conn.online = nil
+
+	conn.groups = {}
+	setmetatable(conn.groups, naim.internal.insensitive_index)
+
+	for k,buddy in pairs(conn.buddies) do
+		buddy.session = nil
+	end
+end, 100)
+
+naim.hooks.add('proto_connectfailed', function(conn, err, reason)
+	if conn.online then
+		conn:echo("WARNING: Lua has just received notice that a connect attempt failed, but as far as we knew, the connect attempt resulted in a successful connection! This is a bug.")
+	end
 	conn.online = nil
 
 	conn.groups = {}
