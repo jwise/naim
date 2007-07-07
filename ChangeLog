@@ -599,3 +599,10 @@ Summary of changes from 0.11.8.1 to 0.11.8.2
 [UI  bug] A change in how windows were looked up made in 0.11.8.1 caused all messages to both users and chats to be sent using the send-to-user API. This did not cause problems on IRC or Lily, but did cause chat room messages to be silently eaten on AIM. Fixed.
 [UI  fea] At some point since the 0.11.8.1 release, AOL's servers began changing bare \n characters in profiles to the string <br/>\n, which naim did not understand. naim now treats <br/> as a synonym for <br>.
 [UI  fea] The dynamic library subsystem is initialized before .naimrc is parsed, allowing your .naimrc to use the modload command.
+
+Summary of changes from 0.11.8.2.1 to 0.11.8.3
+============================================
+[UI  fea] Simple heuristics for disabling and reenabling encryption based on whether naim thinks you're talking to someone logged in to naim or to a second client.
+[TOC fea] Availability messages are now decoded and passed along to the UI.
+[TOC fea] The TOC2 driver now uses toc_locate_user instead of toc_get_info to retrieve profile information. This both fixes profile viewing, which has been broken since late 2006, and adds the ability to retrieve away messages for non-naim users, which has not been possible since 0.10.
+[UI  bug] The string <a href="target"></a> would previously be rendered as " [target]" in naim, while graphical AIM clients would render it as an empty string. A recent version of AIM for Windows introduced a bug where outgoing messages included these empty hyperlinks in some situations. Fixed.

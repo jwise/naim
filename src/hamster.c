@@ -107,8 +107,10 @@ static int sendto_encrypt(conn_t *conn, char **name, char **dest,
 		buddylist_t	*blist = rgetlist(conn, *dest);
 
 		if (blist != NULL) {
-			if (blist->crypt != NULL) {
+			if (blist->docrypt) {
 				int	i, j = 0;
+
+				assert(blist->crypt != NULL);
 
 				for (i = 0; i < *len; i++) {
 					(*message)[i] = (*message)[i] ^ (unsigned char)blist->crypt[j++];
@@ -289,8 +291,6 @@ void	setaway(const int auto_flag) {
 	do {
 		status_echof(conn, "You are now away--hurry back!\n");
 		firetalk_set_away(conn->conn, awaymsg, auto_flag);
-		if (conn->online > 0)
-			naim_set_info(conn->conn, conn->profile);
 	} while ((conn = conn->next) != curconn);
 }
 

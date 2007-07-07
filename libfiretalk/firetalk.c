@@ -843,7 +843,7 @@ void	firetalk_callback_typing(client_t c, const char *const name, const int typi
 	}
 }
 
-void	firetalk_callback_capabilities(client_t c, char const *const nickname, const char *const caps) {
+void	firetalk_callback_capabilities(client_t c, const char *const nickname, const char *const caps) {
 	struct s_firetalk_handle
 		*conn = firetalk_find_handle(c);
 	struct s_firetalk_buddy *buddyiter;
@@ -859,7 +859,7 @@ void	firetalk_callback_capabilities(client_t c, char const *const nickname, cons
 		}
 }
 
-void	firetalk_callback_warninfo(client_t c, char const *const nickname, const long warnval) {
+void	firetalk_callback_warninfo(client_t c, const char *const nickname, const long warnval) {
 	struct s_firetalk_handle
 		*conn = firetalk_find_handle(c);
 	struct s_firetalk_buddy *buddyiter;
@@ -973,7 +973,7 @@ void firetalk_callback_gotinfo(client_t c, const char *const nickname, const cha
 		conn->callbacks[FC_IM_GOTINFO](conn, conn->clientstruct, nickname, info, warning, online, idle, flags);
 }
 
-void firetalk_callback_idleinfo(client_t c, char const *const nickname, const long idletime) {
+void firetalk_callback_idleinfo(client_t c, const char *const nickname, const long idletime) {
 	struct s_firetalk_handle
 		*conn = firetalk_find_handle(c);
 	struct s_firetalk_buddy *buddyiter;
@@ -986,6 +986,15 @@ void firetalk_callback_idleinfo(client_t c, char const *const nickname, const lo
 			buddyiter->idletime = idletime;
 			conn->callbacks[FC_IM_IDLEINFO](conn, conn->clientstruct, nickname, idletime);
 		}
+}
+
+void firetalk_callback_statusinfo(client_t c, const char *const nickname, const char *const message) {
+	struct s_firetalk_handle
+		*conn = firetalk_find_handle(c);
+	struct s_firetalk_buddy *buddyiter;
+
+	if (conn->callbacks[FC_IM_STATUSINFO])
+		conn->callbacks[FC_IM_STATUSINFO](conn, conn->clientstruct, nickname, message);
 }
 
 void firetalk_callback_doinit(client_t c, const char *const nickname) {
@@ -2793,6 +2802,7 @@ void	*firetalk_dequeue(firetalk_queue_t *queue, const char *const key) {
 		if (strcmp(queue->keys[i], key) == 0) {
 			void	*data = queue->data[i];
 
+			free(queue->keys[i]);
 			memmove(queue->keys+i, queue->keys+i+1, (queue->count-i-1)*sizeof(*(queue->keys)));
 			memmove(queue->data+i, queue->data+i+1, (queue->count-i-1)*sizeof(*(queue->data)));
 			queue->count--;

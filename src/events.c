@@ -101,9 +101,6 @@ void	event_handle(time_t now) {
 				"LC", pingbuf);
 		}
 
-		if ((conn->online > 0) && (awaytime > 0))
-			naim_set_info(conn->conn, conn->profile);
-
 		if (bwin != NULL) {
 			buddywin_t	*bnext;
 			time_t	nowm = now/60;

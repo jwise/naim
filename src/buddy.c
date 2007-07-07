@@ -63,6 +63,12 @@ static void
 				curconn->curbwin->blurb);
 			htmlstrip(buf);
 			secs_setvar("iftopic", buf);
+		} else if (curconn->curbwin->status != NULL) {
+			snprintf(buf, sizeof(buf), " (%.*s)",
+				(int)(sizeof(buf)-4),
+				curconn->curbwin->status);
+			htmlstrip(buf);
+			secs_setvar("iftopic", buf);
 		} else
 			secs_setvar("iftopic", "");
 
@@ -73,7 +79,7 @@ static void
 
 		switch (curconn->curbwin->et) {
 		  case BUDDY:
-			if (curconn->curbwin->e.buddy->crypt != NULL)
+			if (curconn->curbwin->e.buddy->docrypt)
 				secs_setvar("ifcrypt", getvar(curconn, "statusbar_crypt"));
 			else
 				secs_setvar("ifcrypt", "");
@@ -575,10 +581,9 @@ static void
 	}
 	free(bwin->pouncear);
 	bwin->pouncear = NULL;
-	free(bwin->winname);
-	bwin->winname = NULL;
-	free(bwin->blurb);
-	bwin->blurb = NULL;
+	FREESTR(bwin->winname);
+	FREESTR(bwin->blurb);
+	FREESTR(bwin->status);
 
 	if (bwin->nwin.logfile != NULL) {
 		struct tm	*tmptr;
@@ -973,7 +978,7 @@ void	bgoing(conn_t *conn, const char *buddy) {
 		if ((blist->peer <= 0) && (blist->crypt != NULL))
 			echof(conn, NULL, "Strangeness while marking %s offline: no autopeer negotiated, but autocrypt set!\n",
 				buddy);
-		blist->peer = 0;
+		blist->docrypt = blist->peer = 0;
 		if (blist->crypt != NULL) {
 			free(blist->crypt);
 			blist->crypt = NULL;
@@ -1000,10 +1005,8 @@ void	bgoing(conn_t *conn, const char *buddy) {
 				user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 			if ((beeponsignon > 1) || ((awaytime == 0) && (beeponsignon == 1)))
 				beep();
-			if (bwin->blurb != NULL) {
-				free(bwin->blurb);
-				bwin->blurb = NULL;
-			}
+			FREESTR(bwin->blurb);
+			FREESTR(bwin->status);
 
 			if (bwin->keepafterso == 1) {
 				if ((autoclose > 0) && !USER_PERMANENT(bwin->e.buddy) && (bwin->waiting == 0))
@@ -1060,10 +1063,8 @@ void	baway(conn_t *conn, const char *buddy, int isaway) {
 	assert(blist != NULL);
 
 	if (bwin != NULL) {
-		if ((isaway == 0) && (bwin->blurb != NULL)) {
-			free(bwin->blurb);
-			bwin->blurb = NULL;
-		}
+		if (isaway == 0)
+			FREESTR(bwin->blurb);
 		if ((isaway == 1) && (blist->isaway == 0)) {
 			if ((conn->online+30) < now) {
 				awayc++;
@@ -1074,9 +1075,14 @@ void	baway(conn_t *conn, const char *buddy, int isaway) {
 			} else
 				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now away.\n",
 					user_name(NULL, 0, conn, blist));
-		} else if ((isaway == 0) && (blist->isaway == 1))
-			window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer away!\n",
-				user_name(NULL, 0, conn, blist));
+		} else if ((isaway == 0) && (blist->isaway == 1)) {
+			if (bwin->status != NULL)
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now available: %s\n",
+					user_name(NULL, 0, conn, blist), bwin->status);
+			else
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer away!\n",
+					user_name(NULL, 0, conn, blist));
+		}
 	}
 
 	blist->isaway = isaway;
@@ -1084,10 +1090,8 @@ void	baway(conn_t *conn, const char *buddy, int isaway) {
 
 static void
 	bclearall_bwin(conn_t *conn, buddywin_t *bwin, int force) {
-	if (bwin->blurb != NULL) {
-		free(bwin->blurb);
-		bwin->blurb = NULL;
-	}
+	FREESTR(bwin->blurb);
+	FREESTR(bwin->status);
 	switch (bwin->et) {
 	  case BUDDY:
 		assert(bwin->e.buddy != NULL);
@@ -1129,7 +1133,7 @@ static void
 		free(buddy->tzname);
 		buddy->tzname = NULL;
 	}
-	buddy->peer = 0;
+	buddy->docrypt = buddy->peer = 0;
 	buddy->offline = 1;
 }
 

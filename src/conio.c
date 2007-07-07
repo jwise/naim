@@ -373,7 +373,7 @@ CONIOAREQ(string,message)
 			format = "&lt;<B>%s</B>&gt;";
 			break;
 		  case BUDDY:
-			if (bwin->e.buddy->crypt != NULL)
+			if (bwin->e.buddy->docrypt)
 				format = "<B>%s:</B>";
 			else
 				format = "<B>%s</B>:";

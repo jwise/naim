@@ -22,16 +22,6 @@ struct s_toc_room {
 		joined:1;
 };
 
-struct s_toc_infoget {
-	int	sockfd;
-	struct s_toc_infoget *next;
-#define TOC_STATE_CONNECTING 0
-#define TOC_STATE_TRANSFERRING 1
-	int	state;
-	char	buffer[TOC_HTML_MAXLEN];
-	int	buflen;
-};
-
 struct s_toc_connection {
 	unsigned short local_sequence;		/* our sequence number */
 	unsigned short remote_sequence;		/* toc's sequence number */
@@ -39,7 +29,6 @@ struct s_toc_connection {
 		*awaymsg;
 	time_t	awaysince;
 	struct s_toc_room *room_head;
-	struct s_toc_infoget *infoget_head;
 	time_t	lastself,			/* last time we checked our own status */
 		lasttalk;			/* last time we talked */
 	long	lastidle;			/* last idle that we told the server */
@@ -75,10 +64,6 @@ typedef struct s_toc_connection *client_t;
 #include "toc2_uuids.h"
 
 static char lastinfo[TOC_USERNAME_MAXLEN+1] = "";
-
-#ifdef ENABLE_DIRECTORY
-static char lastdir[TOC_USERNAME_MAXLEN+1] = "";
-#endif
 
 /* Internal Function Declarations */
 
@@ -372,202 +357,6 @@ static char *aim_handle_ect(void *conn, const char *const from,
 	return(message);
 }
 
-static void toc_infoget_parse_userinfo(client_t c, struct s_toc_infoget *i) {
-	char	*tmp, *str = i->buffer,
-		*name, *info;
-	int	class = 0, warning;
-	long	online, idle;
-
-#	define USER_STRING	"Username : <B>"
-#	define WARNING_STRING	"Warning Level : <B>"
-#	define ONLINE_STRING	"Online Since : <B>"
-#	define IDLE_STRING	"Idle Minutes : <B>" 
-#	define INFO_STRING	"<hr><br>\n"
-#	define INFO_END_STRING	"<br><hr><I>Legend:"
-
-	if ((tmp = strstr(str, USER_STRING)) == NULL) {
-		firetalk_callback_error(c, FE_INVALIDFORMAT, (lastinfo[0] == '\0')?NULL:lastinfo, "Can't find username in info HTML");
-		return;
-	}
-	tmp += sizeof(USER_STRING) - 1;
-	if ((str = strchr(tmp, '<')) == NULL) {
-		firetalk_callback_error(c, FE_INVALIDFORMAT, (lastinfo[0] == '\0')?NULL:lastinfo, "Can't find end of username in info HTML");
-		return;
-	}
-	*str++ = 0;
-	name = tmp;
-
-
-	if ((tmp = strstr(str, WARNING_STRING)) == NULL) {
-		firetalk_callback_error(c, FE_INVALIDFORMAT, name, "Can't find warning level in info HTML");
-		return;
-	}
-		*tmp = 0;
-		if ((strstr(str, "free_icon.") != NULL) || (strstr(str, "dt_icon.") != NULL))
-			class |= FF_SUBSTANDARD;
-		if (strstr(str, "aol_icon.") != NULL)
-			class |= FF_NORMAL;
-		if (strstr(str, "admin_icon.") != NULL)
-			class |= FF_ADMIN;
-	tmp += sizeof(WARNING_STRING) - 1;
-	if ((str = strchr(tmp, '<')) == NULL) {
-		firetalk_callback_error(c, FE_INVALIDFORMAT, (lastinfo[0] == '\0')?NULL:lastinfo, "Can't find end of warning level in info HTML");
-		return;
-	}
-	*str++ = 0;
-	warning = atoi(tmp);
-
-
-	if ((tmp = strstr(str, ONLINE_STRING)) == NULL) {
-		firetalk_callback_error(c, FE_INVALIDFORMAT, name, "Can't find online time in info HTML");
-		return;
-	}
-	tmp += sizeof(ONLINE_STRING) - 1;
-	if ((str = strchr(tmp, '<')) == NULL) {
-		firetalk_callback_error(c, FE_INVALIDFORMAT, (lastinfo[0] == '\0')?NULL:lastinfo, "Can't find end of online time in info HTML");
-		return;
-	}
-	*str++ = 0;
-#ifdef HAVE_STRPTIME
-	{
-		struct tm tm;
-
-		memset(&tm, 0, sizeof(tm));
-		if (strptime(tmp, "%a %b %d %H:%M:%S %Y", &tm) == NULL)
-			online = 0;
-		else
-			online = mktime(&tm);
-		{ /* AOL's servers are permanently in UTC-0400 */
-			struct tm *tmptr;
-			time_t loc = 100000, gm = 100000;
-			int	dsto;
-
-			tmptr = localtime(&loc);
-			loc = mktime(tmptr);
-			dsto = tm.tm_isdst?4:5;
-			tmptr = gmtime(&gm);
-			gm = mktime(tmptr);
-			online += loc-gm+dsto*60*60;
-		}
-	}
-#else
-	online = 0;
-#endif
-
-
-	if ((tmp = strstr(str, IDLE_STRING)) == NULL) {
-		firetalk_callback_error(c, FE_INVALIDFORMAT, name, "Can't find idle time in info HTML");
-		return;
-	}
-	tmp += sizeof(IDLE_STRING) - 1;
-	if ((str = strchr(tmp, '<')) == NULL) {
-		firetalk_callback_error(c, FE_INVALIDFORMAT, (lastinfo[0] == '\0')?NULL:lastinfo, "Can't find end of idle time in info HTML");
-		return;
-	}
-	*str++ = 0;
-	idle = atoi(tmp);
-
-
-	if ((tmp = strstr(str, INFO_STRING)) == NULL) {
-		firetalk_callback_error(c, FE_INVALIDFORMAT, (lastinfo[0] == '\0')?NULL:lastinfo, "Can't find info string in info HTML");
-		return;
-	}
-	tmp += sizeof(INFO_STRING) - 1;
-	if ((str = strstr(tmp, INFO_END_STRING)) == NULL)
-		info = NULL;
-	else {
-		*str = 0;
-		info = aim_interpolate_variables(tmp, c->nickname);
-		info = aim_handle_ect(c, name, info, 1);
-	}
-
-	firetalk_callback_gotinfo(c, name, info, warning, online, idle, class);
-}
-
-#ifdef ENABLE_DIRECTORY
-static void toc_infoget_parse_dir(client_t c, struct s_toc_infoget *inf) {
-	const char *tokens[] = {
-			/* 0 */ "<TR><TD>First Name:</TD><TD><B>",
-			/* 1 */ "<TR><TD>Last Name:</TD><TD><B>",
-			/* 2 */ "<TR><TD>Middle Name:</TD><TD><B>",
-			/* 3 */ "<TR><TD>Maiden Name:</TD><TD><B>",
-			/* 4 */ "<TR><TD>Country:</TD><TD><B>",
-			/* 5 */ "<TR><TD>State:</TD><TD><B>",
-			/* 6 */ "<TR><TD>City:</TD><TD><B>",
-			/* 7 */ "<TR><TD>Web Access:</TD><TD><B>",
-			/* 8 */ "<TR><TD>Nick Name:</TD><TD><B>",
-			/* 9 */ "<TR><TD>Postal Code:</TD><TD><B>",
-			/* 0 */ "<TR><TD>Street Address:</TD><TD><B>",
-		};
-	char	*values[sizeof(tokens)/sizeof(*tokens)] = { 0 };
-	int	i;
-
-	for (i = 0; i < sizeof(tokens)/sizeof(*tokens); i++) {
-		char	*begin, *end;
-
-		if ((begin = strstr(inf->buffer, tokens[i])) != NULL) {
-			begin += strlen(tokens[i]);
-			if ((end = strchr(begin, '<')) != NULL) {
-				*end = 0;
-				values[i] = strdup(begin);
-				*end = '<';
-			}
-		}
-	}
-
-	if (values[1] == NULL) {
-		values[1] = values[3];
-		values[3] = NULL;
-	}
-	if (values[8] == NULL) {
-		values[8] = values[2];
-		values[2] = NULL;
-	}
-
-	firetalk_callback_gotdir(c, lastdir, values[0], values[1], values[8],
-		values[6], values[5], values[4]);
-
-	for (i = 0; i < sizeof(values)/sizeof(*values); i++)
-		free(values[i]);
-}
-#endif
-
-static void toc_infoget_parse(client_t c, struct s_toc_infoget *inf) {
-	inf->buffer[inf->buflen] = 0;
-
-	if (strstr(inf->buffer, "Not found.") != NULL)
-		firetalk_callback_error(c, FE_NOTFOUND, NULL, NULL);
-#ifdef ENABLE_DIRECTORY
-	else if (strstr(inf->buffer, "Dir Information") != NULL)
-		toc_infoget_parse_dir(c, inf);
-#endif
-	else
-		toc_infoget_parse_userinfo(c, inf);
-}
-
-static void toc_infoget_remove(client_t c, struct s_toc_infoget *inf, char *error) {
-	struct s_toc_infoget *m, *m2;
-
-	if (error != NULL)
-		firetalk_callback_error(c,FE_USERINFOUNAVAILABLE,NULL,error);
-	m = c->infoget_head;
-	m2 = NULL;
-	while (m != NULL) {
-		if (m == inf) {
-			if (m2 == NULL)
-				c->infoget_head = m->next;
-			else
-				m2->next = m->next;
-			close(m->sockfd);
-			m->sockfd = -1;
-			free(m);
-			return;
-		}
-		m2 = m;
-		m = m->next;
-	}
-}
-
 static fte_t toc_im_add_buddy_flush(client_t c) {
 	if (c->buddybuflen > 0) {
 		free(c->buddybuflastgroup);
@@ -579,63 +368,6 @@ static fte_t toc_im_add_buddy_flush(client_t c) {
 }
 
 static fte_t toc_postselect(client_t c, fd_set *read, fd_set *write, fd_set *except) {
-	struct s_toc_infoget *i, *i2;
-
-	for (i = c->infoget_head; i != NULL; i = i2) {
-		i2 = i->next;
-
-		if (FD_ISSET(i->sockfd, except))
-			toc_infoget_remove(c, i, strerror(errno));
-		else if ((i->state == TOC_STATE_CONNECTING) && FD_ISSET(i->sockfd, write)) {
-			int	r;
-			unsigned int o = sizeof(r);
-
-			if (getsockopt(i->sockfd, SOL_SOCKET, SO_ERROR, &r, &o)) {
-				toc_infoget_remove(c, i, strerror(errno));
-				continue;
-			}
-			if (r != 0) {
-				toc_infoget_remove(c, i, strerror(r));
-				continue;
-			}
-			if (send(i->sockfd, i->buffer, i->buflen, 0) != i->buflen) {
-				toc_infoget_remove(c, i, strerror(errno));
-				continue;
-			}
-			i->buflen = 0;
-			i->state = TOC_STATE_TRANSFERRING;
-		} else if ((i->state == TOC_STATE_TRANSFERRING) && FD_ISSET(i->sockfd, read)) {
-			ssize_t	s;
-
-			while (1) {
-				s = recv(i->sockfd, &i->buffer[i->buflen], TOC_HTML_MAXLEN - i->buflen - 1, MSG_DONTWAIT);
-				if (s <= 0)
-					break;
-				i->buflen += s;
-				if (i->buflen == TOC_HTML_MAXLEN - 1) {
-					s = -2;
-					break;
-				}
-			}
-			if (s == -2) {
-				toc_infoget_remove(c, i, "Too much data");
-				continue;
-			}
-			if (s == -1) {
-				if (errno != EAGAIN)
-					toc_infoget_remove(c, i, strerror(errno));
-				continue;
-			}
-			if (s == 0) {
-				/* finished, parse results here */
-				toc_infoget_parse(c, i);
-				toc_infoget_remove(c, i, NULL);
-				continue;
-			}
-
-		}
-	}
-
 	return(FE_SUCCESS);
 }
 
@@ -765,15 +497,6 @@ static int toc_internal_disconnect(client_t c, const int error) {
 			free(iter);
 		}
 		c->room_head = NULL;
-	}
-	if (c->infoget_head != NULL) {
-		struct s_toc_infoget *iter, *iternext;
-
-		for (iter = c->infoget_head; iter != NULL; iter = iternext) {
-			iternext = iter->next;
-			free(iter);
-		}
-		c->infoget_head = NULL;
 	}
 	if (c->buddybuflastgroup != NULL) {
 		free(c->buddybuflastgroup);
@@ -1047,7 +770,6 @@ static void toc_destroy_handle(client_t c) {
 	assert(c->awaymsg == NULL);
 	assert(c->awaysince == 0);
 	assert(c->room_head == NULL);
-	assert(c->infoget_head == NULL);
 	free(c->buddybuflastgroup);
 	free(c);
 }
@@ -1295,18 +1017,6 @@ static fte_t toc_im_send_action(client_t c, const char *const dest, const char *
 }
 
 static fte_t toc_preselect(client_t c, fd_set *read, fd_set *write, fd_set *except, int *n) {
-	struct s_toc_infoget *inf;
-
-	for (inf = c->infoget_head; inf != NULL; inf = inf->next) {
-		if (inf->state == TOC_STATE_CONNECTING)
-			FD_SET(inf->sockfd, write);
-		else if (inf->state == TOC_STATE_TRANSFERRING)
-			FD_SET(inf->sockfd, read);
-		FD_SET(inf->sockfd, read);
-		if (inf->sockfd >= *n)
-			*n = inf->sockfd + 1;
-	}
-
 	toc_im_add_buddy_flush(c);
 
 	return(FE_SUCCESS);
@@ -1315,16 +1025,8 @@ static fte_t toc_preselect(client_t c, fd_set *read, fd_set *write, fd_set *exce
 static fte_t toc_get_info(client_t c, const char *const nickname) {
 	strncpy(lastinfo, nickname, (size_t)TOC_USERNAME_MAXLEN);
 	lastinfo[TOC_USERNAME_MAXLEN] = 0;
-	return(toc_send_printf(c, "toc_get_info %s", nickname));
+	return(toc_send_printf(c, "toc_locate_user %s", nickname));
 }
-
-#ifdef ENABLE_DIRECTORY
-static fte_t toc_get_dir(client_t c, const char *const nickname) {
-	strncpy(lastdir, nickname, (size_t)TOC_USERNAME_MAXLEN);
-	lastdir[TOC_USERNAME_MAXLEN] = 0;
-	return(toc_send_printf(c, "toc_get_dir %s", nickname));
-}
-#endif
 
 static char *toc_ctcp_encode(client_t c, const char *const command, const char *const message) {
 	char	*str;
@@ -1356,13 +1058,6 @@ static fte_t toc_set_info(client_t c, const char *const info) {
 	if (infolen >= sizeof(profile)) {
 		firetalk_callback_error(c, FE_MESSAGETRUNCATED, NULL, "Profile too long");
 		return(FE_MESSAGETRUNCATED);
-	}
-	if ((c->awaymsg != NULL) && (c->awaysince)) {
-		char	awaymsg[1024];
-
-		snprintf(awaymsg, sizeof(awaymsg), "%lu %s", (time(NULL)-(c->awaysince))/60, c->awaymsg);
-		awayctcp = toc_ctcp_encode(c, "AWAY", awaymsg);
-		extralen += strlen(awayctcp);
 	}
 	if ((versionctcp = firetalk_subcode_get_request_reply(c, "VERSION")) == NULL)
 		versionctcp = PACKAGE_NAME ":" PACKAGE_VERSION ":unknown";
@@ -1831,7 +1526,7 @@ static fte_t toc_got_data(client_t c, unsigned char *buffer, unsigned short *buf
 
 				if ((args[5][2] == ' ') || (args[5][2] == 0) || (args[5][2] == ','))
 					C = "";
-				else if (args[5][1] == 'U')
+				else if (args[5][2] == 'U')
 					C = " UNAVAILABLE";
 				else
 					C = " unknown2";
@@ -1865,6 +1560,84 @@ static fte_t toc_got_data(client_t c, unsigned char *buffer, unsigned short *buf
 		}
 		firetalk_callback_im_buddyonline(c, name, 1);
 		firetalk_callback_typing(c, name, 0);
+	} else if (strcmp(arg0, "USER_INFO") == 0) {
+		char	*name, *info, *away, *third;
+		int	class = 0, warning, isaway;
+		long	online, idle;
+
+		args = toc_parse_args(data, 9, ':');
+		assert(strcmp(arg0, args[0]) == 0);
+
+		if (!args[1] || !args[2] || !args[3] || !args[4] || !args[5]
+			|| !args[6] || !args[7] || !args[8]) {
+			toc_internal_disconnect(c, FE_INVALIDFORMAT);
+			return(FE_INVALIDFORMAT);
+		}
+#ifdef DEBUG_ECHO
+		toc_echof(c, "got_data", "USER_INFO '%s' '%s' '%s' '%s' '%s' '%s' '%s'\n", args[1], args[2], args[3], args[4], args[5], args[6], args[7]);
+		toc_echof(c, "got_data", "%s", args[8]);
+#endif
+		name = args[1];
+		if (args[2][0] == 'T') {
+			online = atol(args[4]);
+			if (online == 0)
+				online = 1;
+		} else
+			online = 0;
+		isaway = (args[6][2]=='U')?1:0;
+		warning = atol(args[3]);
+		idle = atol(args[5]);
+		info = args[8];
+
+		away = info;
+		info = strchr(info, -2);
+		assert(info != NULL);
+		*info++ = 0;
+		if (*away != 0)
+			away = strdup(aim_interpolate_variables(away, c->nickname));
+		else
+			away = NULL;
+#ifdef DEBUG_ECHO
+		toc_echof(c, "got_data", "%i %i %i %i", info[0], info[1], info[2], info[3]);
+#endif
+		assert((info[0] == -2) || (info[0] == '<') || ((info[0] == 0) && (info[1] == '<')));
+		if (info[0] == 0) {
+			int	i;
+
+#ifdef DEBUG_ECHO
+			toc_echof(c, "got_data", "Not sure if this is UTF16 or what (it's not identified), but it's mostly just US-ASCII with a bunch of nils before each character.");
+#endif
+
+			for (i = 0; (info[i] != -2) && (info+i < data+l-1); i += 2)
+				if (info[i] == 0)
+					info[i/2] = info[i+1];
+				else
+					info[i/2] = '.';
+			info[i/2] = 0;
+			third = info+i;
+
+#ifdef DEBUG_ECHO
+			toc_echof(c, "got_data", "%lu bytes left over after deUTF16izing.", (data+l-1)-(info+i));
+#endif
+		} else
+			third = strchr(info, -2);
+		assert(third != NULL);
+		*third++ = 0;
+		info = aim_handle_ect(c, name, info, 1);
+		info = aim_interpolate_variables(info, c->nickname);
+
+#ifdef DEBUG_ECHO
+		toc_echof(c, "got_data", "USER_INFO 1 %i %s\n", isaway, away);
+		toc_echof(c, "got_data", "USER_INFO 2 %s\n", info);
+		toc_echof(c, "got_data", "USER_INFO 3 %s\n", third);
+#endif
+
+		if (away != NULL) {
+			firetalk_callback_subcode_reply(c, name, "AWAY", away);
+			free(away);
+		}
+
+		firetalk_callback_gotinfo(c, name, info, warning, online, idle, class);
 	} else if (strcmp(arg0, "CLIENT_EVENT2") == 0) {
 		/* 1 source
 		** 2 status
@@ -1987,11 +1760,12 @@ static fte_t toc_got_data(client_t c, unsigned char *buffer, unsigned short *buf
 		/* 1 source
 		** 2 base64-encoded strings, unidentified
 		*/
-		char	**barts;
+		char	**barts, *name;
 		int	i;
 
 		args = toc_parse_args(data, 3, ':');
 		assert(strcmp(arg0, args[0]) == 0);
+		name = strdup(args[1]);
 
 		barts = toc_parse_args(args[2], 255, ' ');
 		for (i = 0; (barts[i] != NULL) && (barts[i+1] != NULL) && (barts[i+2] != NULL); i += 3) {
@@ -2004,7 +1778,23 @@ static fte_t toc_got_data(client_t c, unsigned char *buffer, unsigned short *buf
 #endif
 					break;
 				}
+
+			if (type == 2) {
+				const char *s = firetalk_debase64(args[i+1]);
+				int	len;
+
+				assert(*s == 0);
+				len = s[1];
+				assert(s[len+2] == 0);
+				assert(s[len+3] == 0);
+#ifdef DEBUG_ECHO
+				toc_echof(c, "got_data", "BART STATUS_TEXT %s %s\n", name, s+2);
+#endif
+				firetalk_callback_statusinfo(c, name, s+2);
+			}
 		}
+
+		free(name);
 	} else if (strcmp(arg0, "NICK") == 0) {
 		/* NICK:<Nickname>
 		**    Tells you your correct nickname (ie how it should be capitalized and
@@ -2168,41 +1958,6 @@ static fte_t toc_got_data(client_t c, unsigned char *buffer, unsigned short *buf
 			return(FE_SUCCESS);
 		}
 		firetalk_callback_chat_left(c, toc_internal_find_room_name(c, atol(args[1])));
-	} else if (strcmp(arg0, "GOTO_URL") == 0) {
-		/* GOTO_URL:<Window Name>:<Url>
-		**    Goto a URL.  Window Name is the suggested internal name of the window
-		**    to use.  (Java supports this.)
-		*/
-		struct s_toc_infoget *i;
-
-		/* create a new infoget object and set it to connecting state */
-		args = toc_parse_args(data, 3, ':');
-		assert(strcmp(arg0, args[0]) == 0);
-
-		if (!args[1] || !args[2]) {
-			toc_internal_disconnect(c, FE_INVALIDFORMAT);
-			return(FE_INVALIDFORMAT);
-		}
-
-		i = c->infoget_head;
-		c->infoget_head = calloc(1, sizeof(struct s_toc_infoget));
-		if (c->infoget_head == NULL)
-			abort();
-		snprintf(c->infoget_head->buffer, TOC_HTML_MAXLEN, "GET /%s HTTP/1.0\r\n\r\n", args[2]);
-		c->infoget_head->buflen = strlen(c->infoget_head->buffer);
-		c->infoget_head->next = i;
-		c->infoget_head->state = TOC_STATE_CONNECTING;
-		c->infoget_head->sockfd = firetalk_internal_connect(firetalk_internal_remotehost4(c)
-#ifdef _FC_USE_IPV6
-				, firetalk_internal_remotehost6(c)
-#endif
-				);
-		if (c->infoget_head->sockfd == -1) {
-			firetalk_callback_error(c, FE_CONNECT, (lastinfo[0]=='\0')?NULL:lastinfo, "Failed to connect to info server");
-			free(c->infoget_head);
-			c->infoget_head = i;
-			return(FE_SUCCESS);
-		}
 	} else if (strcmp(arg0, "NEW_BUDDY_REPLY2") == 0) {
 		/* NEW_BUDDY_REPLY2:19033926:added */
 	} else if (strcmp(arg0, "UPDATED2") == 0) {
@@ -2863,9 +2618,6 @@ const firetalk_protocol_t firetalk_protocol_toc2 = {
 	room_normalize:		aim_normalize_room_name,
 	create_handle:		toc_create_handle,
 	destroy_handle:		toc_destroy_handle,
-#ifdef ENABLE_DIRECTORY
-	get_dir:		toc_get_dir,
-#endif
 #ifdef ENABLE_NEWGROUPS
 	im_remove_group:	toc_im_remove_group,
 #endif

@@ -100,7 +100,8 @@ typedef struct buddylist_ts {
 	unsigned char
 		offline:1,
 		isaway:1,
-		isidle:1;	// is the buddy idle for more than some threshhold?
+		isidle:1,	// is the buddy idle for more than some threshhold?
+		docrypt:1;
 } buddylist_t;
 #define DEFAULT_GROUP	"User"
 #define CHAT_GROUP	"Chat"
@@ -157,7 +158,8 @@ typedef struct {
 
 typedef struct buddywin_ts {
 	char	*winname,
-		*blurb;
+		*blurb,
+		*status;
 	unsigned char
 		waiting:1,	/* text waiting to be read (overrides
 				** offline and isbuddy in bupdate())
