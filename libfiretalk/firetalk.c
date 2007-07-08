@@ -2456,15 +2456,19 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 
 		while (fchandle->subcode_requests.count > 0) {
 			int	count = fchandle->subcode_requests.count;
+			char	*key = strdup(fchandle->subcode_requests.keys[0]);
 
-			firetalk_protocols[fchandle->protocol]->im_send_message(fchandle->handle, fchandle->subcode_requests.keys[0], "", 0);
+			firetalk_protocols[fchandle->protocol]->im_send_message(fchandle->handle, key, "", 0);
+			free(key);
 			assert(fchandle->subcode_requests.count < count);
 		}
 
 		while (fchandle->subcode_replies.count > 0) {
 			int	count = fchandle->subcode_replies.count;
+			char	*key = strdup(fchandle->subcode_replies.keys[0]);
 
-			firetalk_protocols[fchandle->protocol]->im_send_message(fchandle->handle, fchandle->subcode_replies.keys[0], "", 1);
+			firetalk_protocols[fchandle->protocol]->im_send_message(fchandle->handle, key, "", 1);
+			free(key);
 			assert(fchandle->subcode_replies.count < count);
 		}
 
@@ -2803,6 +2807,7 @@ void	*firetalk_dequeue(firetalk_queue_t *queue, const char *const key) {
 			void	*data = queue->data[i];
 
 			free(queue->keys[i]);
+			queue->keys[i] = NULL;
 			memmove(queue->keys+i, queue->keys+i+1, (queue->count-i-1)*sizeof(*(queue->keys)));
 			memmove(queue->data+i, queue->data+i+1, (queue->count-i-1)*sizeof(*(queue->data)));
 			queue->count--;
