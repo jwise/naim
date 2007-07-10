@@ -86,14 +86,17 @@ extern void status_echof(void *conn, const unsigned char *format, ...);
 static void toc_echof(client_t c, const char *const where, const char *const format, ...) {
 	va_list ap;
 	char	buf[8*1024];
+	int	len;
 	void	statrefresh(void);
 
 	va_start(ap, format);
 	vsnprintf(buf, sizeof(buf), format, ap);
 	va_end(ap);
 
-	while (buf[strlen(buf)-1] == '\n')
-		buf[strlen(buf)-1] = 0;
+	len = strlen(buf);
+	while ((len > 0) && (buf[len-1] == '\n'))
+		buf[--len] = 0;
+
 	if (*buf != 0)
 		status_echof(curconn, firetalk_htmlentities(buf));
 
