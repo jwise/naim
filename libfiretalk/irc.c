@@ -82,7 +82,7 @@ typedef struct firetalk_driver_connection_t {
 		*password,
 		*chanmodes,
 		*chanprefix,
-		*chanmodesexp[56];
+		*chanmodesexp['z' - 'A' + 1];
 	irc_whois_t *whois_head;
 	int	 maxmodes;
 	unsigned char
