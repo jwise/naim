@@ -268,8 +268,6 @@ end
 
 
 
-
-
 function naim.call(tab, ...)
 	if type(tab) == "string" then
 		if not naim.commands[tab] then
@@ -319,7 +317,7 @@ function naim.call(tab, ...)
 			newarg[i],arg = naim.internal.pullword(arg)
 			i = i+1
 		end
-		assert(#newarg == i-1)
+		assert(#newarg == i-1, "naim.call: #newarg == i-1")
 		if (arg ~= nil) then
 			newarg[i] = arg
 		end
@@ -690,7 +688,7 @@ naim.hooks.add('proto_buddy_nickchanged', function(conn, who, newnick)
 	if window then
 		window:echo("<font color=\"#00FFFF\">" .. who .. "</font> is now known as <font color=\"#00FFFF\">" .. newnick .. "</font>.")
 		window.name = newnick
-		assert(not conn.windows[newnick])
+		assert(not conn.windows[newnick], "proto_buddy_nickchanged: not conn.windows[newnick]")
 		conn.windows[newnick] = conn.windows[who]
 		conn.windows[who] = nil
 	end
@@ -698,8 +696,8 @@ end, 100)
 
 naim.hooks.add('proto_buddy_coming', function(conn, who)
 	local buddy = conn.buddies[who]
-	assert(buddy)
-	assert(not buddy.session)
+	assert(buddy, "proto_buddy_coming: buddy")
+	assert(not buddy.session, "proto_buddy_coming: not buddy.session ("..who..")")
 
 	buddy.session = {}
 end, 100)
@@ -707,8 +705,8 @@ end, 100)
 naim.hooks.add('proto_buddy_idle', function(conn, who, idletime)
 	local window = conn.windows[who]
 	local buddy = conn.buddies[who]
-	assert(buddy)
-	assert(buddy.session)
+	assert(buddy, "proto_buddy_idle: buddy")
+	assert(buddy.session, "proto_buddy_session: buddy.session")
 
 	local idle = idletime >= 10 and true or nil
 
@@ -726,8 +724,8 @@ end, 100)
 naim.hooks.add('proto_buddy_away', function(conn, who)
 	local window = conn.windows[who]
 	local buddy = conn.buddies[who]
-	assert(buddy)
-	assert(buddy.session)
+	assert(buddy, "proto_buddy_away: buddy")
+	assert(buddy.session, "proto_buddy_away: buddy.session")
 
 	if window then
 		if not buddy.session.away then
@@ -741,8 +739,8 @@ end, 100)
 naim.hooks.add('proto_buddy_unaway', function(conn, who)
 	local window = conn.windows[who]
 	local buddy = conn.buddies[who]
-	assert(buddy)
-	assert(buddy.session)
+	assert(buddy, "proto_buddy_unaway: buddy")
+	assert(buddy.session, "proto_buddy_unaway: buddy.session")
 
 	if window then
 		if buddy.session.away then
@@ -755,8 +753,8 @@ end, 100)
 
 naim.hooks.add('proto_buddy_capschanged', function(conn, who, caps)
 	local buddy = conn.buddies[who]
-	assert(buddy)
-	assert(buddy.session)
+	assert(buddy, "proto_buddy_capschanged: buddy")
+	assert(buddy.session, "proto_budy_capschanged: buddy.session")
 
 	if not buddy.session.caps or table.concat(buddy.session.caps, ' ') ~= caps then
 		local capst = naim.internal.split(caps, ' ')
@@ -783,11 +781,12 @@ naim.hooks.add('proto_buddy_capschanged', function(conn, who, caps)
 end, 100)
 
 naim.hooks.add('proto_chat_joined', function(conn, chat)
-	assert(not conn.groups[chat])
+	assert(not conn.groups[chat], "proto_chat_joined: not conn.groups[chat]")
 	conn.groups[chat] = {
 		members = {},
 	}
 
+	setmetatable(conn.groups[chat], naim.internal.insensitive_index)
 	local window = conn.windows[chat]
 
 	if window then
@@ -807,12 +806,12 @@ naim.hooks.add('proto_chat_synched', function(conn, chat)
 end, 100)
 
 naim.hooks.add('proto_chat_left', function(conn, chat)
-	assert(conn.groups[chat])
+	assert(conn.groups[chat], "proto_chat_left: conn.groups[chat]")
 	conn.groups[chat] = nil
 end, 100)
 
 naim.hooks.add('proto_chat_kicked', function(conn, chat, by, reason)
-	assert(conn.groups[chat])
+	assert(conn.groups[chat], "proto_chat_kicked: conn.groups[chat]")
 	conn.groups[chat] = nil
 
 	local window = conn.windows[chat]
@@ -845,7 +844,7 @@ naim.hooks.add('proto_chat_deoped', function(conn, chat, by)
 
 	group.operator = nil
 
-	assert(group.synched)
+	assert(group.synched, "proto_chat_deoped: group.synched")
 	local window = conn.windows[chat]
 
 	if window then
@@ -875,7 +874,7 @@ naim.hooks.add('proto_chat_user_joined', function(conn, chat, who, extra)
 	local group = conn.groups[chat]
 	local window = conn.windows[chat]
 
-	assert(not group.members[who])
+	assert(not group.members[who], "proto_chat_user_joined: not group.members[who]")
 	group.members[who] = {}
 
 	if window and group.synched then
@@ -891,7 +890,7 @@ naim.hooks.add('proto_chat_user_left', function(conn, chat, who, reason)
 	local group = conn.groups[chat]
 	local window = conn.windows[chat]
 
-	assert(group.members[who])
+	assert(group.members[who], "proto_chat_user_left: group.members[who]")
 	group.members[who] = nil
 
 	if window then
@@ -907,7 +906,7 @@ naim.hooks.add('proto_chat_user_kicked', function(conn, chat, who, by, reason)
 	local group = conn.groups[chat]
 	local window = conn.windows[chat]
 
-	assert(group.members[who])
+	assert(group.members[who], "proto_chat_user_kicked: group.members[who]")
 	group.members[who] = nil
 
 	if window then
@@ -938,7 +937,7 @@ naim.hooks.add('proto_chat_user_deoped', function(conn, chat, who, by)
 
 	group.members[who].operator = nil
 
-	assert(group.synched)
+	assert(group.synched, "proto_chat_user_deoped: group.synched")
 	local window = conn.windows[chat]
 
 	if window then
@@ -950,7 +949,7 @@ naim.hooks.add('proto_chat_user_nickchanged', function(conn, chat, who, newnick)
 	local group = conn.groups[chat]
 	local window = conn.windows[chat]
 
-	assert(not group.members[newnick])
+	assert(not group.members[newnick], "proto_chat_user_nickchanged: not group.members[newnick]")
 	group.members[newnick] = group.members[who]
 	group.members[who] = nil
 
