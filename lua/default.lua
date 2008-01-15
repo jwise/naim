@@ -998,8 +998,13 @@ end, 100)
 
 naim.hooks.add('postselect', function(rfd, wfd, efd)
 	local now = os.time()
+	local oldtimers = {}
+	
+	for k,v in pairs(naim.timers) do
+		oldtimers[k] = v
+	end
 
-	for k,timer in pairs(naim.timers) do
+	for k,timer in pairs(oldtimers) do
 		if timer.when <= now then
 			if timer.interval then
 				timer.when = now + timer.interval
