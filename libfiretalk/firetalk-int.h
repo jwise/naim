@@ -73,7 +73,8 @@ struct s_firetalk_buddy {
 	unsigned char
 		online:1,
 		away:1;
-	int	typing;
+	int	typing,
+		flags;
 	char	*capabilities;
 };
 
@@ -222,6 +223,7 @@ fte_t	firetalk_register_protocol(const firetalk_protocol_t *const proto);
 void firetalk_callback_im_getmessage(client_t c, const char *const sender, const int automessage, const char *const message);
 void firetalk_callback_im_getaction(client_t c, const char *const sender, const int automessage, const char *const message);
 void firetalk_callback_im_buddyonline(client_t c, const char *const nickname, const int online);
+void firetalk_callback_im_buddyflags(client_t c, const char *const nickname, const int flags);
 void firetalk_callback_im_buddyaway(client_t c, const char *const nickname, const int away);
 void firetalk_callback_buddyadded(client_t c, const char *const name, const char *const group, const char *const friendly);
 void firetalk_callback_buddyremoved(client_t c, const char *const name, const char *const group);

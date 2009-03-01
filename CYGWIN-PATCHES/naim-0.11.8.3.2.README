@@ -14,6 +14,7 @@ Packaging procedure:
   To create a Slackware pkgtool-compatible tarball, simply run:
   ./configure \
 	'--enable-debug' \
+	'CFLAGS=-O0' \
 	'--enable-ltdl-convenience' \
 	&& make tgz
   If configure is run under Cygwin, make tgz will adjust itself to conform to

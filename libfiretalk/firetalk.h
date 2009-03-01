@@ -93,6 +93,8 @@ enum firetalk_callback {
 		/* void *connection, void *clientstruct, char *nickname */
 	FC_IM_BUDDYOFFLINE,
 		/* void *connection, void *clientstruct, char *nickname */
+	FC_IM_BUDDYFLAGS,
+		/* void *connection, void *clientstruct, char *nickname, int flags */
 	FC_IM_BUDDYAWAY,
 		/* void *connection, void *clientstruct, char *nickname */
 	FC_IM_BUDDYUNAWAY,
@@ -264,9 +266,10 @@ extern fte_t	firetalkerror;
 int firetalk_internal_connect_host(const char *const host, const int port);
 #endif
 
-#define FF_SUBSTANDARD                  0x0001
-#define FF_NORMAL                       0x0002
-#define FF_ADMIN                        0x0004
+#define FF_SUBSTANDARD	0x0001
+#define FF_NORMAL	0x0002
+#define FF_ADMIN	0x0004
+#define FF_MOBILE	0x0008
 
 #ifndef MSG_DONTWAIT
 # define MSG_DONTWAIT	0

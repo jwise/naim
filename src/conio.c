@@ -85,6 +85,7 @@ static const char
 	"BUDDY_OFFLINE",
 	"BUDDY_QUEUED",
 	"BUDDY_TAGGED",
+	"BUDDY_MOBILE",
 };
 
 static const char

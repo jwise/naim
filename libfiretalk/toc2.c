@@ -552,7 +552,7 @@ static int toc_internal_set_id(client_t c, const char *const name, const int exc
 			}
 	return(FE_NOTFOUND);
 }
-	
+
 static int toc_internal_find_exchange(client_t c, const char *const name) {
 	struct s_toc_room *iter;
 
@@ -1577,7 +1577,7 @@ static fte_t toc_got_data(client_t c, unsigned char *buffer, unsigned short *buf
 		firetalk_callback_typing(c, name, 0);
 	} else if (strcmp(arg0, "USER_INFO") == 0) {
 		char	*name, *info, *away, *third;
-		int	class = 0, warning, isaway;
+		int	flags = 0, warning, isadmin, ismobile, isaway;
 		long	online, idle;
 
 		args = toc_parse_args(data, 9, ':');
@@ -1599,7 +1599,16 @@ static fte_t toc_got_data(client_t c, unsigned char *buffer, unsigned short *buf
 				online = 1;
 		} else
 			online = 0;
-		isaway = (args[6][2]=='U')?1:0;
+
+		isadmin = args[6][1] == 'A';
+		ismobile = args[6][1] == 'C';
+
+		if (isadmin)
+			flags |= FF_ADMIN;
+		if (ismobile)
+			flags |= FF_MOBILE;
+
+		isaway = args[6][2] == 'U';
 		warning = atol(args[3]);
 		idle = atol(args[5]);
 		info = args[8];
@@ -1642,7 +1651,7 @@ static fte_t toc_got_data(client_t c, unsigned char *buffer, unsigned short *buf
 			free(away);
 		}
 
-		firetalk_callback_gotinfo(c, name, info, warning, online, idle, class);
+		firetalk_callback_gotinfo(c, name, info, warning, online, idle, flags);
 	} else if (strcmp(arg0, "CLIENT_EVENT2") == 0) {
 		/* 1 source
 		** 2 status
@@ -1675,7 +1684,7 @@ static fte_t toc_got_data(client_t c, unsigned char *buffer, unsigned short *buf
 		** 7 status code, used in ICQ
 		*/
 		char	*name;
-		int	isaway;
+		int	flags = 0, isadmin, ismobile, isaway;
 		long	online, warn, idle;
 
 		args = toc_parse_args(data, 8, ':');
@@ -1694,12 +1703,22 @@ static fte_t toc_got_data(client_t c, unsigned char *buffer, unsigned short *buf
 				online = 1;
 		} else
 			online = 0;
-		isaway = (args[6][2]=='U')?1:0;
+
+		isadmin = args[6][1] == 'A';
+		ismobile = args[6][1] == 'C';
+
+		if (isadmin)
+			flags |= FF_ADMIN;
+		if (ismobile)
+			flags |= FF_MOBILE;
+
+		isaway = args[6][2] == 'U';
 		warn = atol(args[3]);
 		idle = atol(args[5]);
-		
+
 		firetalk_callback_im_buddyonline(c, name, online);
 		if (online != 0) {
+			firetalk_callback_im_buddyflags(c, name, flags);
 			firetalk_callback_im_buddyaway(c, name, isaway);
 			firetalk_callback_idleinfo(c, name, idle);
 			firetalk_callback_warninfo(c, name, warn);
@@ -2145,7 +2164,7 @@ static fte_t toc_got_data_connecting(client_t c, unsigned char *buffer, unsigned
 	firetalk_t fchandle;
 
 got_data_connecting_start:
-	
+
 	r = toc_find_packet(c, buffer, bufferpos, data, (c->connectstate==0)?SFLAP_FRAME_SIGNON:SFLAP_FRAME_DATA, &length);
 	if (r == FE_NOTFOUND)
 		return(FE_SUCCESS);

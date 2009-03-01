@@ -440,6 +440,53 @@ nFIRE_HANDLER(naim_buddy_typing) {
 		blist->typing = typing;
 }
 
+nFIRE_HANDLER(naim_buddy_flags) {
+	conn_t		*conn = (conn_t *)client;
+	va_list		msg;
+	const char	*buddy;
+	int		flags, isadmin, ismobile;
+	buddywin_t	*bwin;
+	buddylist_t	*blist;
+
+	va_start(msg, client);
+	buddy = va_arg(msg, const char *);
+	flags = va_arg(msg, int);
+	va_end(msg);
+
+	isadmin = (flags & FF_ADMIN)?1:0;
+	ismobile = (flags & FF_MOBILE)?1:0;
+
+	bwin = bgetwin(conn, buddy, BUDDY);
+	if (bwin == NULL)
+		blist = rgetlist(conn, buddy);
+	else
+		blist = bwin->e.buddy;
+	assert(blist != NULL);
+
+	if (bwin != NULL) {
+		if (isadmin != blist->isadmin) {
+			if (isadmin)
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now an administrator.\n",
+                                        user_name(NULL, 0, conn, blist));
+			else
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer an administrator.\n",
+                                        user_name(NULL, 0, conn, blist));
+		}
+
+		if (ismobile != blist->ismobile) {
+			if (ismobile)
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now mobile.\n",
+                                        user_name(NULL, 0, conn, blist));
+			else
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer mobile.\n",
+                                        user_name(NULL, 0, conn, blist));
+		}
+	}
+
+	blist->isadmin = isadmin;
+	blist->ismobile = ismobile;
+}
+
 nFIRE_HANDLER(naim_buddy_away) {
 	conn_t		*conn = (conn_t *)client;
 	va_list		msg;
@@ -1248,12 +1295,13 @@ nFIRE_HANDLER(naim_userinfo_handler) {
 	echof(conn, NULL, "Information about %s:\n",
 		SN);
 
-	if (class & (FF_SUBSTANDARD|FF_NORMAL|FF_ADMIN))
+	if (class & (FF_SUBSTANDARD|FF_NORMAL|FF_ADMIN|FF_MOBILE))
 	  echof(conn, NULL,
-		"</B>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <B>Class</B>:%s%s%s",
+		"</B>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <B>Class</B>:%s%s%s%s",
 			(class&FF_SUBSTANDARD)?" AIM":"",
 			(class&FF_NORMAL)?" AOLamer":"",
-			(class&FF_ADMIN)?" Operator":"");
+			(class&FF_ADMIN)?" Operator":"",
+			(class&FF_MOBILE)?" Mobile":"");
 	{
 		buddylist_t *blist = rgetlist(conn, SN);
 
@@ -2237,6 +2285,8 @@ conn_t	*naim_newconn(int proto) {
 			naim_buddy_coming);
 		firetalk_register_callback(conn->conn, FC_IM_BUDDYOFFLINE,
 			naim_buddy_going);
+		firetalk_register_callback(conn->conn, FC_IM_BUDDYFLAGS,
+			naim_buddy_flags);
 		firetalk_register_callback(conn->conn, FC_IM_BUDDYAWAY,
 			naim_buddy_away);
 		firetalk_register_callback(conn->conn, FC_IM_BUDDYUNAWAY,

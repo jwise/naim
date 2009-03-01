@@ -29,6 +29,7 @@ enum {
 	cBUDDY_OFFLINE,
 	cBUDDY_QUEUED,
 	cBUDDY_TAGGED,
+	cBUDDY_MOBILE,
 	NUMEVENTS
 };
 
@@ -101,7 +102,9 @@ typedef struct buddylist_ts {
 		offline:1,
 		isaway:1,
 		isidle:1,	// is the buddy idle for more than some threshhold?
-		docrypt:1;
+		docrypt:1,
+		isadmin:1,
+		ismobile:1;
 } buddylist_t;
 #define DEFAULT_GROUP	"User"
 #define CHAT_GROUP	"Chat"

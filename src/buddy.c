@@ -442,6 +442,8 @@ void	bupdate(void) {
 							col = CI(WINLIST,BUDDY_TAGGED);
 						else if (bwin->e.buddy->offline)
 							col = C(WINLIST,BUDDY_OFFLINE);
+						else if (bwin->e.buddy->ismobile)
+							col = C(WINLIST,BUDDY_MOBILE);
 						else if (bwin->e.buddy->isaway)
 							col = C(WINLIST,BUDDY_AWAY);
 						else if (bwin->e.buddy->isidle)
@@ -932,7 +934,7 @@ void	bcoming(conn_t *conn, const char *buddy) {
 	assert((bwin == NULL) || (bwin->e.buddy == blist));
 
 	if (blist->offline == 1) {
-		blist->isidle = blist->isaway = blist->offline = 0;
+		blist->isadmin = blist->ismobile = blist->isidle = blist->isaway = blist->offline = 0;
 		status_echof(conn, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> is now online =)\n",
 			user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 		if (bwin != NULL) {
@@ -991,7 +993,7 @@ void	bgoing(conn_t *conn, const char *buddy) {
 		status_echof(conn, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> has just logged off :(\n", 
 			user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 		blist->offline = 1;
-		blist->warnval = blist->typing = blist->isidle = blist->isaway = 0;
+		blist->warnval = blist->typing = blist->isadmin = blist->ismobile = blist->isidle = blist->isaway = 0;
 	} else
 		return;
 

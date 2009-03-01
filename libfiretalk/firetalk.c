@@ -761,6 +761,19 @@ void firetalk_callback_im_buddyonline(client_t c, const char *const nickname, in
 		}
 }
 
+void firetalk_callback_im_buddyflags(client_t c, const char *const nickname, const int flags) {
+	struct s_firetalk_handle
+		*conn = firetalk_find_handle(c);
+	struct s_firetalk_buddy *buddyiter;
+
+	if ((buddyiter = firetalk_im_find_buddy(conn, nickname)) != NULL)
+		if ((buddyiter->flags != flags) && (buddyiter->online == 1)) {
+			buddyiter->flags = flags;
+			if (conn->callbacks[FC_IM_BUDDYFLAGS] != NULL)
+				conn->callbacks[FC_IM_BUDDYFLAGS](conn, conn->clientstruct, nickname, flags);
+		}
+}
+
 void firetalk_callback_im_buddyaway(client_t c, const char *const nickname, const int away) {
 	struct s_firetalk_handle
 		*conn = firetalk_find_handle(c);
@@ -834,13 +847,11 @@ void	firetalk_callback_typing(client_t c, const char *const name, const int typi
 	if (!conn->callbacks[FC_IM_TYPINGINFO])
 		return;
 
-	if ((buddyiter = firetalk_im_find_buddy(conn, name)) != NULL) {
-		assert(buddyiter->online != 0);
-		if (buddyiter->typing != typing) {
+	if ((buddyiter = firetalk_im_find_buddy(conn, name)) != NULL)
+		if (buddyiter->online && (buddyiter->typing != typing)) {
 			buddyiter->typing = typing;
 			conn->callbacks[FC_IM_TYPINGINFO](conn, conn->clientstruct, buddyiter->nickname, typing);
 		}
-	}
 }
 
 void	firetalk_callback_capabilities(client_t c, const char *const nickname, const char *const caps) {
