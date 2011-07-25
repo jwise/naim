@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/bash
+
+set -o pipefail
 
 echo "struct {"
 echo "	int	code;"
@@ -31,6 +33,11 @@ echo '#include <ncurses.h>' \
 	| sed 's/^KEY_\(.*\)$/\1/g' \
 	| ${AWK} '{printf("#ifdef KEY_%s\n\t{ KEY_%s,\t\"%s\" },\n#endif\n", \
 		$1, $1, $1);}'
+if [ $? -ne 0 ]; then
+	echo "genkeys.sh: ncurses build failed; bailing out" >&2
+	exit 1
+fi
+
 echo "};"
 echo ""
 grep 'CONIO_KEY_.*:' "${SRCDIR}/conio.c" \
