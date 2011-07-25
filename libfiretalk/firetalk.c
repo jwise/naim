@@ -576,6 +576,18 @@ void	firetalk_callback_im_buddyonline(struct firetalk_driver_connection_t *c, co
 		}
 }
 
+void firetalk_callback_im_buddyflags(struct firetalk_driver_connection_t *c, const char *const nickname, const int flags) {
+	firetalk_connection_t *conn = firetalk_find_conn(c);
+	firetalk_buddy_t *buddyiter;
+
+	if ((buddyiter = firetalk_im_find_buddy(conn, nickname)) != NULL)
+		if ((buddyiter->flags != flags) && (buddyiter->online == 1)) {
+			buddyiter->flags = flags;
+			if (conn->callbacks[FC_IM_BUDDYFLAGS] != NULL)
+				conn->callbacks[FC_IM_BUDDYFLAGS](conn, conn->clientstruct, nickname, flags);
+		}
+}
+
 void	firetalk_callback_im_buddyaway(struct firetalk_driver_connection_t *c, const char *const nickname, const int away) {
 	firetalk_connection_t *conn = firetalk_find_conn(c);
 	firetalk_buddy_t *buddyiter;
@@ -759,6 +771,13 @@ void	firetalk_callback_idleinfo(struct firetalk_driver_connection_t *c, char con
 			buddyiter->idletime = idletime;
 			conn->callbacks[FC_IM_IDLEINFO](conn, conn->clientstruct, nickname, idletime);
 		}
+}
+
+void	firetalk_callback_statusinfo(struct firetalk_driver_connection_t *c, const char *const nickname, const char *const message) {
+	firetalk_connection_t *conn = firetalk_find_conn(c);
+
+	if (conn->callbacks[FC_IM_STATUSINFO])
+		conn->callbacks[FC_IM_STATUSINFO](conn, conn->clientstruct, nickname, message);
 }
 
 void	firetalk_callback_doinit(struct firetalk_driver_connection_t *c, const char *const nickname) {

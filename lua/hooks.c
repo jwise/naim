@@ -13,7 +13,7 @@ extern conn_t *curconn;
 
 static int _nlua_hook(void *userdata, const char *signature, ...) {
 	va_list	msg;
-	int	ref = (int)userdata, i, top, newtop, args = 0;
+	int	ref = (int)(long)userdata, i, top, newtop, args = 0;
 
 	top = lua_gettop(lua);
 
@@ -126,9 +126,11 @@ static int _nlua_hook(void *userdata, const char *signature, ...) {
 				break;
 			}
 		  case HOOK_T_WRLSTRINGc: {
+		  		size_t leni;
 				char	**str = va_arg(msg, char **);
 				uint32_t *len = va_arg(msg, uint32_t *);
-				const char *newstr = lua_tolstring(lua, top+2, len);
+				const char *newstr = lua_tolstring(lua, top+2, &leni);
+				*len = leni;
 
 				if (memcmp(*str, newstr, *len) != 0) {
 #ifdef DEBUG_ECHO
@@ -206,9 +208,9 @@ static int _nlua_hooks_add(lua_State *L) {
 	ref = luaL_ref(L, -2); //You can retrieve an object referred by reference r by calling lua_rawgeti(L, t, r). 
 	lua_pop(L, 2);
 
-	HOOK_ADD2(chainname, mod, _nlua_hook, weight, (void *)ref);
+	HOOK_ADD2(chainname, mod, _nlua_hook, weight, (void *)(long)ref);
 
-	lua_pushlightuserdata(L, (void *)ref);	/* opaque reference */
+	lua_pushlightuserdata(L, (void *)(long)ref);	/* opaque reference */
 	return(1);
 }
 
@@ -220,9 +222,9 @@ static int _nlua_hooks_del(lua_State *L) {
 	chainname = luaL_checkstring(L, 1);
 	if (!lua_islightuserdata(L, 2))
 		return(luaL_typerror(L, 1, "light userdata"));
-	ref = (int)lua_touserdata(L, 2);
+	ref = (int)(long)lua_touserdata(L, 2);
 
-	HOOK_DEL2(chainname, mod, _nlua_hook, (void *)ref);
+	HOOK_DEL2(chainname, mod, _nlua_hook, (void *)(long)ref);
 
 	if (luaL_findtable(L, LUA_GLOBALSINDEX, "naim.internal.hooks", 1) != NULL)
 		return(luaL_error(L, "Hooks table damaged"));

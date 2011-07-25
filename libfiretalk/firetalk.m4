@@ -25,5 +25,5 @@ AC_DEFUN([AC_LIB_FIRETALK],
 			)
 		)
 	)
-	AC_CHECK_FUNCS(getuid getpwuid strptime inet_aton)
+	AC_CHECK_FUNCS(getuid getpwuid inet_aton)
 ])# AC_LIB_FIRETALK

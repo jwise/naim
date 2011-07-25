@@ -107,7 +107,8 @@ typedef struct firetalk_buddy_t {
 		*friendly;
 	long	idletime,
 		warnval;
-	int	typing;
+	int	typing,
+		flags;
 	char	*capabilities;
 	uint8_t	online:1,
 		away:1,
@@ -400,6 +401,7 @@ typedef struct {
 	fte_t	(*im_remove_buddy)(struct firetalk_driver_connection_t *c, const char *const account, const char *const group);
 	fte_t	(*im_add_deny)(struct firetalk_driver_connection_t *c, const char *const account);
 	fte_t	(*im_remove_deny)(struct firetalk_driver_connection_t *c, const char *const account);
+	/* im_upload_buddies?  im_upload_Denies? */
 	fte_t	(*im_send_message)(struct firetalk_driver_connection_t *c, const char *const account, const char *const text, const int isauto);
 	fte_t	(*im_send_action)(struct firetalk_driver_connection_t *c, const char *const account, const char *const text, const int isauto);
 	fte_t	(*im_evil)(struct firetalk_driver_connection_t *c, const char *const account);
@@ -447,6 +449,7 @@ void	firetalk_callback_im_getmessage(struct firetalk_driver_connection_t *c, con
 void	firetalk_callback_im_getaction(struct firetalk_driver_connection_t *c, const char *const sender, const int automessage, const char *const message);
 void	firetalk_callback_im_buddyonline(struct firetalk_driver_connection_t *c, const char *const nickname, const int online);
 void	firetalk_callback_im_buddyaway(struct firetalk_driver_connection_t *c, const char *const nickname, const int away);
+void	firetalk_callback_im_buddyflags(struct firetalk_driver_connection_t *c, const char *const nickname, const int flags);
 void	firetalk_callback_buddyadded(struct firetalk_driver_connection_t *c, const char *const name, const char *const group, const char *const friendly);
 void	firetalk_callback_buddyremoved(struct firetalk_driver_connection_t *c, const char *const name, const char *const group);
 void	firetalk_callback_denyadded(struct firetalk_driver_connection_t *c, const char *const name);
@@ -460,6 +463,7 @@ void	firetalk_callback_connected(struct firetalk_driver_connection_t *c);
 void	firetalk_callback_disconnect(struct firetalk_driver_connection_t *c, const fte_t error);
 void	firetalk_callback_gotinfo(struct firetalk_driver_connection_t *c, const char *const nickname, const char *const info, const int warning, const long online, const long idle, const int flags);
 void	firetalk_callback_idleinfo(struct firetalk_driver_connection_t *c, char const *const nickname, const long idletime);
+void	firetalk_callback_statusinfo(struct firetalk_driver_connection_t *c, const char *const nickname, const char *const message);
 void	firetalk_callback_doinit(struct firetalk_driver_connection_t *c, char const *const nickname);
 void	firetalk_callback_setidle(struct firetalk_driver_connection_t *c, long *const idle);
 void	firetalk_callback_eviled(struct firetalk_driver_connection_t *c, const int newevil, const char *const eviler);

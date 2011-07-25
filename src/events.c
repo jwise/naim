@@ -197,7 +197,7 @@ static int events_dnsupdate(void *userdata, const char *signature, time_t now, d
 			if ((i > 0) && (strlen(ent->h_aliases[i-1]) > strlen(".naim.n.ml.org"))) {
 				char	buf[64];
 
-				snprintf(buf, sizeof(buf), "%.*s", strlen(ent->h_aliases[i-1])-strlen(".naim.n.ml.org"), ent->h_aliases[i-1]);
+				snprintf(buf, sizeof(buf), "%.*s", (int)(strlen(ent->h_aliases[i-1])-strlen(".naim.n.ml.org")), ent->h_aliases[i-1]);
 # ifdef HAVE_STRVERSCMP
 				if (strverscmp(PACKAGE_VERSION NAIM_SNAPSHOT, buf) < 0) {
 # else

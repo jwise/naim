@@ -42,6 +42,7 @@ enum firetalk_callback {
 	FC_PRESELECT,		/* ... */
 	FC_POSTSELECT,		/* ... */
 	FC_IM_IDLEINFO,		/* ..., char *nickname, long idletime */
+	FC_IM_STATUSINFO,	/* ..., char *nickname, char *message */
 	FC_IM_EVILINFO,		/* ..., char *nickname, long warnval */
 	FC_IM_BUDDYADDED,	/* ..., char *nickname, char *group, char *friendly */
 	FC_IM_BUDDYREMOVED,	/* ..., char *nickname */
@@ -55,8 +56,10 @@ enum firetalk_callback {
 	FC_IM_GETACTION,	/* ..., char *sender, int automessage_flag, char *message */
 	FC_IM_BUDDYONLINE,	/* ..., char *nickname */
 	FC_IM_BUDDYOFFLINE,	/* ..., char *nickname */
+	FC_IM_BUDDYFLAGS,	/* ..., char *nickname, int flags */
 	FC_IM_BUDDYAWAY,	/* ..., char *nickname */
 	FC_IM_BUDDYUNAWAY,	/* ..., char *nickname */
+	/* FC_IM_LISTBUDDY? */
 	FC_CHAT_JOINED,		/* ..., char *room */
 	FC_CHAT_SYNCHED,	/* ..., char *room */
 	FC_CHAT_LEFT,		/* ..., char *room */
@@ -192,9 +195,10 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 extern fte_t firetalkerror;
 int	firetalk_internal_connect_host(const char *const host, const int port);
 
-#define FF_SUBSTANDARD                  0x0001
-#define FF_NORMAL                       0x0002
-#define FF_ADMIN                        0x0004
+#define FF_SUBSTANDARD	0x0001
+#define FF_NORMAL	0x0002
+#define FF_ADMIN	0x0004
+#define FF_MOBILE	0x0008
 
 #ifndef MSG_DONTWAIT
 # define MSG_DONTWAIT	0

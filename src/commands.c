@@ -43,6 +43,7 @@ int	scrollbackoff = 0,
 	namec = 0;
 char	**names = NULL,
 	*lastclose = NULL;
+static lt_dlinterface_id iface_id = 0;
 
 static const char *collist[] = {
 	"CLEAR/BLACK",
@@ -70,6 +71,7 @@ static const char *forelist[] = {
 	"BUDDY_TAGGED",
 	"BUDDY_FAKEAWAY",
 	"BUDDY_TYPING",
+	"BUDDY_MOBILE",
 };
 
 static const char *backlist[] = {
@@ -81,9 +83,42 @@ static const char *backlist[] = {
 	"STATUSBAR",
 };
 
+static int
+naim_module_interface (lt_dlhandle handle, const char *id_string)
+{
+	return !(lt_dlsym(handle, "naim_init") ||
+	         lt_dlsym(handle, "naim_exit"));
+}
 
+void
+naim_module_init (const char *dlsearchpath)
+{
+	 int errors = 0;
 
+	 if (iface_id) {
+		 echof(curconn, NULL, "Multiple module loader initializations!\n");
+		 return;
+	 }
 
+	 errors = lt_dlinit();
+
+	 if (!errors) {
+		 iface_id = lt_dlinterface_register("naim", naim_module_interface);
+		 if (!iface_id) {
+			 const char *error_msg = "libltdl client registration failed";
+			 lt_dlseterror(lt_dladderror(error_msg));
+			 ++errors;
+		 }
+	 }
+
+	 if (!errors)
+		 errors = lt_dlsetsearchpath(dlsearchpath);
+
+	 if (errors) {
+		 echof(curconn, NULL, "Failed to initialize module loader: %s\n", lt_dlerror());
+		 exit(1);
+	 }
+}
 
 UAFUNC(jump) {
 UADESC(Go to the specified window or the next 'active' one)
@@ -2247,12 +2282,15 @@ UAAREQ(string,symbol)
 
 UAFUNC(modlist) {
 UADESC(Search for and list all potential and resident naim modules)
+	lt_dlhandle mod;
+	
 	echof(conn, NULL, "Modules found in the default search path:\n");
 	lt_dlforeachfile(NULL, modlist_filehelper, conn);
 	echof(conn, NULL, "Additional modules can be loaded using their explicit paths, as in <font color=\"#00FF00\">/modload %s/mods/mymod.la</font>.\n",
 		home);
 	echof(conn, NULL, "Modules currently resident:\n");
-	lt_dlforeach(modlist_helper, conn);
+	for (mod = lt_dlhandle_iterate(iface_id, NULL); mod != NULL; mod = lt_dlhandle_iterate(iface_id, mod))
+		modlist_helper(mod, conn);
 	echof(conn, NULL, "See <font color=\"#00FF00\">/help modload</font> for more information.\n");
 }
 
@@ -2309,7 +2347,7 @@ UADESC(Deinitialize and unload a resident module)
 UAAREQ(string,module)
 	lt_dlhandle mod;
 
-	for (mod = lt_dlhandle_next(NULL); mod != NULL; mod = lt_dlhandle_next(mod)) {
+	for (mod = lt_dlhandle_iterate(iface_id, NULL); mod != NULL; mod = lt_dlhandle_iterate(iface_id, mod)) {
 		const lt_dlinfo *dlinfo = lt_dlgetinfo(mod);
 
 		if ((dlinfo->name != NULL) && (strcasecmp(args[0], dlinfo->name) == 0)) {
@@ -2763,7 +2801,7 @@ static const char *filename_tabcomplete(conn_t *const conn, const char *start, c
 		if ((end = strrchr(start, '/')) != NULL) {
 			char	buf[1024];
 
-			snprintf(buf, sizeof(buf), "%.*s", end-start+1, start);
+			snprintf(buf, sizeof(buf), "%.*s", (int)(end-start+1), start);
 			dir = opendir(buf);
 		} else {
 			end = start-1;
@@ -2783,11 +2821,11 @@ static const char *filename_tabcomplete(conn_t *const conn, const char *start, c
 			struct stat statbuf;
 
 			if (((end-start) > 0) && (start[end-start-1] == '/'))
-				snprintf(str, sizeof(str)-1, "%.*s%s", end-start, start, dire->d_name);
+				snprintf(str, sizeof(str)-1, "%.*s%s", (int)(end-start), start, dire->d_name);
 			else if (end == (start-1))
 				snprintf(str, sizeof(str)-1, "%s", dire->d_name);
 			else
-				snprintf(str, sizeof(str)-1, "%.*s/%s", end-start, start, dire->d_name);
+				snprintf(str, sizeof(str)-1, "%.*s/%s", (int)(end-start), start, dire->d_name);
 			if (stat(str, &statbuf) == -1)
 				continue;
 			if (S_ISDIR(statbuf.st_mode))

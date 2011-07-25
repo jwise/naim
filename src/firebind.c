@@ -87,6 +87,20 @@ nFIRE_HANDLER(warned) {
 	HOOK_CALL(proto_warned, HOOK_T_CONN HOOK_T_UINT32 HOOK_T_STRING, conn, newlev, who);
 }
 
+HOOK_DECLARE(proto_buddy_status);
+nFIRE_HANDLER(buddy_status) {
+	va_list msg;
+	const char *who;
+	const char *status;
+	
+	va_start(msg, conn);
+	who = va_arg(msg, const char *);
+	status = va_arg(msg, const char *);
+	va_end(msg);
+	
+	HOOK_CALL(proto_buddy_status, HOOK_T_CONN HOOK_T_STRING HOOK_T_STRING, conn, who, status);
+}
+
 HOOK_DECLARE(proto_buddy_idle);
 nFIRE_HANDLER(buddy_idle) {
 	va_list	msg;
@@ -141,6 +155,21 @@ nFIRE_HANDLER(buddy_typing) {
 
 	HOOK_CALL(proto_buddy_typing, HOOK_T_CONN HOOK_T_STRING HOOK_T_UINT32, conn, who, typing);
 }
+
+HOOK_DECLARE(proto_buddy_flags);
+nFIRE_HANDLER(buddy_flags) {
+	va_list	msg;
+	const char *who;
+	int flags;
+
+	va_start(msg, conn);
+	who = va_arg(msg, const char *);
+	flags = va_arg(msg, int);
+	va_end(msg);
+
+	HOOK_CALL(proto_buddy_flags, HOOK_T_CONN HOOK_T_STRING HOOK_T_UINT32, conn, who, flags);
+}
+	
 
 HOOK_DECLARE(proto_buddy_away);
 nFIRE_HANDLER(buddy_away) {
@@ -1049,7 +1078,7 @@ nFIRE_CTCPHAND(AUTOPEER) {
 				blist->crypt = NULL;
 				firetalk_subcode_send_request(conn->conn, from, "AUTOPEER", "-AUTOCRYPT");
 			}
-			blist->peer = 0;
+			blist->docrypt = blist->peer = 0;
 		} else if (strcasecmp(args, "+AUTOCRYPT") == 0) {
 			if (!getvar_int(conn, "autocrypt"))
 				firetalk_subcode_send_request(conn->conn, from, "AUTOPEER", "-AUTOCRYPT");
@@ -1073,6 +1102,7 @@ nFIRE_CTCPHAND(AUTOPEER) {
 				}
 
 				if ((blist->crypt == NULL) || (strcmp(blist->crypt, co) != 0)) {
+					blist->docrypt = 1;
 					STRREPLACE(blist->crypt, co);
 					if (getvar_int(conn, "autopeerverbose") > 0)
 						status_echof(conn, "Now encrypting messages sent to <font color=\"#00FFFF\">%s</font> with XOR [%s].\n",
@@ -1089,6 +1119,7 @@ nFIRE_CTCPHAND(AUTOPEER) {
 
 		if ((strcasecmp(args, "-AUTOCRYPT") == 0) || (strcasecmp(args, "-AUTOPEER") == 0)) {
 			if (blist->crypt != NULL) {
+				blist->docrypt = 0;
 				free(blist->crypt);
 				blist->crypt = NULL;
 				firetalk_subcode_send_request(conn->conn, from, "AUTOPEER", "-AUTOCRYPT");
@@ -1208,9 +1239,11 @@ conn_t	*naim_newconn(int proto) {
 		firetalk_register_callback(conn->conn, FC_IM_DENYREMOVED,		_firebind_denyremoved);
 		firetalk_register_callback(conn->conn, FC_IM_BUDDYONLINE,		_firebind_buddy_coming);
 		firetalk_register_callback(conn->conn, FC_IM_BUDDYOFFLINE,		_firebind_buddy_going);
+		firetalk_register_callback(conn->conn, FC_IM_BUDDYFLAGS,		_firebind_buddy_flags);
 		firetalk_register_callback(conn->conn, FC_IM_BUDDYAWAY,			_firebind_buddy_away);
 		firetalk_register_callback(conn->conn, FC_IM_BUDDYUNAWAY,		_firebind_buddy_unaway);
 		firetalk_register_callback(conn->conn, FC_IM_IDLEINFO,			_firebind_buddy_idle);
+		firetalk_register_callback(conn->conn, FC_IM_STATUSINFO,		_firebind_buddy_status);
 		firetalk_register_callback(conn->conn, FC_IM_TYPINGINFO,		_firebind_buddy_typing);
 		firetalk_register_callback(conn->conn, FC_IM_EVILINFO,			_firebind_buddy_eviled);
 		firetalk_register_callback(conn->conn, FC_IM_CAPABILITIES,		_firebind_buddy_caps);

@@ -326,7 +326,7 @@ static struct firetalk_driver_connection_t *_nlua_pd_create_conn(struct firetalk
 	lua_pushstring(lua, cookie->pd->strprotocol);
 
 	if (lua_pcall(lua, 2, LUA_MULTRET, 0) != 0) {
-		static char *s;
+		static const char *s;
 		s = lua_tostring(lua, -1); /* for GDB */
 		status_echof(curconn, "[pdlua] [%s:create] run error: %s\n", cookie->pd->strprotocol, s);
 		lua_pop(lua, 1);

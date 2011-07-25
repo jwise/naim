@@ -268,11 +268,7 @@ int	main_stub(int argc, char **args) {
 
 	changetime = nowf = now = startuptime = time(NULL);
 
-	if (lt_dlinit() != 0) {
-		printf("Unable to initialize module handler: %s.\n", lt_dlerror());
-		return(1);
-	}
-	lt_dlsetsearchpath(DLSEARCHPATH);
+	naim_module_init(DLSEARCHPATH);
 #ifdef DLOPEN_SELF_LIBNAIM_CORE
 	dl_self = lt_dlopen("cygnaim_core-0.dll");
 #else

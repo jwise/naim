@@ -333,7 +333,7 @@ static unsigned long parsehtml_tag(h_t *h, const unsigned char *text, int backup
 			char	*lasturl = script_getvar("lasturl");
 
 			h->inunderline = h->last_inunderline;
-			if ((lasturl != NULL) && (strncmp(textsave-backup, lasturl, strlen(lasturl)) != 0)) {
+			if ((lasturl != NULL) && (backup > 1) && (strncmp(textsave-backup, lasturl, strlen(lasturl)) != 0)) {
 				nw_wrap_addstr(h, " [");
 				nw_wrap_addstr(h, lasturl);
 				nw_wrap_addch(h, ']');

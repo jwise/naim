@@ -503,6 +503,7 @@ void	rc_initdefs(faimconf_t *conf) {
 	conf->f[cBUDDY_TAGGED] = 4;
 	conf->f[cBUDDY_FAKEAWAY] = conf->f[cBUDDY_AWAY];
 	conf->f[cBUDDY_TYPING] = conf->f[cBUDDY_WAITING];
+	conf->f[cBUDDY_MOBILE] = 7;
 
 	conf->b[cINPUT] = 0;
 	conf->b[cWINLIST] = 6;

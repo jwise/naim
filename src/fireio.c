@@ -162,6 +162,23 @@ static int fireio_warned(void *userdata, const char *signature, conn_t *conn, in
 	return(HOOK_CONTINUE);
 }
 
+static int fireio_buddy_status(void *userdata, const char *signature, conn_t *conn, const char *who, const char *message) {
+	buddywin_t      *bwin;
+	
+	if ((bwin = bgetwin(conn, who, BUDDY)) != NULL) {
+		if (*message == 0)
+			FREESTR(bwin->status);
+		else {
+			if (!bwin->e.buddy->isaway && ((bwin->status == NULL) || (strcmp(bwin->status, message) != 0)))
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is available: %s\n",
+					user_name(NULL, 0, conn, bwin->e.buddy), message);
+			STRREPLACE(bwin->status, message);
+		}
+	}
+	
+	return(HOOK_CONTINUE);
+}
+
 static int fireio_buddy_eviled(void *userdata, const char *signature, conn_t *conn, const char *who, long warnval) {
 	buddylist_t *blist;
 
@@ -182,6 +199,45 @@ static int fireio_buddy_typing(void *userdata, const char *signature, conn_t *co
 	}
 
 	return(HOOK_CONTINUE);
+}
+
+static int fireio_buddy_flags(void *userdata, const char *signature, conn_t *conn, const char *buddy, int flags) {
+	int		isadmin, ismobile;
+	buddywin_t	*bwin;
+	buddylist_t	*blist;
+
+	isadmin = (flags & FF_ADMIN)?1:0;
+	ismobile = (flags & FF_MOBILE)?1:0;
+
+	bwin = bgetwin(conn, buddy, BUDDY);
+	if (bwin == NULL)
+		blist = rgetlist(conn, buddy);
+	else
+		blist = bwin->e.buddy;
+	assert(blist != NULL);
+
+	if (bwin != NULL) {
+		if (isadmin != blist->isadmin) {
+			if (isadmin)
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now an administrator.\n",
+                                        user_name(NULL, 0, conn, blist));
+			else
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer an administrator.\n",
+                                        user_name(NULL, 0, conn, blist));
+		}
+
+		if (ismobile != blist->ismobile) {
+			if (ismobile)
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now mobile.\n",
+                                        user_name(NULL, 0, conn, blist));
+			else
+				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer mobile.\n",
+                                        user_name(NULL, 0, conn, blist));
+		}
+	}
+
+	blist->isadmin = isadmin;
+	blist->ismobile = ismobile;
 }
 
 static int fireio_buddy_away(void *userdata, const char *signature, conn_t *conn, const char *who) {
@@ -294,6 +350,7 @@ static int fireio_recvfrom_decrypt(void *userdata, const char *signature, conn_t
 	if ((*dest == NULL) && !(*flags & RF_ACTION)) {
 		buddylist_t *blist = rgetlist(conn, *name);
 
+		// Note that docrypt is not checked here; we decrypt if we have a key. docrypt only applies to outgoing messages.
 		if ((blist != NULL) && (blist->crypt != NULL) && ((blist->peer <= 3) || (*flags & RF_ENCRYPTED))) {
 			int	i, j = 0;
 
@@ -307,6 +364,30 @@ static int fireio_recvfrom_decrypt(void *userdata, const char *signature, conn_t
 					*len, i, (*message)[i]);
 				return(HOOK_STOP);
 			}
+			if (!blist->docrypt) {
+				buddywin_t *bwin = bgetwin(conn, *name, BUDDY);
+
+				blist->docrypt = 1;
+				if (bwin != NULL)
+					window_echof(bwin, "%s just sent an encrypted message, but encryption has been temporarily disabled. Reenabling.\n",
+						*name);
+				else
+					status_echof(conn, "%s just sent an encrypted message, but encryption has been temporarily disabled. Reenabling.\n",
+						*name);
+			}
+		}
+
+		// On the other hand, unencrypted messages will cause us to not send encrypted messages either.
+		if ((blist != NULL) && blist->docrypt && !(*flags & (RF_AUTOMATIC|RF_ENCRYPTED))) {
+			buddywin_t *bwin = bgetwin(conn, *name, BUDDY);
+
+			blist->docrypt = 0;
+			if (bwin != NULL)
+				window_echof(bwin, "%s just sent an unencrypted message, but encryption has been negotiated. Temporarily disabling encryption.\n",
+					*name);
+			else
+				status_echof(conn, "%s just sent an unencrypted message, but encryption has been negotiated. Temporarily disabling encryption.\n",
+					*name);
 		}
 	}
 
@@ -370,17 +451,17 @@ static int fireio_recvfrom_display_user(void *userdata, const char *signature, c
 		naim_lastupdate(conn);
 
 		if (*flags & RF_ACTION) {
-			if ((blist != NULL) && (blist->crypt != NULL))
+			if (*flags & RF_ENCRYPTED)
 				format = "<B>*&gt; %s</B>";
 			else
 				format = "*&gt; <B>%s</B>";
 		} else if (*flags & RF_AUTOMATIC) {
-			if ((blist != NULL) && (blist->crypt != NULL))
+			if (*flags & RF_ENCRYPTED)
 				format = "<B>-%s-</B>";
 			else
 				format = "-<B>%s</B>-";
 		} else {
-			if ((blist != NULL) && (blist->crypt != NULL))
+			if (*flags & RF_ENCRYPTED)
 				format = "<B>[%s]</B>";
 			else
 				format = "[<B>%s</B>]";
@@ -395,33 +476,31 @@ static int fireio_recvfrom_display_user(void *userdata, const char *signature, c
 	} else {
 		const char *format;
 
-		assert(blist != NULL);
 		assert(bwin->et == BUDDY);
-		assert(bwin->e.buddy == blist);
 
 		if (getvar_int(conn, "chatter") & IM_MESSAGE)
 			bwin->waiting = 1;
 		bwin->keepafterso = 1;
 
 		if (*flags & RF_ACTION) {
-			if (blist->crypt != NULL)
+			if (*flags & RF_ENCRYPTED)
 				format = "<B>* %s</B>";
 			else
 				format = "* <B>%s</B>";
 		} else if (*flags & RF_AUTOMATIC) {
-			if (blist->crypt != NULL)
+			if (*flags & RF_ENCRYPTED)
 				format = "<B>-%s-</B>";
 			else
 				format = "-<B>%s</B>-";
 		} else {
-			if (blist->crypt != NULL)
+			if (*flags & RF_ENCRYPTED)
 				format = "<B>%s:</B>";
 			else
 				format = "<B>%s</B>:";
 		}
 
 		WINTIME(&(bwin->nwin), IMWIN);
-		hwprintf(&(bwin->nwin), C(IMWIN,BUDDY), format, USER_NAME(blist));
+		hwprintf(&(bwin->nwin), C(IMWIN,BUDDY), format, USER_NAME(bwin->e.buddy));
 		hwprintf(&(bwin->nwin), C(IMWIN,TEXT), "%s<body>%s</body><br>", (strncmp(*message, "'s ", 3) == 0)?"":" ", *message);
 
 		if (!(*flags & RF_AUTOMATIC)) {
@@ -652,7 +731,36 @@ static int fireio_error_msg(void *userdata, const char *signature, conn_t *conn,
 	buddywin_t *bwin;
 
 	if ((error == FE_MESSAGETRUNCATED) && (awaytime > 0))
-		return(HOOK_CONTINUE);;
+		return(HOOK_CONTINUE);
+
+#if 0
+	if ((error == FE_INVALIDFORMAT) && (target != NULL) && (awayc > 0)) {
+		int	i;
+
+		assert(awayar != NULL);
+
+		for (i = 0; i < awayc; i++)
+			if (firetalk_compare_nicks(conn->conn, target, awayar[i].name) == FE_SUCCESS) {
+				if (awayar[i].gotaway == 0) {
+					buddywin_t *bwin = bgetwin(conn, target, BUDDY);
+
+					if (bwin == NULL)
+						status_echof(conn, "<font color=\"#00FFFF\">%s</font> is now away.\n",
+							target);
+					else
+						window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now away.\n",
+							user_name(NULL, 0, conn, bwin->e.buddy));
+				}
+				free(awayar[i].name);
+				memmove(awayar+i, awayar+i+1, (awayc-i-1)*sizeof(*awayar));
+				awayc--;
+				awayar = realloc(awayar, awayc*sizeof(*awayar));
+				return;
+			}
+	}
+#else
+#warning MERGE: fireio_error_msg no longer has 'is now away' error support!
+#endif
 
 	if ((target != NULL) && ((bwin = bgetanywin(conn, target)) != NULL)) {
 		if (desc != NULL)
@@ -956,6 +1064,8 @@ void	fireio_hook_init(void) {
 	HOOK_ADD(proto_nickchanged,	mod, fireio_nickchanged,	100, NULL);
 	HOOK_ADD(proto_buddy_nickchanged, mod, fireio_buddy_nickchanged, 100, NULL);
 	HOOK_ADD(proto_warned,		mod, fireio_warned,		100, NULL);
+#warning MERGE: Lua support needed for proto_buddy_status
+	HOOK_ADD(proto_buddy_status,	mod, fireio_buddy_status,	100, NULL);
 	HOOK_ADD(proto_error_msg,	mod, fireio_error_msg,		100, NULL);
 	HOOK_ADD(proto_disconnected,	mod, fireio_disconnected,	100, NULL);
 	HOOK_ADD(proto_buddyadded,	mod, fireio_buddyadded,		100, NULL);
@@ -966,6 +1076,8 @@ void	fireio_hook_init(void) {
 	HOOK_ADD(proto_buddy_unaway,	mod, fireio_buddy_unaway,	100, NULL);
 	HOOK_ADD(proto_buddy_eviled,	mod, fireio_buddy_eviled,	100, NULL);
 	HOOK_ADD(proto_buddy_typing,	mod, fireio_buddy_typing,	100, NULL);
+#warning MERGE: Lua support needed for proto_buddy_flags
+	HOOK_ADD(proto_buddy_flags,	mod, fireio_buddy_flags,	100, NULL);
 	HOOK_ADD(proto_denyadded,	mod, fireio_denyadded,		100, NULL);
 	HOOK_ADD(proto_denyremoved,	mod, fireio_denyremoved,	100, NULL);
 	HOOK_ADD(proto_recvfrom,	mod, fireio_recvfrom_ignorelist, 10, NULL);

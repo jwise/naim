@@ -30,6 +30,7 @@ enum {
 	cBUDDY_TAGGED,
 	cBUDDY_FAKEAWAY,
 	cBUDDY_TYPING,
+	cBUDDY_MOBILE,
 	NUMEVENTS
 };
 
@@ -118,7 +119,10 @@ typedef struct buddylist_t {
 	time_t	typing;
 	unsigned long offline:1,
 		isaway:1,
-		isidle:1;	// is the buddy idle for more than some threshhold?
+		isidle:1,	// is the buddy idle for more than some threshhold?
+		docrypt:1,
+		isadmin:1,
+		ismobile:1;
 	conn_t	*conn;
 } buddylist_t;
 #define DEFAULT_GROUP	"User"
@@ -164,7 +168,8 @@ typedef enum {
 
 typedef struct buddywin_t {
 	char	*winname,
-		*blurb;
+		*blurb,
+		*status;
 	unsigned char waiting:1,/* text waiting to be read (overrides
 				** offline and isbuddy in bupdate())
 				*/
@@ -242,11 +247,15 @@ buddywin_t *bgetwin(conn_t *conn, const char *, et_t);
 buddywin_t *bgetanywin(conn_t *conn, const char *);
 buddywin_t *bgetbuddywin(conn_t *conn, const buddylist_t *);
 
+/* commands.c */
+void   naim_module_init(const char *);
+
 /* conio.c */
 void	naim_eval(const char *);
 const char *ua_valid(const char *cmd, conn_t *conn, const int argc);
 void	ua_handlecmd(const char *);
 void	ua_handleline(const char *line);
+
 
 /* echof.c */
 void	status_echof(conn_t *conn, const unsigned char *format, ...);

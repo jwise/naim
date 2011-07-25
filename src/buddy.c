@@ -56,6 +56,12 @@ static void iupdate(void) {
 				curconn->curbwin->blurb);
 			htmlstrip(buf);
 			script_setvar("iftopic", buf);
+		} else if (curconn->curbwin->status != NULL) {
+			snprintf(buf, sizeof(buf), " (%.*s)",
+				(int)(sizeof(buf)-4),
+				curconn->curbwin->status);
+			htmlstrip(buf);
+			script_setvar("iftopic", buf);
 		} else
 			script_setvar("iftopic", "");
 
@@ -66,7 +72,7 @@ static void iupdate(void) {
 
 		switch (curconn->curbwin->et) {
 		  case BUDDY:
-			if (curconn->curbwin->e.buddy->crypt != NULL)
+			if (curconn->curbwin->e.buddy->docrypt)
 				script_setvar("ifcrypt", getvar(curconn, "statusbar_crypt"));
 			else
 				script_setvar("ifcrypt", "");
@@ -427,6 +433,8 @@ void	bupdate(void) {
 						fore = faimconf.f[cBUDDY_QUEUED];
 					else if (bwin->e.buddy->offline)
 						fore = faimconf.f[cBUDDY_OFFLINE];
+					else if (bwin->e.buddy->ismobile)
+						fore = faimconf.f[cBUDDY_MOBILE];
 					else if (bwin->e.buddy->isaway && bwin->e.buddy->isidle)
 						fore = faimconf.f[cBUDDY_AWAY];
 					else if (bwin->e.buddy->isaway)
@@ -576,10 +584,9 @@ static void bremove(buddywin_t *bwin) {
 	}
 	free(bwin->pouncear);
 	bwin->pouncear = NULL;
-	free(bwin->winname);
-	bwin->winname = NULL;
-	free(bwin->blurb);
-	bwin->blurb = NULL;
+	FREESTR(bwin->winname);
+	FREESTR(bwin->blurb);
+	FREESTR(bwin->status);
 
 	if (bwin->nwin.logfile != NULL) {
 		struct tm *tmptr;
@@ -799,7 +806,7 @@ void	bcoming(conn_t *conn, const char *buddy) {
 	assert((bwin == NULL) || (bwin->e.buddy == blist));
 
 	if (blist->offline == 1) {
-		blist->isidle = blist->isaway = blist->offline = 0;
+		blist->isadmin = blist->ismobile = blist->isidle = blist->isaway = blist->offline = 0;
 		status_echof(conn, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> is now online =)\n",
 			user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 		if (bwin != NULL) {
@@ -845,7 +852,7 @@ void	bgoing(conn_t *conn, const char *buddy) {
 		if ((blist->peer <= 0) && (blist->crypt != NULL))
 			echof(conn, NULL, "Strangeness while marking %s offline: no autopeer negotiated, but autocrypt set!\n",
 				buddy);
-		blist->peer = 0;
+		blist->docrypt = blist->peer = 0;
 		FREESTR(blist->crypt);
 		FREESTR(blist->tzname);
 		FREESTR(blist->caps);
@@ -853,7 +860,7 @@ void	bgoing(conn_t *conn, const char *buddy) {
 		status_echof(conn, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> has just logged off :(\n", 
 			user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 		blist->offline = 1;
-		blist->warnval = blist->typing = blist->isidle = blist->isaway = 0;
+		blist->warnval = blist->typing = blist->isadmin = blist->ismobile = blist->isidle = blist->isaway = 0;
 	} else
 		return;
 
@@ -867,10 +874,8 @@ void	bgoing(conn_t *conn, const char *buddy) {
 				user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 			if ((beeponsignon > 1) || ((awaytime == 0) && (beeponsignon == 1)))
 				beep();
-			if (bwin->blurb != NULL) {
-				free(bwin->blurb);
-				bwin->blurb = NULL;
-			}
+			FREESTR(bwin->blurb);
+			FREESTR(bwin->status);
 
 			if (bwin->keepafterso == 1) {
 				if ((autoclose > 0) && !USER_PERMANENT(bwin->e.buddy) && (bwin->waiting == 0))
@@ -925,6 +930,7 @@ void	baway(conn_t *conn, const char *buddy, int isaway) {
 		blist = bwin->e.buddy;
 	assert(blist != NULL);
 
+	/* XXX need to pass to chain available message: bwin->status */
 	if (bwin != NULL) {
 		if ((isaway == 0) && (bwin->blurb != NULL)) {
 			free(bwin->blurb);
@@ -935,11 +941,10 @@ void	baway(conn_t *conn, const char *buddy, int isaway) {
 	blist->isaway = isaway;
 }
 
-static void bclearall_bwin(conn_t *conn, buddywin_t *bwin, int force) {
-	if (bwin->blurb != NULL) {
-		free(bwin->blurb);
-		bwin->blurb = NULL;
-	}
+static void
+	bclearall_bwin(conn_t *conn, buddywin_t *bwin, int force) {
+	FREESTR(bwin->blurb);
+	FREESTR(bwin->status);
 	switch (bwin->et) {
 	  case BUDDY:
 		assert(bwin->e.buddy != NULL);
@@ -975,7 +980,7 @@ static void bclearall_buddy(buddylist_t *buddy) {
 	FREESTR(buddy->crypt);
 	FREESTR(buddy->tzname);
 	FREESTR(buddy->caps);
-	buddy->warnval = buddy->typing = buddy->peer = buddy->isaway = buddy->isidle = 0;
+	buddy->docrypt = buddy->warnval = buddy->typing = buddy->peer = buddy->isaway = buddy->isidle = 0;
 	buddy->offline = 1;
 }
 
