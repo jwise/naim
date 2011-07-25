@@ -646,7 +646,7 @@ naim.hooks.add('proto_disconnected', function(conn, errorcode)
 	conn.online = nil
 
 	conn.groups = {}
-	setmetatable(naim.connections[name].groups, naim.internal.insensitive_index)
+	setmetatable(conn.groups, naim.internal.insensitive_index)
 
 	for k,buddy in pairs(conn.buddies) do
 		buddy.session = nil
@@ -685,6 +685,14 @@ naim.hooks.add('proto_buddy_coming', function(conn, who)
 	assert(not buddy.session)
 
 	buddy.session = {}
+end, 100)
+
+naim.hooks.add('proto_buddy_going', function(conn, who)
+	local buddy = conn.buddies[who]
+	assert(buddy)
+	assert(buddy.session)
+
+	buddy.session = nil
 end, 100)
 
 naim.hooks.add('proto_buddy_idle', function(conn, who, idletime)
@@ -905,6 +913,7 @@ end, 100)
 naim.hooks.add('proto_chat_user_oped', function(conn, chat, who, by)
 	local group = conn.groups[chat]
 
+	assert(group.members[who])
 	group.members[who].operator = true
 
 	if group.synched then
