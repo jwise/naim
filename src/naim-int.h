@@ -26,6 +26,7 @@
 #ifdef HAVE_EXECINFO_H
 # include <execinfo.h>
 #endif
+#include <stdio.h>
 
 #if 1
 # undef NCURSES_CONST
@@ -319,6 +320,9 @@ void	hamster_hook_init(void) G_GNUC_INTERNAL;
 
 /* helpcmd.c */
 void	help_printhelp(const char *) G_GNUC_INTERNAL;
+
+/* logging.c */
+FILE    *logging_open(conn_t *const conn, buddywin_t *const bwin) G_GNUC_INTERNAL;
 
 /* rc.c */
 const char *account_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) G_GNUC_INTERNAL;
