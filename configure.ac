@@ -2,6 +2,8 @@ AC_PREREQ(2.50)
 AC_INIT(naim, 0.12.0, [Daniel Reed <n@ml.org>])
 AC_CONFIG_SRCDIR([src/naim-int.h])
 AC_CONFIG_HEADER([src/config.h])
+AC_CONFIG_AUX_DIR([libltdl/config])
+AC_CONFIG_MACRO_DIR([libltdl/m4])
 AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip no-dependencies no-define subdir-objects std-options 1.8])
 AM_PROG_CC_C_O
 
@@ -28,8 +30,12 @@ echo ""
 echo ""
 echo "Configuring ltdl"
 echo ""
+LT_CONFIG_LTDL_DIR([libltdl])
+LTDL_INIT([recursive])
 AC_LIB_LTDL
 
+dnl Sigh.
+AC_CONFIG_COMMANDS_PRE([LT_CONFIG_H=../src/config.h])
 
 echo ""
 echo ""
