@@ -1454,7 +1454,7 @@ UAAOPT(string,chain)
 
 	if (argc == 0) {
 		const char *chains[] = { "preselect", "postselect", "periodic", "sendto",
-			"proto_doinit", "proto_connected", "proto_connectfailed", "proto_newnick", "proto_user_nickchanged", "proto_warned", "proto_error_msg", "proto_error_disconnect", "proto_userinfo",
+			"proto_doinit", "proto_connected", "proto_connectfailed", "proto_nickchanged", "proto_buddy_nickchanged", "proto_warned", "proto_error_msg", "proto_disconnected", "proto_userinfo",
 			"proto_buddyadded", "proto_buddyremoved", "proto_buddy_coming", "proto_buddy_going", "proto_buddy_away", "proto_buddy_unaway", "proto_buddy_idle", "proto_buddy_eviled", "proto_buddy_capschanged", "proto_buddy_typing",
 			"proto_denyadded", "proto_denyremoved",
 			"proto_recvfrom",

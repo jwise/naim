@@ -26,6 +26,7 @@
 #include "firetalk.h"
 
 #define ROOMSTARTS "#+&"
+#define BUFFER_LENGTH 512
 
 
 static char irc_tolower(const char c) {
@@ -81,12 +82,13 @@ typedef struct firetalk_driver_connection_t {
 		*password,
 		*chanmodes,
 		*chanprefix,
-		*chanmodesexp[56],
-		 buffer[512+1];
+		*chanmodesexp['z' - 'A' + 1];
 	irc_whois_t *whois_head;
 	int	 maxmodes;
 	unsigned char
 		 nosilence:1;	/* are we on a network that understands SILENCE */
+	firetalk_sock_t	sock;
+	firetalk_buffer_t buffer;
 } irc_conn_t;
 
 static inline void irc_conn_t_ctor(irc_conn_t *this) {
@@ -94,6 +96,9 @@ static inline void irc_conn_t_ctor(irc_conn_t *this) {
 	this->chanmodes = strdup("beI,k,l,imnpsta");
 	this->chanprefix = strdup("(ov)@+");
 	this->maxmodes = 3;
+ 	firetalk_sock_t_ctor(&(this->sock));
+	firetalk_buffer_t_ctor(&(this->buffer));
+	firetalk_buffer_alloc(&(this->buffer), BUFFER_LENGTH);
 }
 TYPE_NEW(irc_conn_t);
 static inline void irc_conn_t_dtor(irc_conn_t *this) {
@@ -106,6 +111,9 @@ static inline void irc_conn_t_dtor(irc_conn_t *this) {
 	for (i = 0; i < sizeof(this->chanmodesexp)/sizeof(*(this->chanmodesexp)); i++)
 		free(this->chanmodesexp[i]);
 	irc_whois_t_list_delete(this->whois_head);
+	firetalk_sock_t_dtor(&(this->sock));
+	firetalk_buffer_t_dtor(&(this->buffer));
+	
 	memset(this, 0, sizeof(*this));
 }
 TYPE_DELETE(irc_conn_t);
@@ -173,7 +181,7 @@ static const char *irc_normalize_room_name(irc_conn_t *c, const char *const name
 #ifdef DEBUG_ECHO
 static void irc_echof(irc_conn_t *c, const char *const where, const char *const format, ...) {
 	va_list	ap;
-	char	buf[513];
+	char	buf[c->buffer.size+1];
 	void	statrefresh(void);
 
 	va_start(ap, format);
@@ -561,9 +569,12 @@ static int irc_internal_disconnect(irc_conn_t *c, const fte_t error) {
 	irc_echof(c, __FUNCTION__, "c=%#p, error=%i\n", c, error);
 #endif
 
+	if (c->sock.state != FCS_NOTCONNECTED)
+		firetalk_callback_disconnect(c, error);
+	
+	firetalk_sock_close(&(c->sock));
 	irc_conn_t_dtor(c);
-
-	firetalk_callback_disconnect(c, error);
+	irc_conn_t_ctor(c);
 
 	return(FE_SUCCESS);
 }
@@ -573,6 +584,9 @@ static int irc_send_printf(irc_conn_t *c, const char *const format, ...) {
 	size_t	i,
 		datai = 0;
 	char	data[513];
+	
+	if (c->sock.state == FCS_NOTCONNECTED)
+		return(FE_NOTCONNECTED);
 
 	va_start(ap, format);
 	for (i = 0; format[i] != 0; i++) {
@@ -616,19 +630,15 @@ static int irc_send_printf(irc_conn_t *c, const char *const format, ...) {
 
 	strcpy(data+datai, "\r\n");
 	datai += 2;
-
-	{
-		firetalk_connection_t *fchandle = firetalk_find_conn(c);
-
-		firetalk_internal_send_data(fchandle, data, datai);
-	}
+	
+	firetalk_sock_send(&(c->sock), data, datai);
 
 	return(FE_SUCCESS);
 }
 
 static char **irc_recv_parse(irc_conn_t *c, unsigned char *buffer, uint16_t *bufferpos) {
 	static char *args[256];
-	static char data[513];
+	static char data[BUFFER_LENGTH+1];
 	size_t curarg;
 	char *tempchr;
 	char *tempchr2;
@@ -695,7 +705,7 @@ static fte_t irc_set_password(irc_conn_t *c, const char *const oldpass, const ch
 }
 
 static void irc_destroy_conn(irc_conn_t *c) {
-	if (firetalk_internal_get_connectstate(c) != FCS_NOTCONNECTED)
+	if (c->sock.state != FCS_NOTCONNECTED)
 		irc_send_printf(c, "QUIT :Handle destroyed");
 	irc_internal_disconnect(c, FE_USERDISCONNECT);
 	irc_conn_t_delete(c);
@@ -703,19 +713,11 @@ static void irc_destroy_conn(irc_conn_t *c) {
 
 static fte_t irc_disconnect(irc_conn_t *c) {
 #ifdef DEBUG_ECHO
-	irc_echof(c, __FUNCTION__, "c=%#p; state=%i\n", c, firetalk_internal_get_connectstate(c));
+	irc_echof(c, __FUNCTION__, "c=%#p; state=%i\n", c, c->sock.state);
 #endif
-	if (firetalk_internal_get_connectstate(c) != FCS_NOTCONNECTED)
+	if (c->sock.state != FCS_NOTCONNECTED)
 		irc_send_printf(c, "QUIT :User disconnected");
 	return(irc_internal_disconnect(c, FE_USERDISCONNECT));
-}
-
-static fte_t irc_disconnected(irc_conn_t *c, const fte_t reason) {
-#ifdef DEBUG_ECHO
-	irc_echof(c, __FUNCTION__, "c=%#p, reason=%i; state=%i\n", c, reason, firetalk_internal_get_connectstate(c));
-#endif
-	assert(firetalk_internal_get_connectstate(c) == FCS_NOTCONNECTED);
-	return(irc_internal_disconnect(c, reason));
 }
 
 static irc_conn_t *irc_create_conn(struct firetalk_driver_cookie_t *cookie) {
@@ -731,7 +733,7 @@ static irc_conn_t *irc_create_conn(struct firetalk_driver_cookie_t *cookie) {
 # include <pwd.h>
 #endif
 
-static fte_t irc_signon(irc_conn_t *c, const char *const nickname) {
+static fte_t irc_signon(irc_conn_t *c) {
 #if defined(HAVE_GETPWUID) && defined(HAVE_GETUID)
 	struct passwd	*pw = getpwuid(getuid());
 	char	buf[1024];
@@ -745,26 +747,25 @@ static fte_t irc_signon(irc_conn_t *c, const char *const nickname) {
 	}
 	buf[i] = 0;
 
-	if (irc_send_printf(c, "USER %s %s %s :%s", pw->pw_name, nickname, nickname, buf) != FE_SUCCESS)
+	if (irc_send_printf(c, "USER %s %s %s :%s", pw->pw_name, c->nickname, c->nickname, buf) != FE_SUCCESS)
 		return(FE_PACKET);
 #else
-	if (irc_send_printf(c, "USER %s %s %s :%s", nickname, nickname, nickname, nickname) != FE_SUCCESS)
+	if (irc_send_printf(c, "USER %s %s %s :%s", c->nickname, c->nickname, c->nickname, c->nickname) != FE_SUCCESS)
 		return(FE_PACKET);
 #endif
 
-	if (irc_send_printf(c, "NICK %s", nickname) != FE_SUCCESS)
+	if (irc_send_printf(c, "NICK %s", c->nickname) != FE_SUCCESS)
 		return(FE_PACKET);
-
-	STRREPLACE(c->nickname, nickname);
 
 	return(FE_SUCCESS);
 }
 
 static fte_t irc_preselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *except, int *n) {
-	return(FE_SUCCESS);
-}
-
-static fte_t irc_postselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *except) {
+	if (c->sock.state == FCS_NOTCONNECTED)
+		return(FE_SUCCESS);
+	
+	firetalk_sock_preselect(&(c->sock), read, write, except, n);
+	
 	return(FE_SUCCESS);
 }
 
@@ -1345,6 +1346,7 @@ static fte_t irc_got_data_connecting(irc_conn_t *c, firetalk_buffer_t *buffer) {
 			  case 376: /* End of MOTD */
 			  case 422: /* MOTD is missing */
 				firetalk_callback_doinit(c, c->nickname);
+				c->sock.state = FCS_ACTIVE;
 				firetalk_callback_connected(c);
 				irc_send_printf(c, "HELP cmode");
 				break;
@@ -1375,6 +1377,39 @@ static fte_t irc_got_data_connecting(irc_conn_t *c, firetalk_buffer_t *buffer) {
 	}
 
 	return(FE_SUCCESS);
+}
+
+static fte_t irc_postselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *except) {
+	fte_t e;
+	int origstate = c->sock.state;
+	
+	if ((e = firetalk_sock_postselect(&(c->sock), read, write, except, &(c->buffer))) != FE_SUCCESS) {
+		if (origstate == FCS_ACTIVE)	/* why? because we might've been disconnected by this point. */
+			firetalk_callback_disconnect(c, e);
+		else
+			firetalk_callback_connectfailed(c, e, strerror(errno));
+		return (e);
+	}
+	
+	if (c->sock.state == FCS_SEND_SIGNON) {
+		irc_signon(c);
+		c->sock.state = FCS_WAITING_SIGNON;
+	} else if (c->buffer.readdata) {
+		if (origstate == FCS_ACTIVE)
+			irc_got_data(c, &(c->buffer));
+		else
+			irc_got_data_connecting(c, &(c->buffer));
+	}
+	
+	return(FE_SUCCESS);
+}
+
+static fte_t irc_connect(irc_conn_t *c, const char *server, uint16_t port, const char *const username) {
+	free(c->nickname);
+	c->nickname = strdup(username);
+	if (c->nickname == NULL)
+		abort();	// OH NOOOOOOOOOOOOOOOOOO
+	return(firetalk_sock_connect_host(&(c->sock), server, port));
 }
 
 static fte_t irc_chat_join(irc_conn_t *c, const char *const room) {
@@ -1567,17 +1602,13 @@ const firetalk_driver_t firetalk_protocol_irc = {
 	strprotocol:		"IRC",
 	default_server:		"irc.n.ml.org",
 	default_port:		6667,
-	default_buffersize:	512,
 	periodic:		irc_periodic,
 	preselect:		irc_preselect,
 	postselect:		irc_postselect,
-	got_data:		irc_got_data,
-	got_data_connecting:	irc_got_data_connecting,
 	comparenicks:		irc_compare_nicks,
 	isprintable:		irc_isprint,
 	disconnect:		irc_disconnect,
-	disconnected:		irc_disconnected,
-	signon:			irc_signon,
+	connect:		irc_connect,
 	get_info:		irc_get_info,
 	set_info:		irc_set_info,
 	set_away:		irc_set_away,

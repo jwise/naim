@@ -26,7 +26,6 @@ nocheck-snap: README
 	echo "#define NAIM_SNAPSHOT \"-${snapshottime} (development snapshot)\"" > ${top_srcdir}/src/snapshot.h
 	make dist distdir=$(PACKAGE)-$(VERSION)-${snapshottime}
 
-
 release: README
 	echo "#define NAIM_SNAPSHOT \"\"" > ${top_srcdir}/src/snapshot.h
 	make distcheck

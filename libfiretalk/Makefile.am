@@ -5,10 +5,10 @@ libfiretalk_a_SOURCES = \
 	firetalk.c \
 	firetalk-int.h \
 	irc.c \
-	lily.c \
 	pdutil.c \
 	toc2.c \
-	toc2_uuids.h
+	toc2_uuids.h \
+	lily.c
 
 check_PROGRAMS = tester toctest
 tester_SOURCES = \

@@ -39,8 +39,6 @@ static inline chain_t *_hook_findchain(const char *name) {
 #define HOOK_STOP	0
 #define HOOK_CONTINUE	(-1)
 
-#define HOOK_T_BUFFER	"b"
-#define HOOK_T_BUFFERc	'b'
 #define HOOK_T_CONN	"c"
 #define HOOK_T_CONNc	'c'
 #define HOOK_T_FDSET	"f"

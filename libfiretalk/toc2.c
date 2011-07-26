@@ -18,6 +18,8 @@
 #define ECT_TOKEN	"<font ECT=\""
 #define ECT_ENDING	"\"></font>"
 
+#define BUFFER_LENGTH TOC_SERVERSEND_MAXLEN
+
 int	toc_room_t_canary = 0;
 typedef struct toc_room_t {
 	struct toc_room_t *next;
@@ -89,6 +91,8 @@ typedef struct firetalk_driver_connection_t {
 	char	*buddybuflastgroup;
 	char	denybuf[1024];
 	int	denybuflen;
+	firetalk_sock_t sock;
+	firetalk_buffer_t buffer;
 	void	*canary;
 } toc_conn_t;
 
@@ -97,6 +101,9 @@ static inline void toc_conn_t_ctor(toc_conn_t *this) {
 	this->canary = &toc_conn_t_canary;
 	this->lasttalk = time(NULL);
 	STRREPLACE(this->buddybuflastgroup, "");
+	firetalk_sock_t_ctor(&(this->sock));
+	firetalk_buffer_t_ctor(&(this->buffer));
+	firetalk_buffer_alloc(&(this->buffer), BUFFER_LENGTH);
 }
 TYPE_NEW(toc_conn_t);
 static inline void toc_conn_t_dtor(toc_conn_t *this) {
@@ -107,6 +114,8 @@ static inline void toc_conn_t_dtor(toc_conn_t *this) {
 	toc_room_t_list_delete(this->room_head);
 	toc_infoget_t_list_delete(this->infoget_head);
 	free(this->buddybuflastgroup);
+	firetalk_sock_t_dtor(&(this->sock));
+	firetalk_buffer_t_dtor(&(this->buffer));
 	memset(this, 0, sizeof(*this));
 }
 TYPE_DELETE(toc_conn_t);
@@ -131,6 +140,9 @@ TYPE_DELETE(toc_conn_t);
 static char lastinfo[TOC_USERNAME_MAXLEN+1] = "";
 
 /* Internal Function Declarations */
+static fte_t toc_signon(toc_conn_t *c);
+static fte_t toc_got_data(toc_conn_t *c, firetalk_buffer_t *buffer);
+static fte_t toc_got_data_connecting(toc_conn_t *c, firetalk_buffer_t *buffer);
 
 static uint8_t toc_get_frame_type_from_header(const unsigned char *const header) {
 	return(header[1]);
@@ -254,6 +266,9 @@ static fte_t toc_send_printf(toc_conn_t *c, const char *const format, ...) {
 	size_t	i,
 		datai = TOC_HEADER_LENGTH;
 	char	data[TOC_CLIENTSEND_MAXLEN+1];
+	
+	if (c->sock.state == FCS_NOTCONNECTED)
+		return(FE_NOTCONNECTED);
 
 	va_start(ap, format);
 	for (i = 0; format[i] != 0; i++) {
@@ -317,18 +332,17 @@ static fte_t toc_send_printf(toc_conn_t *c, const char *const format, ...) {
 #endif
 
 	{
-		firetalk_connection_t *fchandle = firetalk_find_conn(c);
 		uint16_t length;
 
 		data[datai] = 0;
 		length = toc_fill_header((unsigned char *)data, SFLAP_FRAME_DATA, ++c->local_sequence, datai-TOC_HEADER_LENGTH+1);
-		firetalk_internal_send_data(fchandle, data, length);
+		firetalk_sock_send(&(c->sock), data, length);
 	}
 	return(FE_SUCCESS);
 }
 
 static int toc_internal_disconnect(toc_conn_t *c, const fte_t error) {
-	if (firetalk_internal_get_connectstate(c) != FCS_NOTCONNECTED) {
+	if (c->sock.state != FCS_NOTCONNECTED) {
 #ifdef ENABLE_GETREALNAME
 		toc_send_printf(c, "toc_set_dir %s", "");
 #endif
@@ -533,7 +547,36 @@ static fte_t toc_im_add_deny_flush(toc_conn_t *c) {
 }
 
 static fte_t toc_postselect(toc_conn_t *c, fd_set *read, fd_set *write, fd_set *except) {
+	fte_t	e;
+	int origstate;
+
+	origstate = c->sock.state;
+	if ((e = firetalk_sock_postselect(&(c->sock), read, write, except, &(c->buffer))) != FE_SUCCESS) {
+		if (origstate == FCS_ACTIVE)	/* why? because if we're disconnected now, then state will be FCS_DISCONNECTED */
+			firetalk_callback_disconnect(c, e);
+		else
+			firetalk_callback_connectfailed(c, e, strerror(errno));
+		return (e);
+	}
+	
+	if (c->sock.state == FCS_SEND_SIGNON) {
+		c->sock.state = FCS_WAITING_SIGNON;
+		toc_signon(c);
+	} else if (c->buffer.readdata) {
+		if (origstate == FCS_ACTIVE)
+		 	toc_got_data(c, &(c->buffer));
+		else
+			toc_got_data_connecting(c, &(c->buffer));
+	}
+	
 	return(FE_SUCCESS);
+}
+
+static fte_t toc_connect(toc_conn_t *c, const char *server, uint16_t port, const char *const username) {
+	STRREPLACE(c->nickname, username);
+	if (c->nickname == NULL)
+		abort();	// OH NOOOOOOOOOOOOOO
+	return(firetalk_sock_connect_host(&(c->sock), server, port));
 }
 
 static char *toc_hash_password(const char *const password) {
@@ -757,28 +800,19 @@ static fte_t toc_disconnect(toc_conn_t *c) {
 	return(toc_internal_disconnect(c, FE_USERDISCONNECT));
 }
 
-static fte_t toc_disconnected(toc_conn_t *c, const fte_t reason) {
-	assert(firetalk_internal_get_connectstate(c) == FCS_NOTCONNECTED);
-	return(toc_internal_disconnect(c, reason));
-}
-
-static fte_t toc_signon(toc_conn_t *c, const char *const username) {
-	firetalk_connection_t *conn = firetalk_find_conn(c);
-
+static fte_t toc_signon(toc_conn_t *c) {
 	/* fill & send the flap signon packet */
 
 	c->lasttalk = time(NULL);
 	c->connectstate = 0;
 	c->permit_mode = 0;
 	c->gotconfig = 0;
-	STRREPLACE(c->nickname, username);
-
+	
 	/* send the signon string to indicate that we're speaking FLAP here */
-
 #ifdef DEBUG_ECHO
 	toc_echof(c, __FUNCTION__, "frame=0, length=%i, value=[%s]\n", strlen(SIGNON_STRING), SIGNON_STRING);
 #endif
-	firetalk_internal_send_data(conn, SIGNON_STRING, sizeof(SIGNON_STRING)-1);
+	firetalk_sock_send(&(c->sock), SIGNON_STRING, sizeof(SIGNON_STRING)-1);
 
 	return(FE_SUCCESS);
 }
@@ -958,6 +992,8 @@ static fte_t toc_im_send_action(toc_conn_t *c, const char *const dest, const cha
 
 static fte_t toc_preselect(toc_conn_t *c, fd_set *read, fd_set *write, fd_set *except, int *n) {
 	toc_infoget_t *inf;
+
+	firetalk_sock_preselect(&(c->sock), read, write, except, n);
 
 	toc_im_add_buddy_flush(c);
 	toc_im_add_deny_flush(c);
@@ -2086,7 +2122,7 @@ static fte_t toc_got_data(toc_conn_t *c, firetalk_buffer_t *buffer) {
 		**    Tells TIC to pause so we can do migration
 		*/
 		c->connectstate = 1;
-		firetalk_internal_set_connectstate(c, FCS_WAITING_SIGNON);
+		c->sock.state = FCS_WAITING_SIGNON;
 	} else if (strcmp(arg0, "RVOUS_PROPOSE") == 0) {
 		/* RVOUS_PROPOSE:<user>:<uuid>:<cookie>:<seq>:<rip>:<pip>:<vip>:<port>
 		**               [:tlv tag1:tlv value1[:tlv tag2:tlv value2[:...]]]
@@ -2202,7 +2238,7 @@ got_data_connecting_start:
 #ifdef DEBUG_ECHO
 		toc_echo_send(c, "got_data_connecting", data, length);
 #endif
-		firetalk_internal_send_data(fchandle, data, length);
+		firetalk_sock_send(&(c->sock), data, length);
 
 		firetalk_callback_needpass(c, password, sizeof(password));
 
@@ -2439,6 +2475,7 @@ got_data_connecting_start:
 			}
 #endif
 
+			c->sock.state = FCS_ACTIVE;
 			firetalk_callback_connected(c);
 			return(FE_SUCCESS);
 		}
@@ -2456,7 +2493,7 @@ static fte_t toc_periodic(firetalk_connection_t *const conn) {
 
 	c = conn->handle;
 
-	if (firetalk_internal_get_connectstate(c) != FCS_ACTIVE)
+	if (c->sock.state != FCS_ACTIVE)
 		return(FE_NOTCONNECTED);
 
 	now = time(NULL);
@@ -2621,17 +2658,13 @@ const firetalk_driver_t firetalk_protocol_toc2 = {
 	strprotocol:		"TOC2",
 	default_server:		"toc.n.ml.org",
 	default_port:		9898,
-	default_buffersize:	TOC_SERVERSEND_MAXLEN,
 	periodic:		toc_periodic,
 	preselect:		toc_preselect,
 	postselect:		toc_postselect,
-	got_data:		toc_got_data,
-	got_data_connecting:	toc_got_data_connecting,
 	comparenicks:		toc_compare_nicks,
 	isprintable:		toc_isprint,
 	disconnect:		toc_disconnect,
-	disconnected:		toc_disconnected,
-	signon:			toc_signon,
+	connect:		toc_connect,
 	get_info:		toc_get_info,
 	set_info:		toc_set_info,
 	set_away:		toc_set_away,

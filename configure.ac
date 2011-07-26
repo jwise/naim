@@ -19,9 +19,8 @@ echo ""
 echo "Configuring libtool"
 echo ""
 AC_LIBLTDL_CONVENIENCE
-AC_LIBTOOL_DLOPEN
-AC_LIBTOOL_WIN32_DLL
-AC_PROG_LIBTOOL
+LT_CONFIG_LTDL_DIR([libltdl])
+LT_INIT([dlopen win32-dll])
 AC_SUBST([INCLTDL])
 AC_SUBST([LIBLTDL])
 
@@ -30,9 +29,8 @@ echo ""
 echo ""
 echo "Configuring ltdl"
 echo ""
-LT_CONFIG_LTDL_DIR([libltdl])
 LTDL_INIT([recursive])
-AC_LIB_LTDL
+dnl AC_LIB_LTDL
 
 dnl Sigh.
 AC_CONFIG_COMMANDS_PRE([LT_CONFIG_H=../src/config.h])

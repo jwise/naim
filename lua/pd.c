@@ -46,7 +46,7 @@ struct firetalk_driver_connection_t *_nlua_pd_lua_to_driverconn(lua_State *L, in
                 
 
 static int _nlua_pdvcall(multival_t *ret, struct firetalk_driver_connection_t *c, const char *call, const char *signature, va_list msg) {
-	int	i, args = 0, top = lua_gettop(lua), buffers = 0;
+	int	i, args = 0, top = lua_gettop(lua);
 
 	if (!c)
 	{
@@ -118,30 +118,6 @@ static int _nlua_pdvcall(multival_t *ret, struct firetalk_driver_connection_t *c
 				lua_pushnumber(lua, *val);
 				break;
 			}
-		  case HOOK_T_BUFFERc: {
-		  		/* this is nasty, but functional. */
-		  		firetalk_buffer_t *val = va_arg(msg, firetalk_buffer_t *);
-		  		
-		  		lua_newtable(lua);
-		  		
-		  		lua_pushstring(lua, "data");
-		  		lua_pushlstring(lua, val->buffer, val->pos);
-		  		lua_settable(lua, -3);
-		  		
-		  		lua_pushstring(lua, "taken");
-		  		lua_pushnumber(lua, 0);
-		  		lua_settable(lua, -3);
-		  		
-		  		lua_pushstring(lua, "userdata");
-		  		lua_pushlightuserdata(lua, (void*)val);
-		  		lua_settable(lua, -3);
-		  		
-		  		lua_pushvalue(lua, -1);
-		  		lua_insert(lua, -(args+2));	/* +1 for the function and +1 to get to the buffer */
-		  		buffers++;
-		  		top++;
-		  		break;
-			}
 		  default:
 			lua_pushlightuserdata(lua, va_arg(msg, void *));
 			break;
@@ -152,7 +128,7 @@ static int _nlua_pdvcall(multival_t *ret, struct firetalk_driver_connection_t *c
 		extern conn_t *curconn;
 
 		status_echof(curconn, "[pdlua] [%s:%s] run error: %s\n", c->pd->pd->strprotocol, call, lua_tostring(lua, -1));
-		lua_pop(lua, 1+buffers);
+		lua_pop(lua, 1);
 		return(-1);
 	}
 
@@ -187,31 +163,7 @@ static int _nlua_pdvcall(multival_t *ret, struct firetalk_driver_connection_t *c
 		lua_pop(lua, 1);
 	}
 
-	for (i = 0; i < buffers; i++)
-	{
-		firetalk_buffer_t *val;
-		int taken;
-		
-		lua_getfield(lua, -1, "taken");
-		taken = lua_tonumber(lua, -1);
-		lua_pop(lua, 1);
-		
-		lua_getfield(lua, -1, "userdata");
-		val = (firetalk_buffer_t*)lua_touserdata(lua, -1);
-		lua_pop(lua, 2);
-		
-		if (taken > (val->pos))
-		{
-			extern conn_t *curconn;
-			
-			status_echof(curconn, "[pdlua] [%s:%s] Oh no! Took %d bytes, but only %d bytes were available!", c->pd->pd->strprotocol, call, taken, val->pos);
-			taken = val->pos;
-		}
-		memmove(val->buffer, val->buffer + taken, val->size - taken);
-		val->pos -= taken;
-	}
-
-	assert(lua_gettop(lua) == (top - buffers));
+	assert(lua_gettop(lua) == top);
 
 	return(0);
 }
@@ -228,16 +180,6 @@ static int _nlua_pdcall(multival_t *ret, struct firetalk_driver_connection_t *c,
   
 static fte_t _nlua_pd_periodic(firetalk_connection_t *const conn) {
 	return(FE_SUCCESS);
-}
-
-static fte_t _nlua_pd_disconnected(struct firetalk_driver_connection_t *c, const fte_t reason) {
-	multival_t val;
-	int	ret;
-
-	ret = _nlua_pdcall(&val, c, "disconnected", HOOK_T_STRING, firetalk_strerror(reason));
-	if ((ret == 0) && ((val.t == HOOK_T_UINT32c) || (val.t == HOOK_T_FLOATc)))
-		return((val.t == HOOK_T_UINT32c)?val.u.u32:val.u.f);
-	return(FE_UNKNOWN);
 }
 
 #define PD_CALL_WRAPPER(name, signature) \
@@ -257,10 +199,8 @@ PD_CALL_WRAPPER(comparenicks, HOOK_T_STRING HOOK_T_STRING) /* const char *const 
 PD_CALL_WRAPPER(isprintable, HOOK_T_UINT32) /* const int key */
 PD_CALL_WRAPPER(preselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET HOOK_T_WRUINT32) /* fd_set *read, fd_set *write, fd_set *except, int *n */
 PD_CALL_WRAPPER(postselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET) /* fd_set *read, fd_set *write, fd_set *except */
-PD_CALL_WRAPPER(got_data, HOOK_T_BUFFER) /* firetalk_buffer_t *buffer */
-PD_CALL_WRAPPER(got_data_connecting, HOOK_T_BUFFER) /* firetalk_buffer_t *buffer */
 PD_CALL_WRAPPER(disconnect, "") /* */
-PD_CALL_WRAPPER(signon, HOOK_T_STRING) /* const char *const account */
+PD_CALL_WRAPPER(connect, HOOK_T_STRING HOOK_T_UINT32 HOOK_T_STRING) /* const char *server, uint16_t port, const char *const username */
 PD_CALL_WRAPPER(get_info, HOOK_T_STRING) /* const char *const account */
 PD_CALL_WRAPPER(set_info, HOOK_T_STRING) /* const char *const text */
 PD_CALL_WRAPPER(set_away, HOOK_T_STRING HOOK_T_UINT32) /* const char *const text, const int isauto */
@@ -326,9 +266,7 @@ static struct firetalk_driver_connection_t *_nlua_pd_create_conn(struct firetalk
 	lua_pushstring(lua, cookie->pd->strprotocol);
 
 	if (lua_pcall(lua, 2, LUA_MULTRET, 0) != 0) {
-		static const char *s;
-		s = lua_tostring(lua, -1); /* for GDB */
-		status_echof(curconn, "[pdlua] [%s:create] run error: %s\n", cookie->pd->strprotocol, s);
+		status_echof(curconn, "[pdlua] [%s:create] run error: %s\n", cookie->pd->strprotocol, lua_tostring(lua, -1));
 		lua_pop(lua, 1);
 		assert(lua_gettop(lua) == top);
 		return NULL;
@@ -401,13 +339,10 @@ static const firetalk_driver_t firetalk_protocol_template = {
 	periodic:		_nlua_pd_periodic,
 	preselect:		_nlua_pd_preselect,
 	postselect:		_nlua_pd_postselect,
-	got_data:		_nlua_pd_got_data,
-	got_data_connecting:	_nlua_pd_got_data_connecting,
 	comparenicks:		_nlua_pd_comparenicks,
 	isprintable:		_nlua_pd_isprintable,
 	disconnect:		_nlua_pd_disconnect,
-	disconnected:		_nlua_pd_disconnected,
-	signon:			_nlua_pd_signon,
+	connect:		_nlua_pd_connect,
 	get_info:		_nlua_pd_get_info,
 	set_info:		_nlua_pd_set_info,
 	set_away:		_nlua_pd_set_away,
@@ -436,11 +371,12 @@ static const firetalk_driver_t firetalk_protocol_template = {
 	room_normalize:		_nlua_pd_room_normalize,
 	create_conn:		_nlua_pd_create_conn,
 	destroy_conn:		_nlua_pd_destroy_conn,
-#warning No further warnings are harmless, unless you're using gcc 4.
+#warning No further warnings are harmless, unless you are using gcc 4.
 };
 
 static int _nlua_create(lua_State *L) {
 	struct firetalk_driver_cookie_t *ck;
+	extern conn_t *curconn;
 	
 	ck = malloc(sizeof(*ck));
 
@@ -453,27 +389,8 @@ static int _nlua_create(lua_State *L) {
 		return luaL_error(L, "pd did not contain name");
 	ck->pd->strprotocol = strdup(lua_tostring(L, -1));
 	lua_pop(L, 1);
-	
-	lua_pushstring(L, "server");
-	lua_gettable(L, 1);
-	if (lua_type(L, -1) != LUA_TSTRING)
-		return luaL_error(L, "pd did not contain server");
-	ck->pd->default_server = strdup(lua_tostring(L, -1));
-	lua_pop(L, 1);
-	
-	lua_pushstring(L, "port");
-	lua_gettable(L, 1);
-	if (lua_type(L, -1) != LUA_TNUMBER)
-		return luaL_error(L, "pd did not contain port");
-	ck->pd->default_port = lua_tonumber(L, -1);
-	lua_pop(L, 1);
-	
-	lua_pushstring(L, "buffersize");
-	lua_gettable(L, 1);
-	if (lua_type(L, -1) != LUA_TNUMBER)
-		return luaL_error(L, "pd did not contain buffersize");
-	ck->pd->default_buffersize = lua_tonumber(L, -1);
-	lua_pop(L, 1);
+
+	status_echof(curconn, "[pdlua] [%s register]\n", ck->pd->strprotocol);
 	
 	ck->pd->cookie = ck;
 	
@@ -497,47 +414,6 @@ const struct luaL_reg naim_pdlib[] = {
 	{ NULL,		NULL }
 };
 
-static int _nlua_connected(lua_State *L) {
-	struct firetalk_driver_connection_t *c;
-	
-	c = _nlua_pd_lua_to_driverconn(L, 1);
-	if (!c)
-		return luaL_error(L, "expected a connection for argument #1");
-	firetalk_callback_connected(c);
-	
-	return(0);
-}
-
-static int _nlua_needpass(lua_State *L) {
-	struct firetalk_driver_connection_t *c;
-	char pass[512];
-	
-	c = _nlua_pd_lua_to_driverconn(L, 1);
-	if (!c)
-		return luaL_error(L, "expected a connection for argument #1");
-	firetalk_callback_needpass(c, pass, 512);
-	lua_pushstring(L, pass);
-	
-	return(1);
-}
-
-static int _nlua_send_data(lua_State *L) {
-	struct firetalk_driver_connection_t *c;
-	firetalk_connection_t *fchandle;
-	const char *s;
-	size_t sz;
-	
-	c = _nlua_pd_lua_to_driverconn(L, 1);
-	if (!c)
-		return luaL_error(L, "expected a connection for argument #1");
-	s = luaL_checklstring(L, 2, &sz);
-	
-	fchandle = firetalk_find_conn(c);
-	firetalk_internal_send_data(fchandle, s, sz);
-	
-	return(0);
-}
-
 static int _nlua_im_getmessage(lua_State *L) {
 	struct firetalk_driver_connection_t *c;
 	const char *sender;
@@ -554,6 +430,177 @@ static int _nlua_im_getmessage(lua_State *L) {
 	firetalk_callback_im_getmessage(c, sender, automsg, msg);
 	
 	return(0);
+}
+
+static int _nlua_im_getaction(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *sender;
+	int automsg;
+	const char *msg;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	sender = luaL_checkstring(L, 2);
+	automsg = luaL_checkint(L, 3);
+	msg = luaL_checkstring(L, 4);
+	
+	firetalk_callback_im_getaction(c, sender, automsg, msg);
+	
+	return(0);
+}
+
+static int _nlua_im_buddyonline(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *buddy;
+	int online;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	buddy = luaL_checkstring(L, 2);
+	online = luaL_checkint(L, 3);
+	
+	firetalk_callback_im_buddyonline(c, buddy, online);
+	
+	return(0);
+}
+
+static int _nlua_im_buddyaway(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *buddy;
+	int away;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	buddy = luaL_checkstring(L, 2);
+	away = luaL_checkint(L, 3);
+	
+	firetalk_callback_im_buddyaway(c, buddy, away);
+	
+	return(0);
+}
+
+static int _nlua_buddyadded(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *buddy, *group, *friendly;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+
+	buddy = luaL_checkstring(L, 2);
+	group = lua_tostring(L, 3);
+	friendly = lua_tostring(L, 4);
+	
+	firetalk_callback_buddyadded(c, buddy, group, friendly);
+	
+	return(0);
+}
+
+static int _nlua_buddyremoved(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *buddy, *group;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+
+	buddy = luaL_checkstring(L, 2);
+	group = lua_tostring(L, 3);
+	
+	firetalk_callback_buddyremoved(c, buddy, group);
+	
+	return(0);
+}
+
+static int _nlua_typing(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *name;
+	int typing;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+
+	name = luaL_checkstring(L, 2);
+	typing = luaL_checknumber(L, 3);
+	
+	firetalk_callback_typing(c, name, typing);
+	
+	return(0);
+}
+
+static int _nlua_connected(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	firetalk_callback_connected(c);
+	
+	return(0);
+}
+
+static int _nlua_disconnect(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	int error;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	error = luaL_checknumber(L, 2);
+	firetalk_callback_disconnect(c, error);
+	
+	return(0);
+}
+
+static int _nlua_gotinfo(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *nick, *info;
+	int warning, online, idle, flags;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+
+	nick = luaL_checkstring(L, 2);
+	info = luaL_checkstring(L, 3);
+	warning = luaL_checknumber(L, 4);
+	online = luaL_checknumber(L, 5);
+	idle = luaL_checknumber(L, 6);
+	flags = luaL_checknumber(L, 7);
+	
+	firetalk_callback_gotinfo(c, nick, info, warning, online, idle, flags);
+	
+	return(0);
+}
+
+static int _nlua_doinit(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *nick;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	nick = luaL_checkstring(L, 2);
+	firetalk_callback_doinit(c, nick);
+	
+	return(0);
+}
+
+static int _nlua_needpass(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	char pass[512];
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	firetalk_callback_needpass(c, pass, 512);
+	lua_pushstring(L, pass);
+	
+	return(1);
 }
 
 static int _nlua_chat_getmessage(lua_State *L) {
@@ -590,47 +637,44 @@ static int _nlua_chat_joined(lua_State *L) {
 	return(0);
 }
 
-static int _nlua_im_buddyonline(lua_State *L) {
+static int _nlua_chat_left(lua_State *L) {
 	struct firetalk_driver_connection_t *c;
-	const char *buddy;
-	int online;
+	const char *room;
 	
 	c = _nlua_pd_lua_to_driverconn(L, 1);
 	if (!c)
 		return luaL_error(L, "expected a connection for argument #1");
-	buddy = luaL_checkstring(L, 2);
-	online = luaL_checkint(L, 3);
+	room = luaL_checkstring(L, 2);
 	
-	firetalk_callback_im_buddyonline(c, buddy, online);
-	
-	return(0);
-}
-
-static int _nlua_buddyadded(lua_State *L) {
-	struct firetalk_driver_connection_t *c;
-	const char *buddy, *group, *friendly;
-	
-	c = _nlua_pd_lua_to_driverconn(L, 1);
-	if (!c)
-		return luaL_error(L, "expected a connection for argument #1");
-
-	buddy = luaL_checkstring(L, 2);
-	group = lua_tostring(L, 3);
-	friendly = lua_tostring(L, 4);
-	
-	firetalk_callback_buddyadded(c, buddy, group, friendly);
+	firetalk_callback_chat_left(c, room);
 	
 	return(0);
 }
 
 const struct luaL_reg naim_pd_internallib[] = {
-	{ "connected",		_nlua_connected },
-	{ "needpass",		_nlua_needpass },
-	{ "send_data",		_nlua_send_data },
-	{ "im_get_message", 	_nlua_im_getmessage },
-	{ "chat_get_message", 	_nlua_chat_getmessage },
-	{ "chat_joined",	_nlua_chat_joined },
+	{ "im_getmessage", 	_nlua_im_getmessage },
+	{ "im_getaction", 	_nlua_im_getaction },
 	{ "im_buddyonline",	_nlua_im_buddyonline },
+	{ "im_buddyaway",	_nlua_im_buddyaway },
 	{ "buddyadded",		_nlua_buddyadded },
+	{ "buddyremoved",	_nlua_buddyremoved },
+	/* denyadded, denyremoved */
+	{ "typing",		_nlua_typing },
+	/* capabilities, warninfo, error, connectfailed */
+	{ "connected",		_nlua_connected },
+	{ "disconnect",		_nlua_disconnect },
+	{ "gotinfo",		_nlua_gotinfo },
+	/* idleinfo */
+	{ "doinit",		_nlua_doinit },
+	/* setidle, eviled, newnick, passchanged, user_nickchanged */
+	{ "chat_joined",	_nlua_chat_joined },
+	{ "chat_left",		_nlua_chat_left },
+	/* chat_kicked */
+	{ "chat_getmessage", 	_nlua_chat_getmessage },
+	/* chat_getaction, chat_invited, chat_user_joined, chat_user_left, chat_user_quit, chat_gottopic, chat_modeset, chat_modunset */
+	/* chat_user_opped, chat_user_deopped, chat_keychanged, chat_opped, chat_deopped, chat_user_kicked, subcode_get_request_reply */
+	/* subcode_request, subcode_reply, file_offer */
+	{ "needpass",		_nlua_needpass },
 	{ NULL,			NULL },
 };
+

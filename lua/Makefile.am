@@ -10,7 +10,9 @@ EXTRA_DIST = \
 	examples/i-r-elite-script.lua \
 	examples/lseen.lua \
 	examples/printtree.lua \
-	examples/stats.lua
+	examples/stats.lua \
+	examples/xkcd.lua \
+	examples/localpd.lua
 
 noinst_LTLIBRARIES = liblua.la libnlua.la
 liblua_la_SOURCES = \
@@ -31,6 +33,8 @@ libnlua_la_SOURCES = \
 	moon.c \
 	moon-int.h \
 	pd.c \
+	buffer.c \
+	socket.c \
 	script.c \
 	util.c \
 	variables.c

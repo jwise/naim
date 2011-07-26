@@ -241,9 +241,6 @@ static fte_t firetalk_sock_read(firetalk_sock_t *sock, firetalk_buffer_t *buffer
 		return(FE_DISCONNECT);
 	}
 
-	assert(length <= UINT16_MAX);
-	assert((buffer->pos + length) <= UINT16_MAX);
-
 	buffer->pos += length;
 	buffer->readdata = 1;
 
@@ -281,7 +278,7 @@ int	firetalk_sock_t_valid(const firetalk_sock_t *sock) {
 	return(1);
 }
 
-fte_t	firetalk_buffer_alloc(firetalk_buffer_t *buffer, uint16_t size) {
+fte_t	firetalk_buffer_alloc(firetalk_buffer_t *buffer, uint32_t size) {
 	void	*ptr;
 
 	assert(firetalk_buffer_t_valid(buffer));

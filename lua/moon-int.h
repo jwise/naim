@@ -28,3 +28,23 @@ void	_get_entv(lua_State *L, const int index, const char *name, va_list msg);
 void	_get_ent(lua_State *L, const int index, const char *name, ...);
 void	_get_global_entv(lua_State *L, const char *name, va_list msg);
 void	_get_global_ent(lua_State *L, const char *name, ...);
+
+/* socket.c */
+#define STACK_TO_SOCKET(L, stack, sock) \
+	do {\
+		firetalk_sock_t **ss;\
+		ss = (firetalk_sock_t**)luaL_checkudata(L, stack, "naim.socket");\
+		luaL_argcheck(L, ss != NULL, stack, "`socket' expected");\
+		sock = *ss;\
+		luaL_argcheck(L, firetalk_sock_t_valid(sock), stack, "invalid firetalk_sock_t (this should never happen)");\
+	} while(0)
+
+/* buffer.c */
+#define STACK_TO_BUFFER(L, stack, buf) \
+	do {\
+		firetalk_buffer_t **bb;\
+		bb = (firetalk_buffer_t**)luaL_checkudata(L, stack, "naim.buffer");\
+		luaL_argcheck(L, bb != NULL, stack, "`buffer' expected");\
+		buf = *bb;\
+		luaL_argcheck(L, firetalk_buffer_t_valid(buf), stack, "invalid firetalk_buffer_t (this should never happen)");\
+	} while(0)
