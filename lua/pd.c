@@ -449,19 +449,31 @@ static int _nlua_create(lua_State *L) {
 
 	lua_pushstring(L, "name");
 	lua_gettable(L, 1);
+	if (lua_type(L, -1) != LUA_TSTRING)
+		return luaL_error(L, "pd did not contain name");
 	ck->pd->strprotocol = strdup(lua_tostring(L, -1));
+	lua_pop(L, 1);
 	
 	lua_pushstring(L, "server");
 	lua_gettable(L, 1);
+	if (lua_type(L, -1) != LUA_TSTRING)
+		return luaL_error(L, "pd did not contain server");
 	ck->pd->default_server = strdup(lua_tostring(L, -1));
+	lua_pop(L, 1);
 	
 	lua_pushstring(L, "port");
 	lua_gettable(L, 1);
+	if (lua_type(L, -1) != LUA_TNUMBER)
+		return luaL_error(L, "pd did not contain port");
 	ck->pd->default_port = lua_tonumber(L, -1);
+	lua_pop(L, 1);
 	
 	lua_pushstring(L, "buffersize");
 	lua_gettable(L, 1);
+	if (lua_type(L, -1) != LUA_TNUMBER)
+		return luaL_error(L, "pd did not contain buffersize");
 	ck->pd->default_buffersize = lua_tonumber(L, -1);
+	lua_pop(L, 1);
 	
 	ck->pd->cookie = ck;
 	
