@@ -183,7 +183,10 @@ void	nlua_hook_newwin(buddywin_t *bwin) {
 	lua_pushstring(lua, bwin->winname);
 	lua_pushlightuserdata(lua, bwin);
 	if (lua_pcall(lua, 3, 0, 0))
-		lua_pop(lua, 3);
+	{
+		window_echof(bwin, "Lua error in newwin hook: %s\n", lua_tostring(lua, -1));
+		lua_pop(lua, 1);
+	}
 	assert(lua_gettop(lua) == top);
 }
 
@@ -194,7 +197,10 @@ void	nlua_hook_delwin(buddywin_t *bwin) {
 	_push_conn_t(lua, bwin->conn);
 	lua_pushstring(lua, bwin->winname);
 	if (lua_pcall(lua, 2, 0, 0))
-		lua_pop(lua, 2);
+	{
+		window_echof(bwin, "Lua error in delwin hook: %s\n", lua_tostring(lua, -1));
+		lua_pop(lua, 1);
+	}
 	assert(lua_gettop(lua) == top);
 }
 
