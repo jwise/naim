@@ -636,7 +636,7 @@ static int irc_send_printf(irc_conn_t *c, const char *const format, ...) {
 	return(FE_SUCCESS);
 }
 
-static char **irc_recv_parse(irc_conn_t *c, unsigned char *buffer, uint16_t *bufferpos) {
+static char **irc_recv_parse(irc_conn_t *c, unsigned char *buffer, uint32_t *bufferpos) {
 	static char *args[256];
 	static char data[BUFFER_LENGTH+1];
 	size_t curarg;

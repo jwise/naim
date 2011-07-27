@@ -572,7 +572,7 @@ static fte_t lily_queue_printf(lily_conn_t *const c, const queuekey_t key, const
 	return(FE_SUCCESS);
 }
 
-static char *lily_recv_line(lily_conn_t *c, char *buffer, uint16_t *bufferpos) {
+static char *lily_recv_line(lily_conn_t *c, char *buffer, uint32_t *bufferpos) {
 #if 0
 	static unsigned char
 			str[1025];

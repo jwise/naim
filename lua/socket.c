@@ -32,7 +32,7 @@ static int _nlua_connect(lua_State *L) {
 static int _nlua_send(lua_State *L) {
 	firetalk_sock_t *sock;
 	const char *data;
-	int len;
+	size_t len;
 	fte_t error;
 	
 	STACK_TO_SOCKET(L, 1, sock);

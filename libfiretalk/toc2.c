@@ -355,7 +355,7 @@ static int toc_internal_disconnect(toc_conn_t *c, const fte_t error) {
 	return(FE_SUCCESS);
 }
 
-static fte_t toc_find_packet(toc_conn_t *c, unsigned char *buffer, uint16_t *bufferpos, char *outbuffer, uint16_t outbuffersize, const int frametype, uint16_t *l) {
+static fte_t toc_find_packet(toc_conn_t *c, unsigned char *buffer, uint32_t *bufferpos, char *outbuffer, uint16_t outbuffersize, const int frametype, uint16_t *l) {
 	uint8_t	ft;
 	uint16_t sequence,
 		length;
