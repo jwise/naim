@@ -5,6 +5,7 @@ AC_CONFIG_HEADER([src/config.h])
 AC_CONFIG_AUX_DIR([libltdl/config])
 AC_CONFIG_MACRO_DIR([libltdl/m4])
 AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip no-dependencies no-define subdir-objects std-options 1.8])
+AM_SILENT_RULES([yes])
 AM_PROG_CC_C_O
 
 echo ""
