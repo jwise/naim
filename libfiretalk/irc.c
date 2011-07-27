@@ -86,7 +86,8 @@ typedef struct firetalk_driver_connection_t {
 	irc_whois_t *whois_head;
 	int	 maxmodes;
 	unsigned char
-		 nosilence:1;	/* are we on a network that understands SILENCE */
+		 nosilence:1,	/* are we on a network that understands SILENCE */
+		 usepass:1;
 	firetalk_sock_t	sock;
 	firetalk_buffer_t buffer;
 } irc_conn_t;
@@ -94,7 +95,9 @@ typedef struct firetalk_driver_connection_t {
 static inline void irc_conn_t_ctor(irc_conn_t *this) {
 	memset(this, 0, sizeof(*this));
 	this->chanmodes = strdup("beI,k,l,imnpsta");
+	assert(this->chanmodes);
 	this->chanprefix = strdup("(ov)@+");
+	assert(this->chanprefix);
 	this->maxmodes = 3;
  	firetalk_sock_t_ctor(&(this->sock));
 	firetalk_buffer_t_ctor(&(this->buffer));
@@ -729,6 +732,18 @@ static irc_conn_t *irc_create_conn(struct firetalk_driver_cookie_t *cookie) {
 	return(c);
 }
 
+static irc_conn_t *irc_pass_create_conn(struct firetalk_driver_cookie_t *cookie) {
+	irc_conn_t *c;
+
+	if ((c = irc_create_conn(cookie)) == NULL)
+		abort();
+	
+	c->usepass = 1;
+
+	return(c);
+}
+
+
 #if defined(HAVE_GETPWUID) && defined(HAVE_GETUID)
 # include <pwd.h>
 #endif
@@ -753,6 +768,16 @@ static fte_t irc_signon(irc_conn_t *c) {
 	if (irc_send_printf(c, "USER %s %s %s :%s", c->nickname, c->nickname, c->nickname, c->nickname) != FE_SUCCESS)
 		return(FE_PACKET);
 #endif
+
+	if (c->usepass)
+	{
+		char password[128];
+		password[0] = 0;
+		firetalk_callback_needpass(c, password, sizeof(password));
+		
+		if (irc_send_printf(c, "PASS %s", password) != FE_SUCCESS)
+			return(FE_PACKET);
+	}
 
 	if (irc_send_printf(c, "NICK %s", c->nickname) != FE_SUCCESS)
 		return(FE_PACKET);
@@ -1636,5 +1661,46 @@ const firetalk_driver_t firetalk_protocol_irc = {
 	set_privacy:		irc_set_privacy,
 	room_normalize:		irc_normalize_room_name,
 	create_conn:		irc_create_conn,
+	destroy_conn:		irc_destroy_conn,
+};
+
+const firetalk_driver_t firetalk_protocol_irc_pass = {
+	strprotocol:		"IRC_PASS",
+	default_server:		"irc.n.ml.org",
+	default_port:		6667,
+	periodic:		irc_periodic,
+	preselect:		irc_preselect,
+	postselect:		irc_postselect,
+	comparenicks:		irc_compare_nicks,
+	isprintable:		irc_isprint,
+	disconnect:		irc_disconnect,
+	connect:		irc_connect,
+	get_info:		irc_get_info,
+	set_info:		irc_set_info,
+	set_away:		irc_set_away,
+	set_nickname:		irc_set_nickname,
+	set_password:		irc_set_password,
+	im_add_buddy:		irc_im_add_buddy,
+	im_remove_buddy:	irc_im_remove_buddy,
+	im_add_deny:		irc_im_add_deny,
+	im_remove_deny:		irc_im_remove_deny,
+	im_send_message:	irc_im_send_message,
+	im_send_action:		irc_im_send_action,
+	im_evil:		irc_im_evil,
+	chat_join:		irc_chat_join,
+	chat_part:		irc_chat_part,
+	chat_invite:		irc_chat_invite,
+	chat_set_topic:		irc_chat_set_topic,
+	chat_op:		irc_chat_op,
+	chat_deop:		irc_chat_deop,
+	chat_kick:		irc_chat_kick,
+	chat_send_message:	irc_chat_send_message,
+	chat_send_action:	irc_chat_send_action,
+//	subcode_send_request:	irc_subcode_send_request,
+//	subcode_send_reply:	irc_subcode_send_reply,
+	subcode_encode:		irc_ctcp_encode,
+	set_privacy:		irc_set_privacy,
+	room_normalize:		irc_normalize_room_name,
+	create_conn:		irc_pass_create_conn,
 	destroy_conn:		irc_destroy_conn,
 };
