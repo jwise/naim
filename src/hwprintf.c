@@ -636,7 +636,7 @@ void	hendblock(h_t *h) {
 }
 
 int	vhhprintf(h_t *h, const int dolog, const unsigned char *format, va_list msg) {
-	unsigned char _buf[2048], *str;
+	unsigned char _buf[1024*9], *str;
 	size_t	len;
 	int	ret;
 
