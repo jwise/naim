@@ -6,24 +6,24 @@ AC_DEFUN([AC_LIB_FIRETALK],
 	AC_REQUIRE([AC_PROG_RANLIB])
 	AC_CHECK_HEADERS(inttypes.h stdint.h)
 	AC_CHECK_TYPE(uint16_t,
-		,
-		AC_CHECK_TYPE(__uint16_t,
+		[],
+		[AC_CHECK_TYPE(__uint16_t,
 			AC_DEFINE(uint16_t, __uint16_t, [Define if you have __uint16_t instead of uint16_t]),
 			AC_CHECK_TYPE(_G_uint16_t,
 				AC_DEFINE(uint16_t, _G_uint16_t, [Define if you have _G_uint16_t instead of uint16_t]),
 				AC_MSG_ERROR(unable to find C99 16 bit type)
 			)
-		)
+		)]
 	)
 	AC_CHECK_TYPE(uint32_t,
-		,
-		AC_CHECK_TYPE(__uint32_t,
+		[],
+		[AC_CHECK_TYPE(__uint32_t,
 			AC_DEFINE(uint32_t, __uint32_t, [Define if you have __uint32_t instead of uint32_t]),
 			AC_CHECK_TYPE(_G_uint32_t,
 				AC_DEFINE(uint32_t, _G_uint32_t, [Define if you have _G_uint32_t instead of uint32_t]),
 				AC_MSG_ERROR(unable to find C99 32 bit type)
 			)
-		)
+		)]
 	)
 	AC_CHECK_FUNCS(getuid getpwuid inet_aton)
 ])# AC_LIB_FIRETALK
