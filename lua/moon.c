@@ -193,10 +193,10 @@ void	nlua_init(void) {
 	/* XXX: Do we need to set a panic function here? */
 	lua_gc(lua, LUA_GCSTOP, 0);	/* Paul says we should stop the garbage collector while we bring in libraries. */
 		luaL_openlibs(lua);
-		_loadfunctions();		/* this creates global "naim" for default.lua */
+		_loadfunctions();
 	lua_gc(lua, LUA_GCRESTART, 0);
 	
-	if (luaL_loadstring(lua, default_lua) != 0) {
+	if (luaL_loadbuffer(lua, default_lua, strlen(default_lua), "default") != 0) {
 		printf("default.lua load error: %s\n", lua_tostring(lua, -1));
 		abort();
 	}
