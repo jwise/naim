@@ -74,6 +74,14 @@ function OSCAR:roast(pass)
 	return newstr
 end
 
+function OSCAR:nextauthseq()
+	if not self.authseq then
+		self.authseq = 0
+	end
+	self.authseq = self.authseq + 1
+	return self.authseq - 1
+end
+
 function OSCAR:got_data_authorizer()
 	local bufdata = self.authbuf:peek()
 	self:debug("[auth] Got authorizer data")
@@ -90,72 +98,104 @@ function OSCAR:got_data_authorizer()
 				self:error("[auth] That wasn't a connection acknowledge!")
 				break -- continue
 			end
-			-- okay, it is; let's send the auth request
-			local password = self:needpass()
-			password = self:roast(password)
+			
+			self.authseq = 0
+			
 			self.authsock:send(
-				OSCAR.FLAP{ channel = 1, seq = 0, data =
-					string.char(0x00, 0x00, 0x00, 0x01) ..
-					OSCAR.TLV{type = 1, value = self.screenname} ..
-					OSCAR.TLV{type = 2, value = password} ..
-					OSCAR.TLV{type = 3, value = "OSCAR for Lua on naim (http://naim.n.ml.org)"} ..
-					OSCAR.TLV{type = 0x16, value = string.char(0x01, 0x09)} ..
-					OSCAR.TLV{type = 0x17, value = string.char(0x00, 0x05)} ..
-					OSCAR.TLV{type = 0x18, value = string.char(0x00, 0x01)} ..
-					OSCAR.TLV{type = 0x1A, value = string.char(0x0B, 0xDC)} ..
-					OSCAR.TLV{type = 0x0F, value = "en"} ..
-					OSCAR.TLV{type = 0x0E, value = "us"} ..
-					OSCAR.TLV{type = 0x4A, value = string.char(0x01)} ..
-					""
+				OSCAR.FLAP{channel = 1, seq = self:nextauthseq(), data = string.char(0x00, 0x00, 0x00, 0x01)}:tostring()
+				) 
+			
+			-- okay, it is; let's send the auth request
+			self.authsock:send(
+				OSCAR.FLAP{channel = 2, seq = self:nextauthseq(), data =
+					OSCAR.SNAC:new({family = 0x0017, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = 1, data =
+						OSCAR.TLV{type = 1, value = self.screenname} ..
+						OSCAR.TLV{type = 0x4B, value = ""} ..
+						OSCAR.TLV{type = 0x5A, value = ""}
+					}):tostring()
 				}:tostring()
 				)
 			self:debug("[auth] Authorizer request sent")
-		elseif flap.channel == 4 then
-			local screenname, bosip, authcookie, email, regstatus, error, errorurl
-			while flap.data and OSCAR.TLV:lengthfromstring(flap.data) and OSCAR.TLV:lengthfromstring(flap.data) <= flap.data:len() do
-				local tlv = OSCAR.TLV(flap.data)
-				flap.data = flap.data:sub(tlv.value:len() + 5)
-				    if tlv.type == 0x0001 then screenname = tlv.value
-				elseif tlv.type == 0x0005 then bosip = tlv.value
-				elseif tlv.type == 0x0006 then authcookie = tlv.value
-				elseif tlv.type == 0x0011 then email = tlv.value
-				elseif tlv.type == 0x0013 then regstatus = tlv.value
-				elseif tlv.type == 0x0004 then errorurl = tlv.value
-				elseif tlv.type == 0x0008 then error = tlv.value
-				end
+		elseif flap.channel == 2 then
+			local snac = OSCAR.SNAC:fromstring(flap.data)
+			
+			if snac.family ~= 0x17 then
+				self:error("[auth] wrong SNAC family from authorizer?")
+				break
 			end
-			if flap.data:len() ~= 0 then
-				self:error("[auth] FLAP data left over after eating TLVs ("..flap.data:len()..")")
-			end
-			if error or errorurl then
-				self:fatal("[auth] error while connecting: " .. tostring(error) .. "(see "..tostring(errorurl).." for more detail)")
-				self.authsock:close()
-				self.authsock = nil
-				self.authbuf = nil
-			elseif (not screenname) or (not bosip) or (not authcookie) or (not email) or (not regstatus) then
-				self:fatal("[auth] protocol error: I didn't get back an error, and I didn't get back a full auth response. I give up.")
-				self.authsock:close()
-				self.authsock = nil
-				self.authbuf = nil
-			else
-				local bosaddr,bosport = bosip:match("([a-z0-9\.]*):([0-9]*)")
-				self.screenname = screenname
-				self.authcookie = authcookie
+			
+			if snac.subtype == 0x07 then -- SRV_AUTH_KEY_RESPONSE
+				local keylen, key = numutil.strtobe16(snac.data), snac.data:sub(3)
 				
-				self:debug("[auth] connecting to BOS on "..bosaddr.." port "..bosport.. " as "..self.screenname)
-				
-				self.bossock = naim.socket.new()
-				self.bosbuf = naim.buffer.new()
-				self.bosbuf:resize(65550)
-				self.bossock:connect(bosaddr, bosport)
-				
-				if bufdata:len() ~= 0 then
-					self:error("[auth] there was still data left over from the authorizer when I killed its buffer...")
+				if keylen ~= key:len() then
+					self:error("[auth] SRV_AUTH_KEY_RESPONSE key length did not match SNAC length")
 				end
-				self.authsock:close()
-				self.authsock = nil
-				self.authbuf = nil
-				return 0
+				
+				local md5 = naim.bit.md5(key .. self:needpass() .. "AOL Instant Messenger (SM)")
+				
+				self.authsock:send(
+					OSCAR.FLAP{channel = 2, seq = self:nextauthseq(), data =
+						OSCAR.SNAC:new({family = 0x0017, subtype = 0x0002, flags0 = 0, flags1 = 1, reqid = 0, data =
+							OSCAR.TLV{type = 0x0001, value = self.screenname} ..
+							OSCAR.TLV{type = 0x0003, value = "OSCAR for Lua on naim (http://naim.n.ml.org)"} ..
+							OSCAR.TLV{type = 0x0016, value = string.char(0x01, 0x09)} ..
+							OSCAR.TLV{type = 0x0017, value = string.char(0x00, 0x05)} ..
+							OSCAR.TLV{type = 0x0018, value = string.char(0x00, 0x01)} ..
+							OSCAR.TLV{type = 0x001A, value = string.char(0x0B, 0xDC)} ..
+							OSCAR.TLV{type = 0x000F, value = "en"} ..
+							OSCAR.TLV{type = 0x000E, value = "us"} ..
+							OSCAR.TLV{type = 0x004A, value = string.char(0x1)} ..
+							OSCAR.TLV{type = 0x0025, value = md5}
+						}):tostring()
+					}:tostring()
+					)
+			elseif snac.subtype == 0x03 then -- SRV_LOGIN_REPLY
+				local screenname, bosip, authcookie, email, regstatus, error, errorurl
+				while snac.data and OSCAR.TLV:lengthfromstring(snac.data) and OSCAR.TLV:lengthfromstring(snac.data) <= snac.data:len() do
+					local tlv = OSCAR.TLV(snac.data)
+					snac.data = snac.data:sub(tlv.value:len() + 5)
+					    if tlv.type == 0x0001 then screenname = tlv.value
+					elseif tlv.type == 0x0005 then bosip = tlv.value
+					elseif tlv.type == 0x0006 then authcookie = tlv.value
+					elseif tlv.type == 0x0011 then email = tlv.value
+					elseif tlv.type == 0x0013 then regstatus = tlv.value
+					elseif tlv.type == 0x0004 then errorurl = tlv.value
+					elseif tlv.type == 0x0008 then error = tlv.value
+					end
+				end
+				if snac.data:len() ~= 0 then
+					self:error("[auth] SNAC data left over after eating TLVs ("..snac.data:len()..")")
+				end
+				if error or errorurl then
+					self:fatal("[auth] error while connecting: " .. tostring(error) .. "(see "..tostring(errorurl).." for more detail)")
+					self.authsock:close()
+					self.authsock = nil
+					self.authbuf = nil
+				elseif (not screenname) or (not bosip) or (not authcookie) or (not email) or (not regstatus) then
+					self:fatal("[auth] protocol error: I didn't get back an error, and I didn't get back a full auth response. I give up.")
+					self.authsock:close()
+					self.authsock = nil
+					self.authbuf = nil
+				else
+					local bosaddr,bosport = bosip:match("([a-z0-9\.]*):([0-9]*)")
+					self.screenname = screenname
+					self.authcookie = authcookie
+					
+					self:debug("[auth] connecting to BOS on "..bosaddr.." port "..bosport.. " as "..self.screenname)
+					
+					self.bossock = naim.socket.new()
+					self.bosbuf = naim.buffer.new()
+					self.bosbuf:resize(65550)
+					self.bossock:connect(bosaddr, bosport)
+					
+					if bufdata:len() ~= 0 then
+						self:error("[auth] there was still data left over from the authorizer when I killed its buffer...")
+					end
+					self.authsock:close()
+					self.authsock = nil
+					self.authbuf = nil
+					return 0
+				end
 			end
 		else
 			self:error("[auth] Unknown channel from authorizer: "..flap.channel)
