@@ -26,4 +26,5 @@ AC_DEFUN([AC_LIB_FIRETALK],
 		)]
 	)
 	AC_CHECK_FUNCS(getuid getpwuid inet_aton)
+	AC_C_BIGENDIAN()
 ])# AC_LIB_FIRETALK

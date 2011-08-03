@@ -413,6 +413,7 @@ typedef struct {
 } firetalk_driver_t;
 
 
+#ifndef STRREPLACE
 
 #define STRREPLACE(target, source) do { \
 		if ((source) == NULL) { \
@@ -432,6 +433,8 @@ typedef struct {
 			(x) = NULL; \
 		} \
 	} while (0)
+
+#endif
 
 
 
@@ -548,5 +551,17 @@ const char *firetalk_nhtmlentities(const char *str, int len);
 const char *firetalk_htmlentities(const char *str);
 const char *firetalk_debase64(const char *const str);
 const char *firetalk_printable(const char *const str);
+
+/* md5.c */
+
+typedef struct firetalk_md5_t {
+	uint32_t d[4];
+	unsigned int length;
+	unsigned char buffer[64];
+} firetalk_md5_t;
+
+void	firetalk_md5_init(firetalk_md5_t *st);
+void	firetalk_md5_update(firetalk_md5_t *st, const char *input, int inputlen);
+unsigned char *firetalk_md5_final(firetalk_md5_t *st);
 
 #endif

@@ -9,6 +9,7 @@
 #include "moon-int.h"
 #include "default_lua.h"
 #include "naim-int.h"
+#include "firetalk-int.h"
 
 lua_State *lua = NULL;
 extern conn_t *curconn;
@@ -136,10 +137,27 @@ OPERATION(and, i&j)
 OPERATION(or, i|j)
 OPERATION(xor, i^j)
 
+static int _nlua_md5(lua_State *L) {
+	firetalk_md5_t md5;
+	const char *s;
+	size_t len;
+	
+	s = luaL_checklstring(L, 1, &len);
+	
+	firetalk_md5_init(&md5);
+	firetalk_md5_update(&md5, s, len);
+	s = firetalk_md5_final(&md5);
+	
+	lua_pushlstring(L, s, 16);
+	
+	return(1);
+}
+
 static const struct luaL_reg naim_bitlib[] = {
 	{ "_and",	_nlua_and },
 	{ "_or",	_nlua_or },
 	{ "xor",	_nlua_xor },
+	{ "md5",        _nlua_md5 },
 	{ NULL,		NULL },	/* sentinel */
 };
 

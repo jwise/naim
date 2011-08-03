@@ -8,7 +8,8 @@ libfiretalk_a_SOURCES = \
 	pdutil.c \
 	toc2.c \
 	toc2_uuids.h \
-	lily.c
+	lily.c \
+	md5.c
 
 check_PROGRAMS = tester toctest
 tester_SOURCES = \
