@@ -16,6 +16,12 @@ function be16tostr(n)
 	return string.char(math.floor(n/256), n%256)
 end
 
+function strtobe32(s, pos)
+	if pos ~= nil then s = s:sub(pos) end
+	return s:byte(1)*256*256*256 + s:byte(2)*256*256 + s:byte(3)*256 + s:byte(4)
+end
+
+
 inttohex = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F" }
 function tohex(s)
 	local outs = ""
