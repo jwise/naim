@@ -11,22 +11,27 @@ local _tostring = tostring
 module("OSCAR.FLAP", package.seeall)
 
 local mt = getmetatable(OSCAR.FLAP) or {}
-function mt.__call(func, obj)
-	local o = obj or {}
-	setmetatable(o, { __index = func })
-	naim.echo(_tostring(o.seq))
-	naim.echo(_tostring(obj))
-	o.data = _tostring(o.data)
-	return o
+function mt:__call(obj)
+	if type(obj) == "string" then
+		return self:fromstring(obj)
+	end
+	if type(obj) == "table" then
+		return self:new(obj)
+	end
+	error("TLV cannot convert that")
 end
 setmetatable(OSCAR.FLAP, mt)
 
 function OSCAR.FLAP:new(obj)
-	return self(obj)	-- compatibility
+	local o = obj or {}
+	setmetatable(o, { __index = self, __concat = mt.concat, __tostring = tostring })
+	if o.data then
+		o.data = _tostring(o.data)		-- do any necessary coercions
+	end
+	return o
 end
 
 function OSCAR.FLAP:tostring()
-	OSCAR:error("[FLAP] serializing")
 	return string.char(0x2A, self.channel) .. numutil.be16tostr(self.seq) ..
 		numutil.be16tostr(self.data:len()) .. self.data
 end

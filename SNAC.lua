@@ -7,18 +7,28 @@
 -- OSCAR/SNAC.lua
 -- SNAC dispatch routines for OSCAR PD
 
+local _tostring = tostring
+
 module("OSCAR.SNAC",package.seeall)
 
 local mt = getmetatable(OSCAR.SNAC) or {}
 function mt:__call(obj)
-	local o = obj or {}
-	setmetatable(o, { __index = self })
-	obj.data = tostring(obj.data)	-- do any necessary coersions
-	return o
+	if type(obj) == "string" then
+		return self:fromstring(obj)
+	end
+	if type(obj) == "table" then
+		return self:new(obj)
+	end
+	error("SNAC cannot convert that")
 end
 
 function OSCAR.SNAC:new(obj)
-	return self(obj)
+	local o = obj or {}
+	setmetatable(o, { __index = self, __tostring = tostring })
+	if o.data then
+		o.data = _tostring(o.data)		-- do any necessary coercions
+	end
+	return o
 end
 
 function OSCAR.SNAC:tostring()
