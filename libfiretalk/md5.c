@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "firetalk-int.h"
+#include "firetalk.h"
 
 #ifdef WORDS_BIGENDIAN
 #  define CPU_TO_LE32(x) ({ \

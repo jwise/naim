@@ -54,14 +54,14 @@ libnaim_core_la_SOURCES = ${NAIM_CORE}
 libnaim_core_la_CFLAGS = ${AM_CFLAGS} -DDLSEARCHPATH='"${pkgmoddir}"'
 libnaim_core_la_CPPFLAGS = -DDLSEARCHPATH='"${pkgmoddir}"'
 libnaim_core_la_LIBADD = \
+	../libfiretalk/libfiretalk.la \
 	@LIBLTDL@ ../lua/libnlua.la \
 	@CURSESLIB@ @NETLIB@
-libnaim_core_la_LDFLAGS = -export-dynamic -no-undefined \
-	-Wl,--whole-archive -Wl,../libfiretalk/libfiretalk.a -Wl,--no-whole-archive
+libnaim_core_la_LDFLAGS = -export-dynamic -no-undefined
 else
 NAIM_SOURCES = ${NAIM_CORE}
 NAIM_LDADD = \
-	../libfiretalk/libfiretalk.a \
+	../libfiretalk/libfiretalk.la \
 	@LIBLTDL@ \
 	../lua/libnlua.la \
 	@CURSESLIB@ @NETLIB@

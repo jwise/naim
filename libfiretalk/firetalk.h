@@ -195,6 +195,16 @@ fte_t	firetalk_select_custom(int n, fd_set *fd_read, fd_set *fd_write, fd_set *f
 extern fte_t firetalkerror;
 int	firetalk_internal_connect_host(const char *const host, const int port);
 
+typedef struct firetalk_md5_t {
+	uint32_t d[4];
+	unsigned int length;
+	unsigned char buffer[64];
+} firetalk_md5_t;
+
+void	firetalk_md5_init(firetalk_md5_t *st);
+void	firetalk_md5_update(firetalk_md5_t *st, const char *input, int inputlen);
+unsigned char *firetalk_md5_final(firetalk_md5_t *st);
+
 #define FF_SUBSTANDARD	0x0001
 #define FF_NORMAL	0x0002
 #define FF_ADMIN	0x0004
