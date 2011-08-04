@@ -1236,84 +1236,11 @@ const char *firetalk_strprotocol(const int p) {
 
 const char *firetalk_strerror(const fte_t e) {
 	switch (e) {
-		case FE_SUCCESS:
-			return("Success");
-		case FE_CONNECT:
-			return("Connection failed");
-		case FE_NOMATCH:
-			return("Usernames do not match");
-		case FE_PACKET:
-			return("Packet transfer error");
-		case FE_BADUSERPASS:
-			return("Invalid username or password");
-		case FE_SEQUENCE:
-			return("Invalid sequence number from server");
-		case FE_FRAMETYPE:
-			return("Invalid frame type from server");
-		case FE_PACKETSIZE:
-			return("Packet too long");
-		case FE_SERVER:
-			return("Server problem; try again later");
-		case FE_UNKNOWN:
-			return("Unknown error");
-		case FE_BLOCKED:
-			return("You are blocked");
-		case FE_WEIRDPACKET:
-			return("Unknown packet received from server");
-		case FE_CALLBACKNUM:
-			return("Invalid callback number");
-		case FE_BADUSER:
-			return("Invalid username");
-		case FE_NOTFOUND:
-			return("Username not found in list");
-		case FE_DISCONNECT:
-			return("Server disconnected");
-		case FE_SOCKET:
-			return("Unable to create socket");
-		case FE_RESOLV:
-			return("Unable to resolve hostname");
-		case FE_VERSION:
-			return("Wrong server version");
-		case FE_USERUNAVAILABLE:
-			return("User is currently unavailable");
-		case FE_USERINFOUNAVAILABLE:
-			return("User information is currently unavailable");
-		case FE_TOOFAST:
-			return("You are sending messages too fast; last message was dropped");
-		case FE_ROOMUNAVAILABLE:
-			return("Chat room is currently unavailable");
-		case FE_INCOMINGERROR:
-			return("Incoming message delivery failure");
-		case FE_USERDISCONNECT:
-			return("User disconnected");
-		case FE_INVALIDFORMAT:
-			return("Server response was formatted incorrectly");
-		case FE_IDLEFAST:
-			return("You have requested idle to be reset too fast");
-		case FE_BADROOM:
-			return("Invalid room name");
-		case FE_BADMESSAGE:
-			return("Invalid message (too long?)");
-		case FE_MESSAGETRUNCATED:
-			return("Message truncated");
-		case FE_BADPROTO:
-			return("Invalid protocol");
-		case FE_NOTCONNECTED:
-			return("Not connected");
-		case FE_BADCONNECTION:
-			return("Invalid connection number");
-		case FE_NOPERMS:
-			return("No permission to perform operation");
-		case FE_NOCHANGEPASS:
-			return("Unable to change password");
-		case FE_DUPEROOM:
-			return("Room already in list");
-		case FE_IOERROR:
-        		return("Input/output error");
-		case FE_BADHANDLE:
-        		return("Invalid handle");
-		case FE_TIMEOUT:
-			return("Operation timed out");
+#define ERROR_EXPANDO(x, s) \
+		case FE_##x: \
+			return(s);
+#include "firetalk-errors.h"
+#undef ERROR_EXPANDO
 		default:
 			return("Invalid error number");
 	}

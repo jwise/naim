@@ -107,7 +107,7 @@ static int _nlua_postselect(lua_State *L) {
 		sock->state = FCS_ACTIVE;
 	if (e == FE_SUCCESS)
 		return 0;
-	lua_pushstring(L, firetalk_strerror(e));
+	lua_pushnumber(L, e);
 	return 1;
 }
 

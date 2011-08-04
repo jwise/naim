@@ -185,6 +185,21 @@ static void _loadfunctions(void) {
 	luaL_register(lua, "naim.socket", naim_socketlib);
 
 	naim_commandsreg(lua);
+	
+	luaL_findtable(lua, LUA_GLOBALSINDEX, "naim.pd.fterrors", 16);
+#define ERROR_EXPANDO(x, s) \
+		lua_pushstring(lua, #x); \
+		lua_newtable(lua); \
+		lua_pushstring(lua, "num"); \
+		lua_pushnumber(lua, FE_##x); \
+		lua_settable(lua, -3); \
+		lua_pushstring(lua, "descr"); \
+		lua_pushstring(lua, s); \
+		lua_settable(lua, -3); \
+		lua_settable(lua, -3);
+#include "firetalk-errors.h"
+#undef ERROR_EXPANDO
+	lua_pop(lua, 1);
 }
 
 void	nlua_init(void) {

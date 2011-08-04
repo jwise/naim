@@ -634,6 +634,15 @@ naim.clearinterval = naim.cleartimeout
 
 
 
+function naim.strerror(n)
+	for k,v in pairs(naim.pd.fterrors) do
+		if v.num == n then
+			return v.descr
+		end
+	end
+	return "Unknown Firetalk error"
+end
+
 
 
 naim.hooks.add('proto_connected', function(conn)
