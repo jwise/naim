@@ -1,16 +1,11 @@
 --  _ __   __ _ ___ __  __
 -- | '_ \ / _` |_ _|  \/  | naim
 -- | | | | | | || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>, 
--- | | | | |_| || || |  | | 2006-2007 Joshua Wise <joshua@joshuawise.com>
+-- | | | | |_| || || |  | | 2006-2011 Joshua Wise <joshua@joshuawise.com>
 -- |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 --
 -- oscar.lua
--- OSCAR PD
---
--- Usually, I put a comment here. Unfortunately, there are no words to describe
--- how much I hate this protocol.
---
--- Released under the naim preview license.
+-- OSCAR protocol driver
 --
 
 module("OSCAR", package.seeall)
@@ -54,7 +49,10 @@ function OSCAR:debug(text) self:echo(OSCAR.DEBUG,text) end
 function OSCAR:notice(text) self:echo(OSCAR.NOTICE,text) end
 function OSCAR:warning(text) self:echo(OSCAR.WARNING,text) end
 function OSCAR:error(text) self:echo(OSCAR.ERROR,text) end
-function OSCAR:fatal(text) self:echo(OSCAR.FATAL,text) end
+function OSCAR:fatal(text)
+	self:echo(OSCAR.FATAL,text)
+	self:cleanup(naim.pd.fterrors.WEIRDPACKET, text)
+end
 
 require"OSCAR.FLAP"
 require"OSCAR.TLV"
@@ -95,8 +93,7 @@ function OSCAR:got_data_authorizer()
 		if flap.channel == 1 then
 			-- hopefully it is a Connection Acknowledge
 			if flap.data ~= string.char(0x00, 0x00, 0x00, 0x01) then
-				self:error("[auth] That wasn't a connection acknowledge!")
-				break -- continue
+				return self:fatal("[auth] That wasn't a connection acknowledge!")
 			end
 			
 			self.authseq = 0
@@ -120,8 +117,7 @@ function OSCAR:got_data_authorizer()
 			local snac = OSCAR.SNAC:fromstring(flap.data)
 			
 			if snac.family ~= 0x17 then
-				self:error("[auth] wrong SNAC family from authorizer?")
-				break
+				return self:fatal("[auth] wrong SNAC family from authorizer")
 			end
 			
 			if snac.subtype == 0x07 then -- SRV_AUTH_KEY_RESPONSE
@@ -164,18 +160,12 @@ function OSCAR:got_data_authorizer()
 					end
 				end
 				if snac.data:len() ~= 0 then
-					self:error("[auth] SNAC data left over after eating TLVs ("..snac.data:len()..")")
+					return self:fatal("[auth] SNAC data left over after eating TLVs ("..snac.data:len()..")")
 				end
 				if error or errorurl then
-					self:fatal("[auth] error while connecting: " .. tostring(error) .. "(see "..tostring(errorurl).." for more detail)")
-					self.authsock:close()
-					self.authsock = nil
-					self.authbuf = nil
+					return self:cleanup(naim.pd.fterrors.UNKNOWN, "Error " .. tostring(numutil.strtobe16(error)) .. " (see "..tostring(errorurl).." for more detail)")
 				elseif (not screenname) or (not bosip) or (not authcookie) or (not email) or (not regstatus) then
-					self:fatal("[auth] protocol error: I didn't get back an error, and I didn't get back a full auth response. I give up.")
-					self.authsock:close()
-					self.authsock = nil
-					self.authbuf = nil
+					return self:fatal("[auth] protocol error: I didn't get back an error, and I didn't get back a full auth response. I give up.")
 				else
 					local bosaddr,bosport = bosip:match("([a-z0-9\.]*):([0-9]*)")
 					self.screenname = screenname
@@ -198,7 +188,7 @@ function OSCAR:got_data_authorizer()
 				end
 			end
 		else
-			self:error("[auth] Unknown channel from authorizer: "..flap.channel)
+			return self:fatal("[auth] Unknown channel from authorizer: "..flap.channel)
 		end
 	end
 	self:debug("[auth] postselect complete")
@@ -237,8 +227,7 @@ function OSCAR:got_data_bos()
 		if flap.channel == 1 then
 			-- hopefully it is a Connection Acknowledge
 			if flap.data ~= string.char(0x00, 0x00, 0x00, 0x01) then
-				self:warning("[BOS] That wasn't a connection acknowledge!")
-				break -- continue
+				return self:fatal("[BOS] That wasn't a connection acknowledge!")
 			end
 			-- okay, it is; let's send the auth request
 			self.bossock:send(
@@ -465,8 +454,7 @@ function OSCAR:set_info(info)
 		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
 			OSCAR.SNAC:new({family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
 				OSCAR.TLV{type = 0x0001, value='text/x-aolrtf; charset="us-ascii"'} ..
-				OSCAR.TLV{type = 0x0002, value=info} ..
-				OSCAR.TLV{type = 0x0005, value=string.char(0xFF, 0xFF, 0xFF, 0xFF) .. "naimluaOSCAR"}
+				OSCAR.TLV{type = 0x0002, value=info}
 				}):tostring()
 			}):tostring())
 end
@@ -589,6 +577,7 @@ function OSCAR:BOSICBMParameters(snac)
 				}):tostring()
 			}):tostring())
 	self:connected()
+	self.isconnecting = false
 end
 
 function OSCAR:BOSICBM(snac)
@@ -789,7 +778,7 @@ function OSCAR:BOSSSIRosterReply(snac)
 	local items, lastchange, i
 
 	if snac.data:byte(1) ~= 0 then
-		self:error("[BOS] [SSI] Wrong SSI protocol version!")
+		return self:fatal("[BOS] [SSI] Wrong SSI protocol version!")
 	end
 	snac.data = snac.data:sub(2)
 	items = numutil.strtobe16(snac.data)
@@ -860,7 +849,7 @@ end
 
 function OSCAR:BOSSSIRemoveItem(snac)
 	if not self.ssibusy then
-		self:error("[BOS] [SSI Remove Item] Item removed outside of transaction ... ")
+		self:fatal("[BOS] [SSI Remove Item] Item removed outside of transaction ... ")
 	end
 	self:debug("[BOS] [SSI Remove Item]")
 	
@@ -877,7 +866,7 @@ function OSCAR:BOSSSIRemoveItem(snac)
 		self.groups[groupid] = nil
 	end
 	if snac.data:len() ~= 0 then
-		self:error("[BOS] [SSI Remove Item] data left over ...")
+		self:fatal("[BOS] [SSI Remove Item] data left over ...")
 	end
 	
 	self.bossock:send(
@@ -912,7 +901,7 @@ end
 function OSCAR:BOSSSITransactionEnd(snac)
 	self:debug("[BOS] [SSI Transaction End]")
 	if not self.ssibusy then
-		self:warning("[BOS] [SSI Transaction End] Transaction ended without already being in transaction?")
+		self:fatal("[BOS] [SSI Transaction End] Transaction ended without already being in transaction?")
 	end
 	self.ssibusy = false
 	-- Activate new configuration
@@ -1202,15 +1191,41 @@ function OSCAR:preselect_hook(r,w,e,n)
 	return n
 end
 
+function OSCAR:cleanup(reason, verbose)
+	if not reason then
+		reason = naim.pd.fterrors.USERDISCONNECT.num
+	elseif type(reason) == "table" then
+		reason = reason.num
+	end
+	if not verbose then
+		verbose = "unknown reason"
+	end
+	
+	if self.authsock then
+		self.authsock:close()
+		self.authsock = nil
+		self.authbuf = nil
+	end
+	
+	if self.bossock then
+		self.bossock:close()
+		self.bossock = nil
+		self.bosbuf = nil
+	end
+	
+	if self.isconnecting then
+		self:connectfailed(reason, verbose)
+	else
+		self:disconnect(reason)
+	end
+end
+
 function OSCAR:postselect(r, w, e, n)
 	if self.authsock then
 		local err = self.authsock:postselect(r, w, e, self.authbuf)
 		if err then
-			self:fatal("Postselect error on authorizer socket: " .. err)
-			self.authsock:close()
-			self.authsock = nil
-			self.authbuf = nil
-			self:disconnect(3)
+			self:fatal("Postselect error on authorizer socket: " .. naim.strerror(err))
+			self:cleanup(err, "(from authorizer)")
 		end
 		if self.authsock and self.authsock:connected() and self.authbuf:readdata() and self.authbuf:pos() ~= 0 then
 			self:got_data_authorizer()
@@ -1219,11 +1234,8 @@ function OSCAR:postselect(r, w, e, n)
 	if self.bossock and self.bosbuf then
 		local err = self.bossock:postselect(r, w, e, self.bosbuf)
 		if err then
-			self:fatal("Postselect error on BOS socket: " .. err)
-			self.bossock:close()
-			self.bossock = nil
-			self.bosbuf = nil
-			self:disconnect(3)
+			self:fatal("Postselect error on BOS socket: " .. naim.strerror(err))
+			self:cleanup(err, "(from BOS)")
 		end
 		if self.bossock:connected() and self.bosbuf:readdata() and self.bosbuf:pos() ~= 0 then
 			self:got_data_bos()
@@ -1236,7 +1248,6 @@ function OSCAR:connect(server, port, sn)
 		self:error("Already connected!")
 		return 1
 	end
-	naim.echo("OSCAR:connect")
 	if not server then server = "login.oscar.aol.com" end
 	if port == 0 then port = 5190 end
 	self.screenname = sn
@@ -1244,6 +1255,7 @@ function OSCAR:connect(server, port, sn)
 	self.authbuf = naim.buffer.new()
 	self.authbuf:resize(65550)
 	self.authsock:connect(server, port)
+	self.isconnecting = true
 	-- work around hook bug that I can't be arsed to fix
 	self.preselect_hook_ref = naim.hooks.add('preselect', function(r,w,e,n) return true,self:preselect_hook(r,w,e,n) end, 100)
 	
@@ -1287,7 +1299,5 @@ end
 
 if not OSCAR.loaded then
 	naim.pd.create(OSCAR)
-	naim.echo("whee!")
 end
-naim.echo("yay")
 OSCAR.loaded = true
