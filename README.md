@@ -18,7 +18,7 @@ inside it, put something like:
 	dofile"naim-git/naim/oscar/OSCAR.lua"
 
 Start up the new naim, and `/dofile init.lua`.  Then, `/newconn you OSCAR`;
-`/open :OSCAR` if you want debug messages to go into one window; and then
+`/open :RAW` if you want debug messages to go into one window; and then
 `/connect` as you would ordinarily.  For the time being, I advise against
 doing this on an account you care about the buddy list of; SSI buddy support
 is still very unstable.
