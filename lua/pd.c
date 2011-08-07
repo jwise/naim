@@ -229,8 +229,13 @@ static char *_nlua_pd_subcode_encode(struct firetalk_driver_connection_t *c, con
 	int	ret;
 
 	ret = _nlua_pdcall(&val, c, "subcode_encode", HOOK_T_STRING HOOK_T_STRING, command, text);
+	
+	/* Note that the returned value is already in the 'garbage' system
+	 * and hence must be strdup'ed again so that dequeue_subcode_requests
+	 * can free it later. 
+	 */
 	if ((ret == 0) && (val.t == HOOK_T_STRINGc))
-		return(val.u.string);
+		return(strdup(val.u.string)); 
 	return(NULL);
 }
 
@@ -667,6 +672,97 @@ static int _nlua_chat_left(lua_State *L) {
 	return(0);
 }
 
+/* Having this here is something of a kludge, but oh well.  We haven't got a
+ * direct interface to talk to C Firetalk queues, but in practice, all Lua
+ * will ever need is a dequeue function for each of these two queues.
+ */
+
+static int _nlua_dequeue_subcode_replies(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	firetalk_connection_t *fchandle;
+	const char *nick;
+	char *ect;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	nick = luaL_checkstring(L, 2);
+	
+	fchandle = firetalk_find_conn(c);
+	
+	ect = firetalk_dequeue(&(fchandle->subcode_replies), nick);
+	if (!ect)
+		return(0);
+	
+	lua_pushstring(L, ect);
+	free(ect);
+	
+	return(1);
+}
+
+static int _nlua_dequeue_subcode_requests(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	firetalk_connection_t *fchandle;
+	const char *nick;
+	char *ect;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	nick = luaL_checkstring(L, 2);
+	
+	fchandle = firetalk_find_conn(c);
+	
+	ect = firetalk_dequeue(&(fchandle->subcode_requests), nick);
+	if (!ect)
+		return(0);
+	
+	lua_pushstring(L, ect);
+	free(ect);
+	
+	return(1);
+}
+
+static int _nlua_subcode_request(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *from;
+	const char *command;
+	char *args;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	from = luaL_checkstring(L, 2);
+	command = luaL_checkstring(L, 3);
+	args = strdup(luaL_checkstring(L, 4));
+	assert(args);
+	
+	firetalk_callback_subcode_request(c, from, command, args);
+	
+	free(args);
+	
+	return(0);
+}
+
+static int _nlua_subcode_reply(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *from;
+	const char *command;
+	const char *args;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	from = luaL_checkstring(L, 2);
+	command = luaL_checkstring(L, 3);
+	args = luaL_checkstring(L, 4);
+	
+	firetalk_callback_subcode_reply(c, from, command, args);
+	
+	return(0);
+}
+
+
 const struct luaL_reg naim_pd_internallib[] = {
 	{ "im_getmessage", 	_nlua_im_getmessage },
 	{ "im_getaction", 	_nlua_im_getaction },
@@ -690,8 +786,12 @@ const struct luaL_reg naim_pd_internallib[] = {
 	{ "chat_getmessage", 	_nlua_chat_getmessage },
 	/* chat_getaction, chat_invited, chat_user_joined, chat_user_left, chat_user_quit, chat_gottopic, chat_modeset, chat_modunset */
 	/* chat_user_opped, chat_user_deopped, chat_keychanged, chat_opped, chat_deopped, chat_user_kicked, subcode_get_request_reply */
-	/* subcode_request, subcode_reply, file_offer */
+	{ "subcode_request",	_nlua_subcode_request },
+	{ "subcode_reply",	_nlua_subcode_reply },
+	/* file_offer */
 	{ "needpass",		_nlua_needpass },
+	{ "dequeue_subcode_replies", _nlua_dequeue_subcode_replies },
+	{ "dequeue_subcode_requests", _nlua_dequeue_subcode_requests },
 	{ NULL,			NULL },
 };
 
