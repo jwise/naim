@@ -43,15 +43,21 @@ function OSCAR:echo(class, text)
 	if OSCAR.echodescriptions[class] then
 		descr = OSCAR.echodescriptions[class]
 	end
-	naim.echo("[OSCAR] "..OSCAR.echodescriptions[class]..text)
+	self:im_getmessage(":OSCAR", 1, OSCAR.echodescriptions[class]..text)
 end
 function OSCAR:debug(text) self:echo(OSCAR.DEBUG,text) end
 function OSCAR:notice(text) self:echo(OSCAR.NOTICE,text) end
 function OSCAR:warning(text) self:echo(OSCAR.WARNING,text) end
 function OSCAR:error(text) self:echo(OSCAR.ERROR,text) end
 function OSCAR:fatal(text)
+	naim.echo("<br>OSCAR connection panic!<br><hr>"..
+	          "An internal assertion in the OSCAR protocol driver failed: "..
+	          "<br><br>"..text.."<br><br>"..
+	          "Please report a bug at <a href=\"https://github.com/jwise/naim-oscar/issues\">"..
+	          "https://github.com/jwise/naim-oscar/issues</a>.<br><hr>")
 	self:echo(OSCAR.FATAL,text)
 	self:cleanup(naim.pd.fterrors.WEIRDPACKET, text)
+	_G.error("OSCAR connection panic; aborting hook")
 end
 
 require"OSCAR.FLAP"
@@ -372,11 +378,22 @@ function OSCAR:BOSControlRateResponse(snac)
 end
 
 function OSCAR:BOSControlURL(snac)
-	self:notice("[BOS] [URL] URL: " .. snac.data)
+	self:notice("[BOS] [URL] URL data received and ignored")
 end
 
 function OSCAR:BOSControlOnlineInfo(snac)
 	self:debug("[BOS] [BOS Online Info] Weh.")
+end
+
+function OSCAR:BOSControlExtStatus(snac)
+	local type = numutil.strtobe16(snac.data)
+	local data = snac.data:sub(3)
+	
+	if type == 0x0000 or type == 0x0001 then
+		self:debug("[BOS] [Extended Status] Current SSBI info received and ignored")
+	elseif type == 0x0002 then
+		self:debug("[BOS] [Extended Status] Current status info received and ignored")
+	end
 end
 
 OSCAR.snacfamilydispatch[0x0001] = OSCAR.dispatchsubtype({
@@ -385,6 +402,7 @@ OSCAR.snacfamilydispatch[0x0001] = OSCAR.dispatchsubtype({
 	[0x0007] = OSCAR.BOSControlRateResponse,
 	[0x000F] = OSCAR.BOSControlOnlineInfo,
 	[0x0015] = OSCAR.BOSControlURL,
+	[0x0021] = OSCAR.BOSControlExtStatus,
 	})
 
 -------------------------------------------------------------------------------
@@ -967,6 +985,9 @@ function OSCAR:_updatemaster()
 end
 
 function OSCAR:im_add_buddy(account, agroup, afriendly)
+	if account == ":OSCAR" then
+		return 0
+	end
 	if self.ssibusy then
 		self:error("[BOS] [SSI] Attempt to add buddy in transaction")
 		return 1
@@ -1216,7 +1237,7 @@ function OSCAR:cleanup(reason, verbose)
 	if self.isconnecting then
 		self:connectfailed(reason, verbose)
 	else
-		self:disconnect(reason)
+		naim.pd.internal.disconnect(self, reason)
 	end
 end
 
@@ -1250,6 +1271,7 @@ function OSCAR:connect(server, port, sn)
 	end
 	if not server then server = "login.oscar.aol.com" end
 	if port == 0 then port = 5190 end
+	self:debug("Connecting to OSCAR on "..server.." port "..port..".")
 	self.screenname = sn
 	self.authsock = naim.socket.new()
 	self.authbuf = naim.buffer.new()
