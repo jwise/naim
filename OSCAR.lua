@@ -634,6 +634,11 @@ function OSCAR:BOSICBM(snac)
 		self:error("[BOS] [ICBM] remaining bytes: " .. message:len() .. " needed bytes: " .. OSCAR.TLV:lengthfromstring(message))
 	end
 	
+	realmessage = self:handle_ect(screenname, realmessage, auto == 1)
+	if realmessage:len() == 0 then
+		return
+	end
+	
 	if realmessage:sub(1,4):lower() == "/me " then
 		self:im_getaction(screenname, auto, realmessage:sub(5))
 	elseif realmessage:match(">/[mM][eE] ") then
@@ -701,6 +706,18 @@ function OSCAR:im_send_message(target, text, isauto)
 	if isauto == 1 then
 		isautotlv = OSCAR.TLV{type = 0x0004, value = ""}
 	end
+	
+	while true do
+		local rq
+		if isauto == 1 then
+			rq = self:dequeue_subcode_replies(target)
+		else
+			rq = self:dequeue_subcode_requests(target)
+		end
+		if not rq then break end
+		text = text .. rq
+	end
+	
 	self.bossock:send(
 		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
 			OSCAR.SNAC:new({family = 0x0004, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = 0, data = 
@@ -720,6 +737,41 @@ end
 
 function OSCAR:im_send_action(target, text, isauto)
 	return self:im_send_message(target, "/me "..text, isauto)
+end
+
+function OSCAR:im_send_reply(target, text)
+	-- XXX interpolate variables
+	return self:im_send_message(target, text, 1)
+end
+
+function OSCAR:htmlclean(text)
+	return text:gsub("&gt;", ">")
+	           :gsub("&lt;", "<")
+	           :gsub("&quot;", "\"")
+	           :gsub("&nbsp;", " ")
+	           :gsub("&amp;", "&")
+end
+
+function OSCAR:handle_ect(from, text, isreply)
+	local dosubcode = isreply and self.subcode_reply or self.subcode_request
+	return text:gsub("<font ECT=\"(.-)\"></font>",
+		function (str)
+			local cmd,args = str:match("(.-) (.*)")
+			
+			if args then
+				args = self:htmlclean(args)
+			else
+				cmd = str
+				args = ""
+			end
+
+			dosubcode(self, from, cmd, args)
+			return ""
+		end)
+end
+
+function OSCAR:subcode_encode(cmd, msg)
+	return "<font ECT=\""..cmd..(msg and (" "..msg) or "").."\"></font>"
 end
 
 -------------------------------------------------------------------------------
