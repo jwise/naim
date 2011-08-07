@@ -1675,24 +1675,34 @@ fte_t	firetalk_chat_kick(firetalk_connection_t *conn, const char *const room, co
 }
 
 fte_t	firetalk_subcode_send_request(firetalk_connection_t *conn, const char *const to, const char *const command, const char *const args) {
+	char *sc;
+
 	assert(firetalk_connection_t_valid(conn));
 
-	if (conn->connected != FCS_ACTIVE)
+	if (conn->connected != FCS_ACTIVE && (*to != ':'))
 		return(FE_NOTCONNECTED);
 
-//	return(firetalk_protocols[conn->protocol]->subcode_send_request(conn->handle, to, command, args));
-	firetalk_enqueue(&conn->subcode_requests, to, firetalk_protocols[conn->protocol]->subcode_encode(conn->handle, command, args));
+	sc = firetalk_protocols[conn->protocol]->subcode_encode(conn->handle, command, args);
+	if (!sc)
+		return(FE_SUCCESS);
+
+	firetalk_enqueue(&conn->subcode_requests, to, sc);
 	return(FE_SUCCESS);
 }
 
 fte_t	firetalk_subcode_send_reply(firetalk_connection_t *conn, const char *const to, const char *const command, const char *const args) {
+	char *sc;
+
 	assert(firetalk_connection_t_valid(conn));
 
 	if ((conn->connected != FCS_ACTIVE) && (*to != ':'))
 		return(FE_NOTCONNECTED);
+	
+	sc = firetalk_protocols[conn->protocol]->subcode_encode(conn->handle, command, args);
+	if (!sc)
+		return(FE_SUCCESS);
 
-//	return(firetalk_protocols[conn->protocol]->subcode_send_reply(conn->handle, to, command, args));
-	firetalk_enqueue(&conn->subcode_replies, to, firetalk_protocols[conn->protocol]->subcode_encode(conn->handle, command, args));
+	firetalk_enqueue(&conn->subcode_replies, to, sc);
 	return(FE_SUCCESS);
 }
 
