@@ -2066,6 +2066,7 @@ UADESC(Disconnect from a server)
 	else if (firetalk_disconnect(conn->conn) == FE_SUCCESS) {
 		bclearall(conn, 0);
 		echof(conn, NULL, "You are now disconnected.\n");
+#warning XXX: need to call down a chain to inform the chain that we've disconnected
 	}
 	conn->online = 0;
 }
