@@ -43,7 +43,7 @@ function OSCAR:echo(class, text)
 	if OSCAR.echodescriptions[class] then
 		descr = OSCAR.echodescriptions[class]
 	end
-	self:im_getmessage(":OSCAR", 1, OSCAR.echodescriptions[class]..text)
+	self:im_getmessage(":RAW", 1, OSCAR.echodescriptions[class]..text)
 end
 function OSCAR:debug(text) self:echo(OSCAR.DEBUG,text) end
 function OSCAR:notice(text) self:echo(OSCAR.NOTICE,text) end
@@ -694,13 +694,13 @@ OSCAR.snacfamilydispatch[0x0004] = OSCAR.dispatchsubtype({
 
 function OSCAR:im_send_message(target, text, isauto)
 	local isautotlv = ""
-	if target == ":OSCAR" then
+	if target == ":RAW" then
 		text = text:gsub("<.->",""):lower()
 		if text == "request-ssi" then
 			self:warning("Rerequesting SSIs")
 			self:BOSSSILimitReply(nil)
 		end
-		self:warning(":OSCAR handler execution stopped")
+		self:warning(":RAW handler execution stopped")
 		return 0
 	end
 	if isauto == 1 then
@@ -1037,7 +1037,7 @@ function OSCAR:_updatemaster()
 end
 
 function OSCAR:im_add_buddy(account, agroup, afriendly)
-	if account == ":OSCAR" then
+	if account == ":RAW" then
 		return 0
 	end
 	if self.ssibusy then
