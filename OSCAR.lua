@@ -902,6 +902,7 @@ function OSCAR:BOSSSIRosterReply(snac)
 			self.groups[groupid].members = {}
 			if groupid ~= 0 then
 				self.groups[groupid].name = itemname
+				if not contents then contents = "" end
 				while contents:len() > 1 do
 					local buddy
 					buddy = numutil.strtobe16(contents)
