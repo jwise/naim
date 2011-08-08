@@ -382,7 +382,7 @@ function OSCAR:BOSControlURL(snac)
 end
 
 function OSCAR:BOSControlOnlineInfo(snac)
-	self:debug("[BOS] [BOS Online Info] Weh.")
+	self:debug("[BOS] [BOS Online Info] Online info received and ignored.")
 end
 
 function OSCAR:BOSControlExtStatus(snac)
@@ -396,10 +396,15 @@ function OSCAR:BOSControlExtStatus(snac)
 	end
 end
 
+function OSCAR:BOSControlRateUpdate(snac)
+	self:debug("[BOS] [BOS Rate Update] Rate update received and ignored.")
+end
+
 OSCAR.snacfamilydispatch[0x0001] = OSCAR.dispatchsubtype({
 	[0x0001] = OSCAR.BOSControlError,
 	[0x0003] = OSCAR.BOSControlHostReady,
 	[0x0007] = OSCAR.BOSControlRateResponse,
+	[0x000A] = OSCAR.BOSControlRateUpdate,
 	[0x000F] = OSCAR.BOSControlOnlineInfo,
 	[0x0015] = OSCAR.BOSControlURL,
 	[0x0021] = OSCAR.BOSControlExtStatus,
