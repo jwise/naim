@@ -67,5 +67,5 @@ function OSCAR.TLV:lengthfromstring(s)
 end
 
 function OSCAR.TLV:len()
-	return self.value:len() + 2
+	return self.value:len() + 4
 end
