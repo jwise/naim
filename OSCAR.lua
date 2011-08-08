@@ -613,6 +613,11 @@ function OSCAR:BOSICBM(snac)
 	screenname = snac.data:sub(2, snac.data:byte(1)+1)
 	snac.data = snac.data:sub(snac.data:byte(1)+2)
 	snac.data = snac.data:sub(5)	-- skip warning level and TLV count
+	
+	if channel ~= 1 then
+		self:error("[BOS] [ICBM] Undecoded ICBM channel "..channel)
+	end
+	
 	while snac.data and OSCAR.TLV:lengthfromstring(snac.data) and OSCAR.TLV:lengthfromstring(snac.data) <= snac.data:len() do
 		local tlv = OSCAR.TLV(snac.data)
 		snac.data = snac.data:sub(tlv.value:len() + 5)
@@ -631,7 +636,21 @@ function OSCAR:BOSICBM(snac)
 	while message and OSCAR.TLV:lengthfromstring(message) and OSCAR.TLV:lengthfromstring(message) <= message:len() do
 		local tlv = OSCAR.TLV(message)
 		message = message:sub(tlv.value:len() + 5)	-- trim the first four bytes -- short charset, short subset.
-		    if tlv.type == 0x0101 then realmessage = tlv.value:sub(5)
+		if tlv.type == 0x0101 then -- message text, version 1
+			local csno = numutil.strtobe16(tlv.value)
+			local cssubset = numutil.strtobe16(tlv.value:sub(2))
+
+			realmessage = tlv.value:sub(5)
+			
+			if csno == 0x0000 then -- ASCII; no mangling needed
+			elseif csno == 0x0003 then -- ISO-8859-1?
+				self:warning("[BOS] [ICBM] WARNING: ISO-8859-1 message from "..screenname.." may not be properly decoded.")
+			elseif csno == 0x0002 then
+				self:warning("[BOS] [ICBM] WARNING: UTF-16 message from "..screenname.." almost *certainly* mangled.")
+				realmessage = realmessage:gsub(".(.)", function(x) return x end)
+			else
+				self:error("[BOS] [ICBM] Unknown character set "..csno.." from "..screenname..".")
+			end
 		end
 	end
 	if message:len() > 0 then
