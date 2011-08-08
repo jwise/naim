@@ -1,9 +1,12 @@
 naim.internal.insensitive_index = {
 	__index = function(t, s)
-		s = s:lower()
+		-- XXX This does NOT really handle nicknames correctly in
+		-- general...  but this code has no knowledge of calling
+		-- into Firetalk to call up compare_nicks.
+		s = s:lower():gsub(" ", "")
 
 		for k,v in pairs(t) do
-			if k:lower() == s then
+			if k:lower():gsub(" ", "") == s then
 				return v
 			end
 		end
