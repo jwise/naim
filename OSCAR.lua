@@ -43,7 +43,7 @@ function OSCAR:echo(class, text)
 	if OSCAR.echodescriptions[class] then
 		descr = OSCAR.echodescriptions[class]
 	end
-	self:im_getmessage(":RAW", 1, OSCAR.echodescriptions[class]..text)
+	self:chat_getmessage(":DEBUG", "OSCAR", 0, OSCAR.echodescriptions[class]..text)
 end
 function OSCAR:debug(text) self:echo(OSCAR.DEBUG,text) end
 function OSCAR:notice(text) self:echo(OSCAR.NOTICE,text) end
@@ -69,6 +69,14 @@ function OSCAR:wrap(f)
 		self:fatal(e)
 	end
 	return e
+end
+
+OSCAR.debug_commands = {}
+
+OSCAR.debug_commands["help"] = function (self, text)
+	local cmds = "Available :DEBUG commands are: "
+	for k,v in pairs(OSCAR.debug_commands) do cmds = cmds .. k .. " " end
+	self:debug(cmds)
 end
 
 require"OSCAR.FLAP"
@@ -543,7 +551,7 @@ function OSCAR:BOSBlistAddFailed(snac)
 	local uname
 	uname = snac.data:sub(2, snac.data:byte(1)+1)
 	self:warning("[BOS] [Blist add failed] " .. uname)
-	-- pass this back up to naim somehow?
+	-- XXX pass this back up to naim somehow?
 end
 
 function OSCAR:BOSBlistOnline(snac)
@@ -727,17 +735,22 @@ OSCAR.snacfamilydispatch[0x0004] = OSCAR.dispatchsubtype({
 	[0x0014] = OSCAR.BOSICBMTypingNotification,
 	})
 
-function OSCAR:im_send_message(target, text, isauto)
-	local isautotlv = ""
-	if target == ":RAW" then
+function OSCAR:chat_send_message(target, text, isauto)
+	if target == ":DEBUG" then
 		text = text:gsub("<.->",""):lower()
-		if text == "request-ssi" then
-			self:warning("Rerequesting SSIs")
-			self:BOSSSILimitReply(nil)
+		if self.debug_commands[text] then
+			self.debug_commands[text](self, text)
+		else
+			self:error("Unknown :DEBUG command "..text)
 		end
-		self:warning(":RAW handler execution stopped")
 		return 0
 	end
+	
+	self:error("other chat targets ("..target..") unsupported")
+end
+
+function OSCAR:im_send_message(target, text, isauto)
+	local isautotlv = ""
 	if isauto == 1 then
 		isautotlv = OSCAR.TLV{type = 0x0004, value = ""}
 	end
@@ -836,6 +849,11 @@ function OSCAR:BOSSSILimitReply(snac)
 			}):tostring())
 	self.groups = {}
 	self.buddies = {}
+end
+
+OSCAR.debug_commands["request-ssi"] = function(self, text)
+	self:debug("Rerequesting SSIs")
+	self:BOSSSILimitReply(nil)
 end
 
 function OSCAR:_snactorosterentry(indata)

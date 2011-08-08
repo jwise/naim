@@ -17,11 +17,10 @@ inside it, put something like:
 	dofile"naim-git/naim/oscar/TLV.lua"
 	dofile"naim-git/naim/oscar/OSCAR.lua"
 
-Start up the new naim, and `/dofile init.lua`.  Then, `/newconn you OSCAR`;
-`/open :RAW` if you want debug messages to go into one window; and then
-`/connect` as you would ordinarily.  For the time being, I advise against
-doing this on an account you care about the buddy list of; SSI buddy support
-is still very unstable.
+Start up the new naim, and `/dofile init.lua`.  Then, `/newconn you OSCAR`
+and then `/connect` as you would ordinarily.  SSI buddy list support has
+become more stable over time, but you should still have a backup of your
+buddy list before you connect.
 
 Enjoy!
 
