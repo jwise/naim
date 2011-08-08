@@ -60,6 +60,17 @@ function OSCAR:fatal(text)
 	_G.error("OSCAR connection panic; aborting hook")
 end
 
+function OSCAR:wrap(f)
+	local ok,e = xpcall(f, function(e)
+		local errstr = e .. "<br>" .. _G.debug.traceback():gsub("\n","<br>"):gsub("\t","&nbsp;&nbsp;")
+		return errstr
+	end)
+	if not ok then
+		self:fatal(e)
+	end
+	return e
+end
+
 require"OSCAR.FLAP"
 require"OSCAR.TLV"
 require"OSCAR.SNAC"
@@ -1321,7 +1332,7 @@ function OSCAR:cleanup(reason, verbose)
 	end
 end
 
-function OSCAR:postselect(r, w, e, n)
+function OSCAR:postselect(r, w, e, n) self:wrap(function()
 	if self.authsock then
 		local err = self.authsock:postselect(r, w, e, self.authbuf)
 		if err then
@@ -1342,7 +1353,7 @@ function OSCAR:postselect(r, w, e, n)
 			self:got_data_bos()
 		end
 	end
-end
+end) end
 
 function OSCAR:connect(server, port, sn)
 	if self.bossock or self.authsock then
