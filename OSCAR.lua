@@ -1008,7 +1008,7 @@ function OSCAR:_updategroup(id)
 				numutil.be16tostr(id) ..
 				numutil.be16tostr(0x0000) ..
 				numutil.be16tostr(0x0001) ..
-				numutil.be16tostr(tlvs:len())  ..
+				numutil.be16tostr(tlvs:len()) ..
 				tlvs
 				}):tostring()
 			}):tostring())
@@ -1037,7 +1037,7 @@ function OSCAR:_updatemaster()
 end
 
 function OSCAR:im_add_buddy(account, agroup, afriendly)
-	if account == ":RAW" then
+	if self:comparenicks(account, ":RAW") then
 		return 0
 	end
 	if self.ssibusy then
@@ -1164,6 +1164,10 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 end
 
 function OSCAR:im_remove_buddy(account, agroup)
+	if self:comparenicks(account, ":RAW") then
+		return 0
+	end
+
 	local gname
 	
 	self:debug("[BOS] [SSI] Remove buddy")
