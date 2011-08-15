@@ -89,6 +89,15 @@ OSCAR.debug_commands["help"] = function (self, text)
 	self:debug(cmds)
 end
 
+-- Idea cribbed from http://lua-users.org/wiki/TimeZone ; what a hack!
+function OSCAR:timezone()
+	local tm = os.time()
+	local utc = os.date("!*t", tm)
+	local ltime = os.date("*t", tm)
+	ltime.isdst = false
+	return os.difftime(os.time(ltime), os.time(utc))
+end
+
 require"OSCAR.FLAP"
 require"OSCAR.TLV"
 require"OSCAR.SNAC"
@@ -467,7 +476,7 @@ end
 
 function OSCAR:BOSLocationGotInfo(snac)
 	local screenname, wlevel, tlvcount = "", 0, 0
-	local away, info, online, idle, flags = nil, "", 0, 0, 0
+	local away, awaytime, info, online, idle, flags = nil, nil, "", 0, 0, 0
 	screenname = snac.data:sub(2, snac.data:byte(1)+1)
 	snac.data = snac.data:sub(snac.data:byte(1)+2)
 	wlevel = numutil.strtobe16(snac.data)
@@ -478,21 +487,27 @@ function OSCAR:BOSLocationGotInfo(snac)
 	while snac.data and OSCAR.TLV:lengthfromstring(snac.data) and (OSCAR.TLV:lengthfromstring(snac.data) <= snac.data:len()) do
 		local tlv = OSCAR.TLV(snac.data)
 		snac.data = snac.data:sub(tlv.value:len()+5)	-- weh, I don't care
+		self:debug("[BOS] [GotInfo] TLV type: "..string.format("%04x, length %04x", tlv.type, tlv.value:len()))
 		    if tlv.type == 0x0001 then flags = numutil.strtobe16(tlv.value)
 		elseif tlv.type == 0x0004 and tlv.value:len() == 2 then idle = numutil.strtobe16(tlv.value)
 		elseif tlv.type == 0x0004 and tlv.value:len() ~= 2 then away = tlv.value
 		elseif tlv.type == 0x0003 and tlv.value:len() == 4 then online = numutil.strtobe16(tlv.value)*65536+numutil.strtobe16(tlv.value:sub(3))
 		elseif tlv.type == 0x0002 then info = tlv.value
+		elseif tlv.type == 0x0027 then awaytime = self.timezone() + 7*60*60 + numutil.strtobe32(tlv.value) -- OSCAR times are in PDT
 		end
 	end
 	if snac.data:len() > 0 then
 		self:debug(tohex(snac.data))
 	end
-	if away and away:len() ~= 0 then
-		info = "<b>Away message:</b><br>"..away.."<br><hr><b>Profile:</b><br>"..info
-	end
 	
 	self:gotinfo(screenname, info, wlevel, online, idle, flags)
+	
+	if away and away:len() ~= 0 then
+		if awaytime then
+			away = math.floor((os.time() - awaytime) / 60).." :"..away
+		end
+		self:subcode_reply(screenname, "AWAY", away)
+	end
 end
 
 OSCAR.snacfamilydispatch[0x0002] = OSCAR.dispatchsubtype({
