@@ -579,18 +579,63 @@ function OSCAR:BOSBlistAddFailed(snac)
 	-- XXX pass this back up to naim somehow?
 end
 
-function OSCAR:BOSBlistOnline(snac)
-	local uname
-	uname = snac.data:sub(2, snac.data:byte(1)+1)
-	self:debug("[BOS] [Blist online] " .. uname)
-	self:im_buddyonline(uname, 1)
-end
-
-function OSCAR:BOSBlistOffline(snac)
-	local uname
-	uname = snac.data:sub(2, snac.data:byte(1)+1)
-	self:debug("[BOS] [Blist offline] " .. uname)
-	self:im_buddyonline(uname, 0)
+function OSCAR:BOSBlistOnline(snac, from_offline)
+	local data = snac.data
+	-- 0x000B for online, 0x000C for offline
+	local online = snac.subtype == 0x000B
+	
+	self:debug("[BOS] [Blist online] packet")
+	
+	while snac.data:len() > 0 do
+		local bs, uname, wlev, ntlvs, userclass, caps, idle
+		
+		local away, mobile
+		
+		userclass = 0x0000
+		
+		self:debug("[BOS] [Blist online] user in packet")
+		
+		bsz = snac.data:byte(1)
+		uname = snac.data:sub(2, bsz + 1)
+		wlev = numutil.strtobe16(snac.data, bsz + 2)
+		ntlvs = numutil.strtobe16(snac.data, bsz + 4)
+		snac.data = snac.data:sub(bsz + 6)
+		
+		for i = 1,ntlvs do
+			if OSCAR.TLV:lengthfromstring(snac.data) > snac.data:len() then
+				self:fatal("not enough data left for TLV "..i.." in blistonline?")
+			end
+			local tlv = OSCAR.TLV(snac.data)
+			snac.data = snac.data:sub(tlv.value:len() + 5)
+			
+			    if tlv.type == 0x0001 then userclass = numutil.strtobe16(tlv.value)
+			elseif tlv.type == 0x0004 then idle = numutil.strtobe16(tlv.value)
+			elseif tlv.type == 0x000D then caps = tlv.value
+			elseif tlv.type == 0x001D then -- avail message; pork/locate.c:736
+			end
+		end
+		
+		away = naim.bit._and(userclass, 0x0020) == 0x0020
+		mobile = naim.bit._and(userclass, 0x0080) == 0x0080
+		
+		self:debug("[BOS] [Blist online] " .. uname ..
+		           (idle and " [idle]" or "") ..
+		           (string.format(" [class %04x]", userclass)) ..
+		           (online and " [online]" or " [offline]"))
+		
+		if online then
+			self:im_buddyonline(uname, 1)
+			self:im_buddyaway(uname, away and 1 or 0)
+			-- buddyflags
+			-- idleinfo
+			-- warninfo?
+			-- capabilities
+			-- statusinfo (or CTCP AWAY?)
+			--   statusinfo dedup?
+		else
+			self:im_buddyonline(uname, 0)
+		end
+	end
 end
 
 OSCAR.snacfamilydispatch[0x0003] = OSCAR.dispatchsubtype({
@@ -598,7 +643,7 @@ OSCAR.snacfamilydispatch[0x0003] = OSCAR.dispatchsubtype({
 	[0x0003] = OSCAR.BOSBlistParameters,
 	[0x000A] = OSCAR.BOSBlistAddFailed,
 	[0x000B] = OSCAR.BOSBlistOnline,
-	[0x000C] = OSCAR.BOSBlistOffline,
+	[0x000C] = OSCAR.BOSBlistOnline,
 	})
 
 -------------------------------------------------------------------------------
