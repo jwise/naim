@@ -49,6 +49,7 @@ function OSCAR:debug(text) self:echo(OSCAR.DEBUG,text) end
 function OSCAR:notice(text) self:echo(OSCAR.NOTICE,text) end
 function OSCAR:warning(text) self:echo(OSCAR.WARNING,text) end
 function OSCAR:error(text) self:echo(OSCAR.ERROR,text) end
+OSCAR.abortmsg = "OSCAR connection panic; aborting hook"
 function OSCAR:fatal(text)
 	naim.echo("<br>OSCAR connection panic!<br><hr>"..
 	          "An internal assertion in the OSCAR protocol driver failed: "..
@@ -57,15 +58,24 @@ function OSCAR:fatal(text)
 	          "https://github.com/jwise/naim-oscar/issues</a>.<br><hr>")
 	self:echo(OSCAR.FATAL,text)
 	self:cleanup(naim.pd.fterrors.WEIRDPACKET, text)
-	_G.error("OSCAR connection panic; aborting hook")
+	_G.error(OSCAR.abortmsg)
 end
 
 function OSCAR:wrap(f)
 	local ok,e = xpcall(f, function(e)
+		-- Special case: we've already aborted once.  In that case,
+		-- don't come up with another backtrace.
+		if e:match(OSCAR.abortmsg) then
+			return nil
+		end
+		
 		local errstr = e .. "<br>" .. _G.debug.traceback():gsub("\n","<br>"):gsub("\t","&nbsp;&nbsp;")
 		return errstr
 	end)
 	if not ok then
+		if not e then
+			_G.error(OSCAR.abortmsg)
+		end
 		self:fatal(e)
 	end
 	return e
