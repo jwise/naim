@@ -487,6 +487,22 @@ static int _nlua_im_buddyaway(lua_State *L) {
 	return(0);
 }
 
+static int _nlua_im_buddyflags(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *buddy;
+	int flags;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	buddy = luaL_checkstring(L, 2);
+	flags = luaL_checkint(L, 3);
+	
+	firetalk_callback_im_buddyflags(c, buddy, flags);
+	
+	return(0);
+}
+
 static int _nlua_buddyadded(lua_State *L) {
 	struct firetalk_driver_connection_t *c;
 	const char *buddy, *group, *friendly;
@@ -594,6 +610,38 @@ static int _nlua_gotinfo(lua_State *L) {
 	flags = luaL_checknumber(L, 7);
 	
 	firetalk_callback_gotinfo(c, nick, info, warning, online, idle, flags);
+	
+	return(0);
+}
+
+static int _nlua_idleinfo(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *buddy;
+	long idletime;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	buddy = luaL_checkstring(L, 2);
+	idletime = luaL_checkint(L, 3);
+	
+	firetalk_callback_idleinfo(c, buddy, idletime);
+	
+	return(0);
+}
+
+static int _nlua_statusinfo(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *buddy, *status;
+	long idletime;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	buddy = luaL_checkstring(L, 2);
+	status = luaL_checkstring(L, 3);
+	
+	firetalk_callback_statusinfo(c, buddy, status);
 	
 	return(0);
 }
@@ -768,6 +816,7 @@ const struct luaL_reg naim_pd_internallib[] = {
 	{ "im_getaction", 	_nlua_im_getaction },
 	{ "im_buddyonline",	_nlua_im_buddyonline },
 	{ "im_buddyaway",	_nlua_im_buddyaway },
+	{ "im_buddyflags",	_nlua_im_buddyflags },
 	{ "buddyadded",		_nlua_buddyadded },
 	{ "buddyremoved",	_nlua_buddyremoved },
 	/* denyadded, denyremoved */
@@ -777,7 +826,8 @@ const struct luaL_reg naim_pd_internallib[] = {
 	{ "connected",		_nlua_connected },
 	{ "disconnect",		_nlua_disconnect },
 	{ "gotinfo",		_nlua_gotinfo },
-	/* idleinfo */
+	{ "idleinfo",		_nlua_idleinfo },
+	{ "statusinfo",		_nlua_statusinfo },
 	{ "doinit",		_nlua_doinit },
 	/* setidle, eviled, newnick, passchanged, user_nickchanged */
 	{ "chat_joined",	_nlua_chat_joined },
