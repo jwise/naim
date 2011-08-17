@@ -520,12 +520,37 @@ OSCAR.snacfamilydispatch[0x0002] = OSCAR.dispatchsubtype({
 	[0x0006] = OSCAR.BOSLocationGotInfo,
 	})
 
+function OSCAR.uuid_to_bytes(uuid)
+	function dehex(c)
+		if c >= ("A"):byte(1) and c <= ("F"):byte(1) then
+			return c-("A"):byte(1) + 10
+		end
+		if c >= ("a"):byte(1) and c <= ("f"):byte(1) then
+			return c-("a"):byte(1) + 10
+		end
+		if c >= ("0"):byte(1) and c <= ("9"):byte(1) then
+			return c-("0"):byte(1)
+		end
+		self:error("unsupported character in uuid?")
+	end
+	return uuid:gsub("[{%-}]", ""):gsub("(..)",
+		function(a)
+			return dehex(a:byte(1))*16 + dehex(a:byte(2))
+		end)
+end
+
+OSCAR.caps = OSCAR.uuid_to_bytes("{0946134D-4C7F-11D1-8222-444553540000}") ..
+             OSCAR.uuid_to_bytes("{0946134E-4C7F-11D1-8222-444553540000}") ..
+             OSCAR.uuid_to_bytes("{09461348-4C7F-11D1-8222-444553540000}") ..
+             OSCAR.uuid_to_bytes("{748F2420-6287-11D1-8222-444553540000}")
+
 function OSCAR:set_info(info)
 	self.bossock:send(
 		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
 			OSCAR.SNAC:new({family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
 				OSCAR.TLV{type = 0x0001, value='text/x-aolrtf; charset="us-ascii"'} ..
-				OSCAR.TLV{type = 0x0002, value=info}
+				OSCAR.TLV{type = 0x0002, value=info} ..
+				OSCAR.TLV{type = 0x0005, value=OSCAR.caps} 
 				}):tostring()
 			}):tostring())
 end
@@ -536,7 +561,8 @@ function OSCAR:set_away(away, isauto)
 		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
 			OSCAR.SNAC:new({family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
 				OSCAR.TLV{type = 0x0003, value='text/x-aolrtf; charset="us-ascii"'} ..
-				OSCAR.TLV{type = 0x0004, value=away}
+				OSCAR.TLV{type = 0x0004, value=away} ..
+				OSCAR.TLV{type = 0x0005, value=OSCAR.caps} 
 				}):tostring()
 			}):tostring())
 	return 0
