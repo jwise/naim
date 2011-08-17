@@ -89,6 +89,10 @@ OSCAR.debug_commands["help"] = function (self, text)
 	self:debug(cmds)
 end
 
+OSCAR.debug_commands["panic"] = function (self, text)
+	self:fatal("requested")
+end
+
 -- Idea cribbed from http://lua-users.org/wiki/TimeZone ; what a hack!
 function OSCAR:timezone()
 	local tm = os.time()
@@ -584,16 +588,12 @@ function OSCAR:BOSBlistOnline(snac, from_offline)
 	-- 0x000B for online, 0x000C for offline
 	local online = snac.subtype == 0x000B
 	
-	self:debug("[BOS] [Blist online] packet")
-	
 	while snac.data:len() > 0 do
-		local bs, uname, wlev, ntlvs, userclass, caps, idle
+		local bs, uname, wlev, ntlvs, userclass, caps, idle, status
 		
 		local away, mobile
 		
 		userclass = 0x0000
-		
-		self:debug("[BOS] [Blist online] user in packet")
 		
 		bsz = snac.data:byte(1)
 		uname = snac.data:sub(2, bsz + 1)
@@ -611,7 +611,27 @@ function OSCAR:BOSBlistOnline(snac, from_offline)
 			    if tlv.type == 0x0001 then userclass = numutil.strtobe16(tlv.value)
 			elseif tlv.type == 0x0004 then idle = numutil.strtobe16(tlv.value)
 			elseif tlv.type == 0x000D then caps = tlv.value
-			elseif tlv.type == 0x001D then -- avail message; pork/locate.c:736
+			elseif tlv.type == 0x001D then
+				local tlvd = tlv.value
+				self:debug("[BOS] [Blist online] Extended BART; "..numutil.tohex(tlv.value))
+				while tlvd:len() ~= 0 do
+					local t2, st2, l2 = numutil.strtobe16(tlvd), tlvd:byte(3), tlvd:byte(4)
+					self:debug("[BOS] [Blist online] EBART type "..t2)
+					tlvd = tlvd:sub(5)
+					if t2 == 0x0000 then -- "buddy icon"?
+					elseif t2 == 0x0001 then -- buddy icon checksum
+					elseif t2 == 0x0002 then -- avail message
+						if l2 >= 4 then
+							local l3 = numutil.strtobe16(tlvd)
+							status = tlvd:sub(3, l3+2)
+							self:debug("[BOS] [Blist online] looks like we have a status! "..status)
+						else
+							tlvd = tlvd:sub(l2 + 1)
+						end
+					elseif t2 == 0x000D then -- time when the status string was set
+					end
+					tlvd = tlvd:sub(l2 + 1)
+				end
 			end
 		end
 		
@@ -619,19 +639,21 @@ function OSCAR:BOSBlistOnline(snac, from_offline)
 		mobile = naim.bit._and(userclass, 0x0080) == 0x0080
 		
 		self:debug("[BOS] [Blist online] " .. uname ..
-		           (idle and " [idle]" or "") ..
+		           (idle and (" [idle "..idle.."]") or "") ..
 		           (string.format(" [class %04x]", userclass)) ..
+		           (mobile and " [mobile]" or "") ..
 		           (online and " [online]" or " [offline]"))
 		
 		if online then
 			self:im_buddyonline(uname, 1)
 			self:im_buddyaway(uname, away and 1 or 0)
-			-- buddyflags
-			-- idleinfo
+			self:im_buddyflags(uname, mobile and 8 or 0) -- 8 is FF_MOBILE
+			self:idleinfo(uname, idle and idle or 0)
 			-- warninfo?
-			-- capabilities
-			-- statusinfo (or CTCP AWAY?)
-			--   statusinfo dedup?
+			-- capabilities?
+			-- status dedup?
+			-- away message? (CTCP AWAY needs to be replaced)
+			self:statusinfo(uname, (status and not away) and status or "")
 		else
 			self:im_buddyonline(uname, 0)
 		end
@@ -665,12 +687,16 @@ function OSCAR:BOSICBMParameters(snac)
 			}):tostring())
 	self:debug("[BOS] [ICBM Parameters Reply] Finalizing.")
 	self:doinit(self.screenname)
+	
+	-- SET_NICKINFO_FIELDS
 	self.bossock:send(
 		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
 			OSCAR.SNAC:new({family = 0x0001, subtype = 0x001E, flags0 = 0, flags1 = 0, reqid = 0, data = 
 				OSCAR.TLV{type = 0x0006, value=string.char(0x00, 0x00, 0x00, 0x00)}
 				}):tostring()
 			}):tostring())
+	
+	-- What foodgroups do we support?	
 	self.bossock:send(
 		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
 			OSCAR.SNAC:new({family = 0x0001, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 0, data = 
