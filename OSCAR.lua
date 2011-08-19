@@ -93,6 +93,15 @@ OSCAR.debug_commands["panic"] = function (self, text)
 	self:fatal("requested")
 end
 
+OSCAR.debug_commands["verbose"] = function (self, text)
+	local verbosity = text:match("verbose (.*)")
+	if not verbosity then
+		self:error("syntax: verbose VERBOSITY<br>(verbosity is a bitmask from 0 to 0x1F)")
+	end
+	self.debuglevel = tonumber(verbosity) or 0x1F
+	self:notice("verbosity now "..self.debuglevel)
+end
+
 -- Idea cribbed from http://lua-users.org/wiki/TimeZone ; what a hack!
 function OSCAR:timezone()
 	local tm = os.time()
@@ -858,8 +867,9 @@ OSCAR.snacfamilydispatch[0x0004] = OSCAR.dispatchsubtype({
 function OSCAR:chat_send_message(target, text, isauto)
 	if target == ":DEBUG" then
 		text = text:gsub("<.->",""):lower()
-		if self.debug_commands[text] then
-			self.debug_commands[text](self, text)
+		local kw = text:match("^([^ ]*)")
+		if self.debug_commands[kw] then
+			self.debug_commands[kw](self, text)
 		else
 			self:error("Unknown :DEBUG command "..text)
 		end
