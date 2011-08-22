@@ -2066,7 +2066,15 @@ UADESC(Disconnect from a server)
 	else if (firetalk_disconnect(conn->conn) == FE_SUCCESS) {
 		bclearall(conn, 0);
 		echof(conn, NULL, "You are now disconnected.\n");
-#warning XXX: need to call down a chain to inform the chain that we've disconnected
+		
+		/* Synthesize a chain call saying that we've been
+		 * disconnected, since firetalk nerfs the proto_disconnect
+		 * callback if it happens during a firetalk_disconnect. 
+		 * This allows Lua to keep in sync with user-originated
+		 * disconnects.
+		 */
+		HOOK_EXT_L(proto_disconnected);
+		HOOK_CALL(proto_disconnected, HOOK_T_CONN HOOK_T_UINT32, conn, FE_USERDISCONNECT);
 	}
 	conn->online = 0;
 }
