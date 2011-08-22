@@ -1524,19 +1524,9 @@ function OSCAR:connect(server, port, sn)
 	return 0
 end
 
-function OSCAR:disconnect()
-	if self.bossock then
-		self.bossock:close()
-	end
-	if self.authsock then
-		self.authsock:close()
-	end
-	self.authsock = nil
-	self.authbuf = nil
-	self.bossock = nil
-	self.bosbuf = nil
-	self.groups = nil
-	self.buddies = nil
+function OSCAR:disconnect(err)
+	self:cleanup(err)
+
 	return 0
 end
 
