@@ -1064,7 +1064,6 @@ void	fireio_hook_init(void) {
 	HOOK_ADD(proto_nickchanged,	mod, fireio_nickchanged,	100, NULL);
 	HOOK_ADD(proto_buddy_nickchanged, mod, fireio_buddy_nickchanged, 100, NULL);
 	HOOK_ADD(proto_warned,		mod, fireio_warned,		100, NULL);
-#warning MERGE: Lua support needed for proto_buddy_status
 	HOOK_ADD(proto_buddy_status,	mod, fireio_buddy_status,	100, NULL);
 	HOOK_ADD(proto_error_msg,	mod, fireio_error_msg,		100, NULL);
 	HOOK_ADD(proto_disconnected,	mod, fireio_disconnected,	100, NULL);
@@ -1076,7 +1075,6 @@ void	fireio_hook_init(void) {
 	HOOK_ADD(proto_buddy_unaway,	mod, fireio_buddy_unaway,	100, NULL);
 	HOOK_ADD(proto_buddy_eviled,	mod, fireio_buddy_eviled,	100, NULL);
 	HOOK_ADD(proto_buddy_typing,	mod, fireio_buddy_typing,	100, NULL);
-#warning MERGE: Lua support needed for proto_buddy_flags
 	HOOK_ADD(proto_buddy_flags,	mod, fireio_buddy_flags,	100, NULL);
 	HOOK_ADD(proto_denyadded,	mod, fireio_denyadded,		100, NULL);
 	HOOK_ADD(proto_denyremoved,	mod, fireio_denyremoved,	100, NULL);
