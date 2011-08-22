@@ -980,7 +980,7 @@ static void bclearall_buddy(buddylist_t *buddy) {
 	FREESTR(buddy->crypt);
 	FREESTR(buddy->tzname);
 	FREESTR(buddy->caps);
-	buddy->docrypt = buddy->warnval = buddy->typing = buddy->peer = buddy->isaway = buddy->isidle = 0;
+	buddy->docrypt = buddy->warnval = buddy->typing = buddy->peer = buddy->isaway = buddy->isidle = buddy->isadmin = buddy->ismobile = 0;
 	buddy->offline = 1;
 }
 

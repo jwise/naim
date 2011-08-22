@@ -698,7 +698,7 @@ void	firetalk_callback_disconnect(struct firetalk_driver_connection_t *c, const 
 
 	for (buddyiter = conn->buddy_head; buddyiter != NULL; buddyiter = buddyiter->next) {
 		FREESTR(buddyiter->capabilities);
-		buddyiter->idletime = buddyiter->warnval = buddyiter->typing = buddyiter->online = buddyiter->away = buddyiter->uploaded = 0;
+		buddyiter->idletime = buddyiter->warnval = buddyiter->typing = buddyiter->online = buddyiter->away = buddyiter->uploaded = buddyiter->flags = 0;
 	}
 
 	for (denyiter = conn->deny_head; denyiter != NULL; denyiter = denyiter->next)
