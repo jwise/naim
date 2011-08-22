@@ -1221,7 +1221,7 @@ function OSCAR:_updatemaster()
 end
 
 function OSCAR:im_add_buddy(account, agroup, afriendly)
-	if self:comparenicks(account, ":RAW") then
+	if self:comparenicks(account, ":RAW") == 0 then
 		return 0
 	end
 	if self.ssibusy then
@@ -1348,7 +1348,7 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 end
 
 function OSCAR:im_remove_buddy(account, agroup)
-	if self:comparenicks(account, ":RAW") then
+	if self:comparenicks(account, ":RAW") == 0 then
 		return 0
 	end
 
