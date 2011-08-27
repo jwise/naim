@@ -12,10 +12,16 @@ module("OSCAR", package.seeall)
 require"numutil"
 require"OSCAR"
 
+OSCAR.required_version = 2
+
 OSCAR.name = "OSCAR"		-- remember that this guy gets sourced and used as the PD itself!
 OSCAR.server = "login.oscar.aol.com"
 OSCAR.port = 5190
 OSCAR.buffersize = 4096
+
+if not naim.version or naim.version() < OSCAR.required_version then
+	_G.error("This package requires naim Lua API version "..OSCAR.required_version..", but this version of naim is too old.  Bailing out.")
+end
 
 -------------------------------------------------------------------------------
 -- Packet format decoders / helper routines
@@ -1439,10 +1445,7 @@ end
 -- Connection management
 -------------------------------------------------------------------------------
 
-function OSCAR:preselect(r, w, e, n)
-end
-
-function OSCAR:preselect_hook(r,w,e,n)
+function OSCAR:preselect(r,w,e,n)
 	if self.authsock then
 		n = self.authsock:preselect(r,w,e,n)
 	end
@@ -1518,8 +1521,6 @@ function OSCAR:connect(server, port, sn)
 	self.authbuf:resize(65550)
 	self.authsock:connect(server, port)
 	self.isconnecting = true
-	-- work around hook bug that I can't be arsed to fix
-	self.preselect_hook_ref = naim.hooks.add('preselect', function(r,w,e,n) return true,self:preselect_hook(r,w,e,n) end, 100)
 	
 	return 0
 end
