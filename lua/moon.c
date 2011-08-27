@@ -66,6 +66,11 @@ static int _nlua_statusbar(lua_State *L) {
 	return(0);
 }
 
+static int _nlua_version(lua_State *L) {
+	lua_pushnumber(L, NLUA_API_VERSION);
+	return(1);
+}
+
 static const struct luaL_Reg naimlib[] = {
 	{ "debug",	_nlua_debug },
 	{ "curconn",	_nlua_curconn },
@@ -73,6 +78,7 @@ static const struct luaL_Reg naimlib[] = {
 	{ "conio",	_nlua_conio },
 	{ "echo",	_nlua_echo },
 	{ "statusbar",	_nlua_statusbar },
+	{ "version",	_nlua_version },
 	{ NULL,		NULL } /* sentinel */
 };
 

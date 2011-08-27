@@ -12,6 +12,10 @@
 #include "lualib.h"
 #include "lauxlib.h"
 
+/* Bump this whenever you add a feature that a client could reasonably want
+ * to depend on.  */
+#define NLUA_API_VERSION 2
+
 /* conn.c */
 void	_push_conn_t(lua_State *L, conn_t *conn);
 conn_t	*_get_conn_t(lua_State *L, int index);
