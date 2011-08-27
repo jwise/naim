@@ -46,7 +46,7 @@ struct firetalk_driver_connection_t *_nlua_pd_lua_to_driverconn(lua_State *L, in
                 
 
 static int _nlua_pdvcall(multival_t *ret, struct firetalk_driver_connection_t *c, const char *call, const char *signature, va_list msg) {
-	int	i, args = 0, top = lua_gettop(lua);
+	int	i, args = 0, top = lua_gettop(lua), nret;
 
 	if (!c)
 	{
@@ -67,74 +67,16 @@ static int _nlua_pdvcall(multival_t *ret, struct firetalk_driver_connection_t *c
 	lua_pushstring(lua, call);
 	lua_gettable(lua, -2);
 
-	args++;
 	lua_pushvalue(lua, -2);	/* duplicate it for the 'self' argument */
 	lua_remove(lua, -3);
 	
-	for (i = 0; signature[i] != 0; i++) {
-		args++;
-		switch(signature[i]) {
-		  case HOOK_T_CONNc:
-			_push_conn_t(lua, va_arg(msg, conn_t *));
-			break;
-		  case HOOK_T_STRINGc:
-			lua_pushstring(lua, va_arg(msg, const char *));
-			break;
-		  case HOOK_T_LSTRINGc: {
-				const char *str = va_arg(msg, const char *);
-				uint32_t len = va_arg(msg, uint32_t);
-
-				lua_pushlstring(lua, str, len);
-				break;
-			}
-		  case HOOK_T_UINT32c:
-			lua_pushnumber(lua, va_arg(msg, uint32_t));
-			break;
-		  case HOOK_T_FLOATc:
-			lua_pushnumber(lua, va_arg(msg, double));
-			break;
-		  case HOOK_T_WRSTRINGc: {
-				const char **str = va_arg(msg, const char **);
-
-				lua_pushstring(lua, *str);
-				break;
-			}
-		  case HOOK_T_WRLSTRINGc: {
-				const char **str = va_arg(msg, const char **);
-				uint32_t *len = va_arg(msg, uint32_t *);
-
-				lua_pushlstring(lua, *str, *len);
-				break;
-			}
-		  case HOOK_T_WRUINT32c: {
-				uint32_t *val = va_arg(msg, uint32_t *);
-
-				lua_pushnumber(lua, *val);
-				break;
-			}
-		  case HOOK_T_WRFLOATc: {
-				double *val = va_arg(msg, double *);
-
-				lua_pushnumber(lua, *val);
-				break;
-			}
-		  default:
-			lua_pushlightuserdata(lua, va_arg(msg, void *));
-			break;
-		}
-	}
-
-	if (lua_pcall(lua, args, LUA_MULTRET, 0) != 0) {
-		extern conn_t *curconn;
-
-		status_echof(curconn, "[pdlua] [%s:%s] run error: %s\n", c->pd->pd->strprotocol, call, lua_tostring(lua, -1));
-		lua_pop(lua, 1);
-		return(-1);
-	}
-
-	assert((lua_gettop(lua) == top) || (lua_gettop(lua) == top+1));
-
-	if (lua_gettop(lua) == top)
+	nret = _call_hook(lua, 1, 0, signature, msg);
+	if (nret < 0)
+		return -1;
+	
+	assert(nret == 0 || nret == 1);
+	
+	if (nret == 0)
 		ret->t = -1;
 	else {
 		int	t = lua_type(lua, top+1);

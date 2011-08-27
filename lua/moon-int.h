@@ -48,3 +48,6 @@ void	_get_global_ent(lua_State *L, const char *name, ...);
 		buf = *bb;\
 		luaL_argcheck(L, firetalk_buffer_t_valid(buf), stack, "invalid firetalk_buffer_t (this should never happen)");\
 	} while(0)
+
+/* hooks.c */
+int	_call_hook(lua_State *L, int npreargs, int nrets, const char *signature, va_list msg);
