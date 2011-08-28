@@ -34,10 +34,10 @@ OSCAR.ERROR =		0x08
 OSCAR.FATAL = 		0x10
 echodescriptions = {
 	[OSCAR.DEBUG] = "[debug] ",
-	[OSCAR.NOTICE] = "[notice] ",
-	[OSCAR.WARNING] = "[warning] ",
-	[OSCAR.ERROR] = "[error] ",
-	[OSCAR.FATAL] = "[fatal error] ",
+	[OSCAR.NOTICE] = "<font color=\"#00FFFF\"><b>[notice]</b></font> ",
+	[OSCAR.WARNING] = "<body bgcolor=\"#FFFF00\"><b>[warning]</b></body> ",
+	[OSCAR.ERROR] = "<body bgcolor=\"#FF0000\"><b>[error]</b></body> ",
+	[OSCAR.FATAL] = "<body bgcolor=\"#FF0000\"><b>[fatal error]</b></body> ",
 }
 
 debuglevel = 	0x1F
