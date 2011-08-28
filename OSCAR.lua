@@ -12,7 +12,7 @@ module("OSCAR", package.seeall)
 require"numutil"
 require"OSCAR"
 
-OSCAR.required_version = 2
+OSCAR.required_version = 3
 
 OSCAR.name = "OSCAR"		-- remember that this guy gets sourced and used as the PD itself!
 OSCAR.server = "login.oscar.aol.com"
@@ -734,6 +734,17 @@ OSCAR.snacfamilydispatch[0x0003] = OSCAR.dispatchsubtype({
 -- ICBM SNACs (family 0x0004)
 -------------------------------------------------------------------------------
 
+function OSCAR:BOSICBMError(snac)
+	local err = OSCAR.Errors[numutil.strtobe16(snac.data)] or { text = "unknown", fte = naim.pd.fterrors.UNKNOWN }
+	local failing = self.icbm_recent[snac.reqid]
+	
+	if not failing then
+		self:warning("[BOS] [ICBM Error] Reqid "..snac.reqid.." doesn't match anything recent...")
+	end
+	self:notice("[BOS] [ICBM Error] (reqid was ".. snac.reqid .."): ".. err.text .." ["..numutil.tohex(snac.data).."]")
+	naim.pd.internal.error(self, err.fte.num, failing, "ICBM error: "..err.text)
+end
+
 function OSCAR:BOSICBMParameters(snac)
 	self:debug("[BOS] [ICBM Parameters Reply] Undecoded; sending set ICBM request")
 	self.bossock:send(
@@ -885,6 +896,7 @@ function OSCAR:BOSICBMTypingNotification(snac)
 end
 
 OSCAR.snacfamilydispatch[0x0004] = OSCAR.dispatchsubtype({
+	[0x0001] = OSCAR.BOSICBMError,
 	[0x0005] = OSCAR.BOSICBMParameters,
 	[0x0007] = OSCAR.BOSICBM,
 	[0x000A] = OSCAR.BOSICBMMissed,
