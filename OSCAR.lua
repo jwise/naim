@@ -1516,8 +1516,8 @@ function OSCAR:postselect(r, w, e, n) self:wrap(function()
 	if self.authsock then
 		local err = self.authsock:postselect(r, w, e, self.authbuf)
 		if err then
-			self:fatal("Postselect error on authorizer socket: " .. naim.strerror(err))
 			self:cleanup(err, "(from authorizer)")
+			return
 		end
 		if self.authsock and self.authsock:connected() and self.authbuf:readdata() and self.authbuf:pos() ~= 0 then
 			self:got_data_authorizer()
@@ -1526,8 +1526,8 @@ function OSCAR:postselect(r, w, e, n) self:wrap(function()
 	if self.bossock and self.bosbuf then
 		local err = self.bossock:postselect(r, w, e, self.bosbuf)
 		if err then
-			self:fatal("Postselect error on BOS socket: " .. naim.strerror(err))
 			self:cleanup(err, "(from BOS)")
+			return
 		end
 		if self.bossock:connected() and self.bosbuf:readdata() and self.bosbuf:pos() ~= 0 then
 			self:got_data_bos()
