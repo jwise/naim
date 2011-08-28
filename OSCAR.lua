@@ -337,16 +337,37 @@ end
 -- BOS Service Control SNACs (family 0x0001)
 -------------------------------------------------------------------------------
 
-OSCAR.Errors = { "Invalid SNAC header", "Server rate limit exceeded", "Client rate limit exceeded", "Recipient is not logged in",
-		"Requested service unavailable", "Requested service not defined", "Obsolete SNAC", "Not supported by server",
-		"Not supported by client", "Refused by client", "Reply too big", "Responses lost",
-		"Request denied", "Incorrect SNAC format", "Insufficient rights", "Recipient blocked",
-		"Sender too evil", "Receiver too evil", "User temporarily unavailable", "No match",
-		"List overflow", "Request ambiguous", "Server queue full", "Not while on AOL (?)" }
+-- I had to take some liberties with the Firetalk translations.
+OSCAR.Errors = {
+	[0x01] = { text = "Invalid SNAC header", err = naim.pd.fterrors.BADPROTO },
+	[0x02] = { text = "Server rate limit exceeded", err = naim.pd.fterrors.TOOFAST },
+	[0x03] = { text = "Client rate limit exceeded", err = naim.pd.fterrors.TOOFAST },
+	[0x04] = { text = "Recipient is not logged in", err = naim.pd.fterrors.USERUNAVAILABLE },
+	[0x05] = { text = "Requested service unavailable", err = naim.pd.fterrors.SERVER },
+	[0x06] = { text = "Requested service not defined", err = naim.pd.fterrors.VERSION },
+	[0x07] = { text = "Obsolete SNAC", err = naim.pd.fterrors.VERSION },
+	[0x08] = { text = "Not supported by server", err = naim.pd.fterrors.VERSION },
+	[0x09] = { text = "Not supported by client", err = naim.pd.fterrors.WEIRDPACKET },
+	[0x0A] = { text = "Refused by client", err = naim.pd.fterrors.INCOMINGERROR },
+	[0x0B] = { text = "Reply too big", err = naim.pd.fterrors.PACKETSIZE },
+	[0x0C] = { text = "Responses lost", err = naim.pd.fterrors.INCOMINGERROR },
+	[0x0D] = { text = "Request denied", err = naim.pd.fterrors.NOPERMS },
+	[0x0E] = { text = "Incorrect SNAC format", err = naim.pd.fterrors.VERSION },
+	[0x0F] = { text = "Insufficient rights", err = naim.pd.fterrors.NOPERMS },
+	[0x10] = { text = "Recipient blocked", err = naim.pd.fterrors.USERUNAVAILABLE },
+	[0x11] = { text = "Sender too evil", err = naim.pd.fterrors.FE_BLOCKED },
+	[0x12] = { text = "Receiver too evil", err = naim.pd.fterrors.FE_BLOCKED },
+	[0x13] = { text = "User temporarily unavailable", err = naim.pd.fterrors.USERUNAVAILABLE },
+	[0x14] = { text = "No match", err = naim.pd.fterrors.NOMATCH },
+	[0x15] = { text = "List overflow", err = naim.pd.fterrors.PACKETSIZE },
+	[0x16] = { text = "Request ambiguous", err = naim.pd.fterrors.VERSION },
+	[0x17] = { text = "Server queue full", err = naim.pd.fterrors.PACKETSIZE },
+	[0x18] = { text = "Not while on AOL (?)", err = naim.pd.fterrors.WEIRDPACKET },
+}
 	
 function OSCAR:BOSControlError(snac)
 	if OSCAR.Errors[numutil.strtobe16(snac.data)] then
-		self:error("[BOS] [Error] Server reports " .. OSCAR.Errors[numutil.strtobe16(snac.data)] .. " (".. numutil.tohex(snac.data)..")")
+		self:error("[BOS] [Error] Server reports " .. OSCAR.Errors[numutil.strtobe16(snac.data)].text .. " (".. numutil.tohex(snac.data)..")")
 	else
 		self:error("[BOS] [Error] Unknown server error " .. numutil.tohex(snac.data))
 	end
@@ -473,7 +494,7 @@ OSCAR.snacfamilydispatch[0x0001] = OSCAR.dispatchsubtype({
 
 function OSCAR:BOSLocationError(snac)
 	if OSCAR.Errors[numutil.strtobe16(snac.data)] then
-		self:error("[BOS] [Location Error] Server reports " .. OSCAR.Errors[numutil.strtobe16(snac.data)] .. " (".. numutil.tohex(snac.data)..")")
+		self:error("[BOS] [Location Error] Server reports " .. OSCAR.Errors[numutil.strtobe16(snac.data)].text .. " (".. numutil.tohex(snac.data)..")")
 	else
 		self:error("[BOS] [Location Error] Unknown server error " .. numutil.tohex(snac.data))
 	end
@@ -599,7 +620,7 @@ end
 
 function OSCAR:BOSBlistError(snac)
 	if OSCAR.Errors[numutil.strtobe16(snac.data)] then
-		self:error("[BOS] [Blist Error] Server reports " .. OSCAR.Errors[numutil.strtobe16(snac.data)] .. " (".. numutil.tohex(snac.data)..")")
+		self:error("[BOS] [Blist Error] Server reports " .. OSCAR.Errors[numutil.strtobe16(snac.data)].text .. " (".. numutil.tohex(snac.data)..")")
 	else
 		self:error("[BOS] [Blist Error] Unknown server error " .. numutil.tohex(snac.data))
 	end
@@ -1146,6 +1167,7 @@ function OSCAR:BOSSSIModAck(snac)
 		if numutil.strtobe16(snac.data) == 0x000 then
 			func = self.debug
 		end
+		-- xxx: should feed up to UA if error
 		func(self, "[BOS] [SSI Mod Ack] Server reports " .. SSIErrors[numutil.strtobe16(snac.data)] .. " (".. numutil.tohex(snac.data)..")")
 	else
 		self:error("[BOS] [SSI Mod Ack] Unknown server error " .. numutil.tohex(snac.data))
