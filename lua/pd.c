@@ -495,6 +495,22 @@ static int _nlua_typing(lua_State *L) {
 	return(0);
 }
 
+static int _nlua_error(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	int error;
+	const char *sn, *s;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	error = luaL_checknumber(L, 2);
+	sn = lua_tostring(L, 3);
+	s = lua_tostring(L, 4);
+	firetalk_callback_error(c, error, sn, s);
+	
+	return(0);
+}
+
 static int _nlua_connectfailed(lua_State *L) {
 	struct firetalk_driver_connection_t *c;
 	int error;
@@ -509,7 +525,6 @@ static int _nlua_connectfailed(lua_State *L) {
 	
 	return(0);
 }
-
 
 static int _nlua_connected(lua_State *L) {
 	struct firetalk_driver_connection_t *c;
@@ -763,7 +778,8 @@ const struct luaL_reg naim_pd_internallib[] = {
 	{ "buddyremoved",	_nlua_buddyremoved },
 	/* denyadded, denyremoved */
 	{ "typing",		_nlua_typing },
-	/* capabilities, warninfo, error */
+	/* capabilities, warninfo */
+	{ "error",		_nlua_error },
 	{ "connectfailed",	_nlua_connectfailed },
 	{ "connected",		_nlua_connected },
 	{ "disconnect",		_nlua_disconnect },
