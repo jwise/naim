@@ -923,9 +923,15 @@ function OSCAR:im_send_message(target, text, isauto)
 		text = text .. rq
 	end
 	
+	self.icbm_req = (self.icbm_req + 1) % 65536
+	self.icbm_recent[self.icbm_req] = target
+	
+	-- Also clear out old ones.
+	self.icbm_recent[(self.icbm_req - 16 + 65536) % 65536] = nil
+	
 	self.bossock:send(
 		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0004, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			OSCAR.SNAC:new({family = 0x0004, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = self.icbm_req, data = 
 				string.char(	0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, -- cookie
 						0x00,0x01, -- channel
 						target:len()) .. target ..
@@ -1543,6 +1549,8 @@ function OSCAR:connect(server, port, sn)
 	self.authbuf:resize(65550)
 	self.authsock:connect(server, port)
 	self.isconnecting = true
+	self.icbm_req = 0
+	self.icbm_recent = {}
 	
 	return 0
 end
