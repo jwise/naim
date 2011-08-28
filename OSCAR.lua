@@ -1072,6 +1072,71 @@ function OSCAR:_snactorosterentry(indata)
 	return indata, itemname, groupid, itemid, type, data, nickname, buddycomment, contents
 end
 
+function OSCAR:_AddItem(sdata, differential)
+	local itemname, groupid, itemid, type, data, nickname, buddycomment, contents
+	
+	sdata, itemname, groupid, itemid, type, data, nickname, buddycomment, contents = self:_snactorosterentry(sdata)
+	
+	if type == 0x0001 then
+		if not self.groups[groupid] then
+			self.groups[groupid] = {}
+		end
+		self.groups[groupid].members = {}
+		if groupid ~= 0 then
+			self.groups[groupid].name = itemname
+			if not contents then contents = "" end
+			while contents:len() > 1 do
+				local buddy
+				buddy = numutil.strtobe16(contents)
+				contents = contents:sub(3)
+				self.groups[groupid].members[buddy] = {}
+			end
+		else
+			self.groups[groupid].name = "Unassigned"
+		end
+	elseif type == 0x0000 then
+		if not self.groups[groupid] then
+			self:error("[BOS] [SSI] Item without group created first?")
+			self.groups[groupid] = {}
+			self.groups[groupid].members = {}
+		end
+		if not self.groups[groupid].members[itemid] then
+			if not differential then
+				self:warning("[BOS] [SSI] Item did not exist in group, but we're not doing a differential update...")
+			end
+			self.groups[groupid].members[itemid] = {}
+		end
+		self.groups[groupid].members[itemid].name = itemname
+		self.groups[groupid].members[itemid].friendly = nickname
+		self.groups[groupid].members[itemid].comment = comment
+		self.groups[groupid].members[itemid].dirty = true
+	end
+	
+	return sdata
+end
+
+function OSCAR:_CommitDirty()
+	for k,group in pairs(self.groups) do
+		if not group.name then
+			group.name = "Unknown group"
+		end
+		self:debug("[BOS] [SSI] ["..group.name.."]")
+		for k2,v in pairs(group.members) do
+			if v.friendly then
+				self:debug("[BOS] [SSI] * ".. v.name .. " ("..v.friendly..")" .. (v.dirty and " [dirty]" or ""))
+			elseif v.name then
+				self:debug("[BOS] [SSI] * ".. v.name .. (v.dirty and " [dirty]" or ""))
+			else
+				self:debug("[BOS] [SSI] *** UNKNOWN ***" .. (v.dirty and " [dirty]" or ""))
+			end
+			if v.name and v.dirty then
+				self:buddyadded(v.name, group.name, v.friendly)
+				v.dirty = false
+			end
+		end
+	end
+end
+
 function OSCAR:BOSSSIRosterReply(snac)
 	local items, lastchange, i
 
@@ -1084,58 +1149,12 @@ function OSCAR:BOSSSIRosterReply(snac)
 	self:debug("[BOS] [SSI roster reply] flags " .. snac.flags0 .. " " .. snac.flags1 .. " items " ..items)
 	
 	for i = 1,items do
-		local itemname, groupid, itemid, type, data, nickname, buddycomment, contents
-		
-		snac.data, itemname, groupid, itemid, type, data, nickname, buddycomment, contents = self:_snactorosterentry(snac.data)
-		
-		if type == 0x0001 then
-			if not self.groups[groupid] then
-				self.groups[groupid] = {}
-			end
-			self.groups[groupid].members = {}
-			if groupid ~= 0 then
-				self.groups[groupid].name = itemname
-				if not contents then contents = "" end
-				while contents:len() > 1 do
-					local buddy
-					buddy = numutil.strtobe16(contents)
-					contents = contents:sub(3)
-					self.groups[groupid].members[buddy] = {}
-				end
-			else
-				self.groups[groupid].name = "Unassigned"
-			end
-		elseif type == 0x0000 then
-			if not self.groups[groupid] then
-				self:error("[BOS] [SSI] Item without group created first?")
-				self.groups[groupid] = {}
-				self.groups[groupid].members = {}
-			end
-			self.groups[groupid].members[itemid].name = itemname
-			self.groups[groupid].members[itemid].friendly = nickname
-			self.groups[groupid].members[itemid].comment = comment
-		end
+		snac.data = self:_AddItem(snac.data)
 	end
 	if naim.bit._and(snac.flags1, 1) == 0 then
 		-- all done
-		for k,group in pairs(self.groups) do
-			if not group.name then
-				group.name = "Unknown group"
-			end
-			self:debug("[BOS] [SSI] ["..group.name.."]")
-			for k2,v in pairs(group.members) do
-				if v.friendly then
-					self:debug("[BOS] [SSI] * ".. v.name .. " ("..v.friendly..")")
-				elseif v.name then
-					self:debug("[BOS] [SSI] * ".. v.name)
-				else
-					self:debug("[BOS] [SSI] *** UNKNOWN ***")
-				end
-				if v.name then
-					self:buddyadded(v.name, group.name, v.friendly)
-				end
-			end
-		end
+		self:_CommitDirty()
+		
 		-- make it so! send the activate SSI stuff down the wire
 		self.bossock:send(
 			OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
@@ -1154,18 +1173,18 @@ function OSCAR:BOSSSIRemoveItem(snac)
 	
 	local itemname, groupid, itemid, type, data, nickname, buddycomment, contents
 		
-	snac.data, itemname, groupid, itemid, type, data, nickname, buddycomment, contents = self:_snactorosterentry(snac.data)
-	
-	if type == 0x0000 then
-		if not self.groups[groupid] then
-			self:error("[BOS] [SSI Remove Item] That group ID doesn't exist ...")
+	while snac.data ~= "" do
+		snac.data, itemname, groupid, itemid, type, data, nickname, buddycomment, contents = self:_snactorosterentry(snac.data)
+		
+		if type == 0x0000 then
+			if not self.groups[groupid] then
+				self:fatal("[BOS] [SSI Remove Item] That group ID doesn't exist ...")
+			end
+			self:buddyremoved(self.groups[groupid].members[itemid].name, self.groups[groupid].name)
+			self.groups[groupid].members[itemid] = nil
+		elseif type == 0x0001 then
+			self.groups[groupid] = nil
 		end
-		self.groups[groupid].members[itemid] = nil
-	elseif type == 0x0001 then
-		self.groups[groupid] = nil
-	end
-	if snac.data:len() ~= 0 then
-		self:fatal("[BOS] [SSI Remove Item] data left over ...")
 	end
 	
 	self.bossock:send(
@@ -1213,9 +1232,35 @@ function OSCAR:BOSSSITransactionEnd(snac)
 			}):tostring())
 end
 
+function OSCAR:BOSSSIAdd(snac)
+	self:debug("[BOS] [SSI Add]")
+	if not self.ssibusy then
+		self:fatal("[BOS] [SSI Add] Not within a transaction?")
+	end
+	
+	while snac.data ~= ""do
+		snac.data = self:_AddItem(snac.data, true)
+	end
+	self:_CommitDirty()
+end
+
+function OSCAR:BOSSSIMod(snac)
+	-- libfaim ignores it, so that means that we can too.
+	self:notice("[BOS] [SSI Mod] Not very supported, but ignored since we might be able to get away with it.")
+	if not self.ssibusy then
+		self:fatal("[BOS] [SSI Add] Not within a transaction?")
+	end
+	
+	while snac.data ~= "" do
+		snac.data, itemname, groupid, itemid, type, data, nickname, buddycomment, contents = self:_snactorosterentry(snac.data)
+	end
+end
+
 OSCAR.snacfamilydispatch[0x0013] = OSCAR.dispatchsubtype({
 	[0x0003] = OSCAR.BOSSSILimitReply,
 	[0x0006] = OSCAR.BOSSSIRosterReply,
+	[0x0008] = OSCAR.BOSSSIAdd,
+	[0x0009] = OSCAR.BOSSSIMod,
 	[0x000A] = OSCAR.BOSSSIRemoveItem,
 	[0x000E] = OSCAR.BOSSSIModAck,
 	[0x0011] = OSCAR.BOSSSITransactionStart,
@@ -1563,6 +1608,7 @@ function OSCAR:connect(server, port, sn)
 	self.isconnecting = true
 	self.icbm_req = 0
 	self.icbm_recent = {}
+	self.ssibusy = false
 	
 	return 0
 end
