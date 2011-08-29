@@ -1032,87 +1032,90 @@ OSCAR.debug_commands["request-ssi"] = function(self, text)
 end
 
 function OSCAR:_snactorosterentry(indata)
-	local itemname, groupid, itemid, type, data, nickname, buddycomment, contents
+	local ent = {}
 	
-	itemname = indata:sub(3, numutil.strtobe16(indata) + 2)
+	ent.itemname = indata:sub(3, numutil.strtobe16(indata) + 2)
 	indata = indata:sub(numutil.strtobe16(indata) + 3)
-	groupid = numutil.strtobe16(indata)
+	ent.groupid = numutil.strtobe16(indata)
 	indata = indata:sub(3)
-	itemid = numutil.strtobe16(indata)
+	ent.itemid = numutil.strtobe16(indata)
 	indata = indata:sub(3)
-	type = numutil.strtobe16(indata)
+	ent.type = numutil.strtobe16(indata)
 	indata = indata:sub(3)
-	data = indata:sub(3, numutil.strtobe16(indata) + 2)
+	ent.data = indata:sub(3, numutil.strtobe16(indata) + 2)
 	indata = indata:sub(numutil.strtobe16(indata) + 3)
 	
 	local nickname, buddycomment, contents
-	while data and OSCAR.TLV:lengthfromstring(data) and OSCAR.TLV:lengthfromstring(data) <= data:len() do
-		local tlv = OSCAR.TLV(data)
-		data = data:sub(tlv.value:len() + 5)
-		    if tlv.type == 0x0131 then nickname = tlv.value
-		elseif tlv.type == 0x013C then buddycomment = tlv.value
-		elseif tlv.type == 0x00C8 then contents = tlv.value
+	while ent.data and OSCAR.TLV:lengthfromstring(ent.data) and OSCAR.TLV:lengthfromstring(ent.data) <= ent.data:len() do
+		local tlv = OSCAR.TLV(ent.data)
+		ent.data = ent.data:sub(tlv.value:len() + 5)
+		    if tlv.type == 0x0131 then ent.nickname = tlv.value
+		elseif tlv.type == 0x013C then ent.buddycomment = tlv.value
+		elseif tlv.type == 0x00C8 then ent.contents = tlv.value
 		end
 	end
 	
 	local types = { [0x0000] = "Buddy record", [0x0001] = "Group record", [0x0002] = "Permit record",
 			[0x0003] = "Deny record", [0x0004] = "Permit/deny settings", [0x0005] = "Presence info",
 			[0x000E] = "Ignore list record", [0x000F] = "Last update date", [0x0019] = "Buddy record (deleted)"}
-	local thestring = "[BOS] [SSI] Item: " .. itemname .. ", group " .. groupid .. ", item " ..itemid .. ", "
-	if types[type] then thestring = thestring .. types[type]
-	else thestring = thestring .. "Type " .. type
+	local thestring = "[BOS] [SSI] Item: " .. ent.itemname .. ", group " .. ent.groupid .. ", item " ..ent.itemid .. ", "
+	if types[ent.type] then thestring = thestring .. types[ent.type]
+	else thestring = thestring .. "Type " .. ent.type
 	end
 	thestring = thestring .. ", "
-	if data:len() > 0 then thestring = thestring .. "extra data!, " end
-	if nickname then thestring = thestring .. "nickname " .. nickname .. ", " end
-	if buddycomment then thestring = thestring .. "buddycomment " .. buddycomment .. ", " end
-	if contents then thestring = thestring .. "contents, " end
+	if ent.data:len() > 0 then thestring = thestring .. "extra data!, " end
+	if ent.nickname then thestring = thestring .. "nickname " .. ent.nickname .. ", " end
+	if ent.buddycomment then thestring = thestring .. "buddycomment " .. ent.buddycomment .. ", " end
+	if ent.contents then thestring = thestring .. "contents, " end
 	self:debug(thestring .. "end.")
 	
-	return indata, itemname, groupid, itemid, type, data, nickname, buddycomment, contents
+	return indata, ent
 end
 
-function OSCAR:_AddItem(sdata, differential)
-	local itemname, groupid, itemid, type, data, nickname, buddycomment, contents
-	
-	sdata, itemname, groupid, itemid, type, data, nickname, buddycomment, contents = self:_snactorosterentry(sdata)
-	
-	if type == 0x0001 then
-		if not self.groups[groupid] then
-			self.groups[groupid] = {}
+function OSCAR:_AddItem(roster, differential)
+	if roster.type == 0x0001 then
+		if not self.groups[roster.groupid] then
+			self.groups[roster.groupid] = {}
 		end
-		self.groups[groupid].members = {}
-		if groupid ~= 0 then
-			self.groups[groupid].name = itemname
-			if not contents then contents = "" end
-			while contents:len() > 1 do
+		self.groups[roster.groupid].members = {}
+		if roster.groupid ~= 0 then
+			self.groups[roster.groupid].name = roster.itemname
+			if not roster.contents then roster.contents = "" end
+			while roster.contents:len() > 1 do
 				local buddy
-				buddy = numutil.strtobe16(contents)
-				contents = contents:sub(3)
-				self.groups[groupid].members[buddy] = {}
+				buddy = numutil.strtobe16(roster.contents)
+				roster.contents = roster.contents:sub(3)
+				self.groups[roster.groupid].members[buddy] = {}
 			end
 		else
-			self.groups[groupid].name = "Unassigned"
+			self.groups[roster.groupid].name = "Unassigned"
 		end
-	elseif type == 0x0000 then
-		if not self.groups[groupid] then
+	elseif roster.type == 0x0000 then
+		if not self.groups[roster.groupid] then
 			self:error("[BOS] [SSI] Item without group created first?")
-			self.groups[groupid] = {}
-			self.groups[groupid].members = {}
+			self.groups[roster.groupid] = {}
+			self.groups[roster.groupid].members = {}
 		end
-		if not self.groups[groupid].members[itemid] then
+		if not self.groups[roster.groupid].members[roster.itemid] then
 			if not differential then
 				self:warning("[BOS] [SSI] Item did not exist in group, but we're not doing a differential update...")
 			end
-			self.groups[groupid].members[itemid] = {}
+			
+			-- Look for the item in other groups.
+			for k,v in pairs(self.groups) do
+				if v.members[roster.itemid] then
+					v.members[roster.itemid] = nil
+				end
+			end
+			
+			-- Only after it's in no other groups can we add it.
+			self.groups[roster.groupid].members[roster.itemid] = {}
 		end
-		self.groups[groupid].members[itemid].name = itemname
-		self.groups[groupid].members[itemid].friendly = nickname
-		self.groups[groupid].members[itemid].comment = comment
-		self.groups[groupid].members[itemid].dirty = true
+		self.groups[roster.groupid].members[roster.itemid].name = roster.itemname
+		self.groups[roster.groupid].members[roster.itemid].friendly = roster.nickname
+		self.groups[roster.groupid].members[roster.itemid].comment = roster.comment
+		self.groups[roster.groupid].members[roster.itemid].dirty = true
 	end
-	
-	return sdata
 end
 
 function OSCAR:_CommitDirty()
@@ -1148,8 +1151,10 @@ function OSCAR:BOSSSIRosterReply(snac)
 	snac.data = snac.data:sub(3)
 	self:debug("[BOS] [SSI roster reply] flags " .. snac.flags0 .. " " .. snac.flags1 .. " items " ..items)
 	
+	local roster
 	for i = 1,items do
-		snac.data = self:_AddItem(snac.data)
+		snac.data, roster = self:_snactorosterentry(snac.data)
+		self:_AddItem(roster)
 	end
 	if naim.bit._and(snac.flags1, 1) == 0 then
 		-- all done
@@ -1171,19 +1176,19 @@ function OSCAR:BOSSSIRemoveItem(snac)
 	end
 	self:debug("[BOS] [SSI Remove Item]")
 	
-	local itemname, groupid, itemid, type, data, nickname, buddycomment, contents
+	local roster
 		
 	while snac.data ~= "" do
-		snac.data, itemname, groupid, itemid, type, data, nickname, buddycomment, contents = self:_snactorosterentry(snac.data)
+		snac.data, roster = self:_snactorosterentry(snac.data)
 		
-		if type == 0x0000 then
-			if not self.groups[groupid] then
+		if roster.type == 0x0000 then
+			if not self.groups[roster.groupid] then
 				self:fatal("[BOS] [SSI Remove Item] That group ID doesn't exist ...")
 			end
-			self:buddyremoved(self.groups[groupid].members[itemid].name, self.groups[groupid].name)
-			self.groups[groupid].members[itemid] = nil
-		elseif type == 0x0001 then
-			self.groups[groupid] = nil
+			self:buddyremoved(self.groups[roster.groupid].members[roster.itemid].name, self.groups[roster.groupid].name)
+			self.groups[roster.groupid].members[roster.itemid] = nil
+		elseif roster.type == 0x0001 then
+			self.groups[roster.groupid] = nil
 		end
 	end
 	
@@ -1238,8 +1243,10 @@ function OSCAR:BOSSSIAdd(snac)
 		self:fatal("[BOS] [SSI Add] Not within a transaction?")
 	end
 	
-	while snac.data ~= ""do
-		snac.data = self:_AddItem(snac.data, true)
+	local roster
+	while snac.data ~= "" do
+		snac.data, roster = self:_snactorosterentry(snac.data)
+		self:_AddItem(roster, true)
 	end
 	self:_CommitDirty()
 end
@@ -1251,8 +1258,9 @@ function OSCAR:BOSSSIMod(snac)
 		self:fatal("[BOS] [SSI Add] Not within a transaction?")
 	end
 	
+	local roster
 	while snac.data ~= "" do
-		snac.data, itemname, groupid, itemid, type, data, nickname, buddycomment, contents = self:_snactorosterentry(snac.data)
+		snac.data, roster = self:_snactorosterentry(snac.data)
 	end
 end
 
