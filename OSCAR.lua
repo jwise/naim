@@ -1252,15 +1252,35 @@ function OSCAR:BOSSSIAdd(snac)
 end
 
 function OSCAR:BOSSSIMod(snac)
-	-- libfaim ignores it, so that means that we can too.
-	self:notice("[BOS] [SSI Mod] Not very supported, but ignored since we might be able to get away with it.")
 	if not self.ssibusy then
-		self:fatal("[BOS] [SSI Add] Not within a transaction?")
+		self:fatal("[BOS] [SSI Mod] Not within a transaction?")
 	end
 	
 	local roster
 	while snac.data ~= "" do
 		snac.data, roster = self:_snactorosterentry(snac.data)
+		
+		if roster.type == 0x0000 then
+			-- Look for the old item and look up missing data from it.
+			local olditem = nil
+			for gid,group in pairs(self.groups) do
+				for mid,member in pairs(group.members) do
+					if mid == roster.itemid then
+						olditem = member
+					end
+				end
+			end
+			if not olditem then
+				self:fatal("[BOS] [SSI Mod] Mod, but old item ID doesn't exist")
+			end
+			roster.itemname = roster.itemname or olditem.name
+			roster.nickname = roster.nickname or olditem.friendly
+			roster.comment = roster.comment or olditem.comment
+			self:_AddItem(roster, true)
+			self:_CommitDirty()
+		elseif roster.type == 0x0001 then
+			self:debug("[BOS] [SSI Mod] Mod on groups is a no-op right now.")
+		end
 	end
 end
 
