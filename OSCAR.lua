@@ -1474,7 +1474,7 @@ function OSCAR:im_remove_buddy(account, agroup)
 						}):tostring())
 				group.members[k2] = nil
 				self:_updategroup(k)
-				self:buddyremoved(member.name, group.name)
+				-- No need to inform the UA -- it will take care of freeing the buddy object itself.
 			end
 		end
 
