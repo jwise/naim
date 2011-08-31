@@ -1569,6 +1569,32 @@ function OSCAR:im_remove_buddy(account, agroup)
 end
 
 -------------------------------------------------------------------------------
+-- Administrative services
+-------------------------------------------------------------------------------
+
+function OSCAR:set_nickname(nick)
+	if self:comparenicks(self.screenname, nick) ~= 0 then
+		return naim.pd.fterrors.NOMATCH.num
+	end
+	
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0007, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data =
+			OSCAR.TLV{type = 0x0001, value=nick}
+		})
+	
+	return 0
+end
+
+function OSCAR:BOSAccountModAck(snac)
+	-- XXX: parse for error code?
+	self:debug("[BOS] [Account Mod Ack]")
+end
+
+OSCAR.snacfamilydispatch[0x0007] = OSCAR.dispatchsubtype({
+	[0x0005] = OSCAR.BOSAccountModAck,
+	})
+
+-------------------------------------------------------------------------------
 -- Protocol driver stubs / required functions
 -------------------------------------------------------------------------------
                                                                         
