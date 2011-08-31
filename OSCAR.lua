@@ -232,14 +232,10 @@ function OSCAR:got_data_authorizer()
 				else
 					local bosaddr,bosport = bosip:match("([a-z0-9\.]*):([0-9]*)")
 					self.screenname = screenname
-					self.authcookie = authcookie
 					
-					self:debug("[auth] connecting to BOS on "..bosaddr.." port "..bosport.. " as "..self.screenname)
+					self:debug("[auth] connecting to BOS as "..self.screenname)
 					
-					self.bossock = naim.socket.new()
-					self.bosbuf = naim.buffer.new()
-					self.bosbuf:resize(65550)
-					self.bossock:connect(bosaddr, bosport)
+					self:FLAPConnect(bosaddr, bosport, authcookie)
 					
 					if bufdata:len() ~= 0 then
 						self:error("[auth] there was still data left over from the authorizer when I killed its buffer...")
@@ -279,12 +275,29 @@ end
 
 OSCAR.snacfamilydispatch = {}
 
-function OSCAR:got_data_bos()
-	local bufdata = self.bosbuf:peek()
+function OSCAR:FLAPConnect(bosaddr, bosport, cookie)
+	local flap = {}
+	
+	self:debug("[FLAP] connecting to BOS on "..bosaddr.." port "..bosport)
+	
+	table.insert(self.flapconns, flap)
+	
+	flap.cookie = cookie
+	flap.seq = 0
+	flap.sock = naim.socket.new()
+	flap.buf = naim.buffer.new()
+	flap.buf:resize(65550)
+	flap.families = {}
+	
+	flap.sock:connect(bosaddr, bosport)
+end
+
+function OSCAR:FLAPNewData(conn)
+	local bufdata = conn.buf:peek()
 	while bufdata and OSCAR.FLAP:lengthfromstring(bufdata) and OSCAR.FLAP:lengthfromstring(bufdata) <= bufdata:len() do
 		local len = OSCAR.FLAP:lengthfromstring(bufdata)
-		local flap = OSCAR.FLAP:fromstring(self.bosbuf:take(len))
-		bufdata = self.bosbuf:peek()
+		local flap = OSCAR.FLAP:fromstring(conn.buf:take(len))
+		bufdata = conn.buf:peek()
 		
 		-- now we can dispatch the FLAP
 		if flap.channel == 1 then
@@ -293,15 +306,21 @@ function OSCAR:got_data_bos()
 				return self:fatal("[BOS] That wasn't a connection acknowledge!")
 			end
 			-- okay, it is; let's send the auth request
-			self.bossock:send(
+			conn.sock:send(
 				OSCAR.FLAP:new({ channel = 1, seq = 0, data =
 					string.char(0x00, 0x00, 0x00, 0x01) ..
-					self.TLV{type = 0x0006, value = self.authcookie}
+					self.TLV{type = 0x0006, value = conn.cookie}
 				}):tostring()
 				)
-			self.bosseq = 0
+			conn.seq = 1
 		elseif flap.channel == 2 then	-- data SNACs
 			local snac = OSCAR.SNAC:fromstring(flap.data)
+
+			-- Pack the conn into the SNAC so that a service
+			-- signon handler can know what connection it came
+			-- from.
+			snac.conn = conn
+			
 			if OSCAR.snacfamilydispatch[snac.family] then
 				OSCAR.snacfamilydispatch[snac.family](self, snac)
 			else
@@ -323,14 +342,33 @@ function OSCAR:got_data_bos()
 			if error or errorurl then
 				self:error("[BOS] disconnecting with error: " .. tostring(error) .. "(see "..tostring(errorurl).." for more detail)")
 			end
-			self.bossock:close()
-			self.bossock = nil
-			self.bosbuf = nil
+			self:cleanup(naim.pd.fterrors.DISCONNECT, "BOS disconnected")
 		else
 			self:error("[BOS] Unknown channel: "..flap.channel)
 		end
 	end
 	return 0
+end
+
+function OSCAR:FLAPSend(snac)
+	local conn = nil
+	for _,thisconn in pairs(self.flapconns) do
+		for fam,_ in pairs(thisconn.families) do
+			if fam == snac.family then
+				conn = thisconn
+			end
+		end
+		if conn then break end
+	end
+	if not conn then
+		self:error("[FLAP] Could not find FLAP connection to send SNAC with family "..snac.family)
+	end
+	
+	conn.sock:send(
+		OSCAR.FLAP:new({channel = 2, seq = conn.seq, data = snac:tostring()})
+			:tostring()
+		)
+	conn.seq = conn.seq + 1
 end
 
 -------------------------------------------------------------------------------
@@ -373,20 +411,15 @@ function OSCAR:BOSControlError(snac)
 	end
 end
 
-function OSCAR:BOSControlHostReady(snac)	
-	local families = 0
-	self.families = {}
+function OSCAR:BOSControlHostReady(snac)
 	while snac.data:len() > 1 do
-		self.families[numutil.strtobe16(snac.data)] = true
-		families = families + 1
+		snac.conn.families[numutil.strtobe16(snac.data)] = true
 		snac.data = snac.data:sub(3)
 	end
 	self:debug("[BOS] [Host Ready] Sending rate request")
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0001, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = 0, data = ""}
-				):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = 0, data = ""}
+		)
 end
 
 function OSCAR:BOSControlRateResponse(snac)
@@ -397,61 +430,45 @@ function OSCAR:BOSControlRateResponse(snac)
 	--	acceptedrates = acceptedrates .. snac.data:sub(3+(i-1)*35, 4+(i-1)*35)
 	--end
 	acceptedrates = string.char(0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05)
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0001, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 1, data = 
-				acceptedrates
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 1, data = 
+			acceptedrates
+		})
 	self:debug("[BOS] [Rate Response] Sent rate acknowledge SNAC")
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0001, subtype = 0x0014, flags0 = 0, flags1 = 0, reqid = 2, data = 
-				string.char(0x00, 0x00, 0x00, 0x03)
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x0014, flags0 = 0, flags1 = 0, reqid = 2, data = 
+			string.char(0x00, 0x00, 0x00, 0x03)
+		})
 	self:debug("[BOS] [Rate Response] Sent privacy SNAC")
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0001, subtype = 0x000e, flags0 = 0, flags1 = 0, reqid = 3, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x000e, flags0 = 0, flags1 = 0, reqid = 3, data = 
+			""
+		})
 	self:debug("[BOS] [Rate Response] Sent user info request SNAC")
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0002, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 4, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 4, data = 
+			""
+		})
 	self:debug("[BOS] [Rate Response] Sent location limit request SNAC")
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0003, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 5, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0003, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 5, data = 
+			""
+		})
 	self:debug("[BOS] [Rate Response] Sent blist limit request SNAC")
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0004, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 6, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0004, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 6, data = 
+			""
+		})
 	self:debug("[BOS] [Rate Response] Sent ICBM param request SNAC")
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0009, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 7, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0009, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 7, data = 
+			""
+		})
 	self:debug("[BOS] [Rate Response] Sent privacy param request SNAC")
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 8, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 8, data = 
+			""
+		})
 	self:debug("[BOS] [Rate Response] Sent SSI param request SNAC")
 end
 
@@ -581,36 +598,30 @@ OSCAR.caps = OSCAR.uuid_to_bytes("{0946134D-4C7F-11D1-8222-444553540000}") ..
              OSCAR.uuid_to_bytes("{748F2420-6287-11D1-8222-444553540000}")
 
 function OSCAR:set_info(info)
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				OSCAR.TLV{type = 0x0001, value='text/x-aolrtf; charset="us-ascii"'} ..
-				OSCAR.TLV{type = 0x0002, value=info} ..
-				OSCAR.TLV{type = 0x0005, value=OSCAR.caps} 
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			OSCAR.TLV{type = 0x0001, value='text/x-aolrtf; charset="us-ascii"'} ..
+			OSCAR.TLV{type = 0x0002, value=info} ..
+			OSCAR.TLV{type = 0x0005, value=OSCAR.caps} 
+		})
 end
 
 function OSCAR:set_away(away, isauto)
 	if not away then away = "" end
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				OSCAR.TLV{type = 0x0003, value='text/x-aolrtf; charset="us-ascii"'} ..
-				OSCAR.TLV{type = 0x0004, value=away} ..
-				OSCAR.TLV{type = 0x0005, value=OSCAR.caps} 
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			OSCAR.TLV{type = 0x0003, value='text/x-aolrtf; charset="us-ascii"'} ..
+			OSCAR.TLV{type = 0x0004, value=away} ..
+			OSCAR.TLV{type = 0x0005, value=OSCAR.caps}
+		})
 	return 0
 end
 
 function OSCAR:get_info(user)
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0002, subtype = 0x0015, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				string.char(0x00, 0x00, 0x00, 0x07, user:len()) .. user
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0015, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			string.char(0x00, 0x00, 0x00, 0x07, user:len()) .. user
+		})
 	return 0
 end
 
@@ -747,44 +758,38 @@ end
 
 function OSCAR:BOSICBMParameters(snac)
 	self:debug("[BOS] [ICBM Parameters Reply] Undecoded; sending set ICBM request")
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0004, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				string.char(	0x00, 0x00, -- channel
-						0x00, 0x00, 0x00, 0x07, -- message flags
-						0x1F, 0x40, -- max message snac size
-						0x03, 0xE7, -- max sender warning level
-						0x03, 0xE7, -- max rcvr warning level
-						0x00, 0x00, 0x00, 0x00)
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0004, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			string.char(	0x00, 0x00, -- channel
+					0x00, 0x00, 0x00, 0x07, -- message flags
+					0x1F, 0x40, -- max message snac size
+					0x03, 0xE7, -- max sender warning level
+					0x03, 0xE7, -- max rcvr warning level
+					0x00, 0x00, 0x00, 0x00)
+		})
 	self:debug("[BOS] [ICBM Parameters Reply] Finalizing.")
 	self:doinit(self.screenname)
 	
 	-- SET_NICKINFO_FIELDS
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0001, subtype = 0x001E, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				OSCAR.TLV{type = 0x0006, value=string.char(0x00, 0x00, 0x00, 0x00)}
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x001E, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			OSCAR.TLV{type = 0x0006, value=string.char(0x00, 0x00, 0x00, 0x00)}
+		})
 	
-	-- What foodgroups do we support?	
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0001, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				--          SRVNAME - VERSION - TOOLID -- TOOLVER -
-				string.char(0x00,0x13,0x00,0x04,0x01,0x10,0x06,0x29) ..
-				--string.char(0x00,0x0a,0x00,0x01,0x01,0x10,0x06,0x29) ..
-				string.char(0x00,0x09,0x00,0x01,0x01,0x10,0x06,0x29) ..
-				string.char(0x00,0x08,0x00,0x01,0x01,0x01,0x04,0x00) ..
-				string.char(0x00,0x04,0x00,0x01,0x01,0x10,0x06,0x29) ..
-				string.char(0x00,0x03,0x00,0x01,0x01,0x10,0x06,0x29) ..
-				string.char(0x00,0x02,0x00,0x01,0x01,0x10,0x06,0x29) ..
-				string.char(0x00,0x01,0x00,0x01,0x01,0x10,0x06,0x29) ..
-				""
-				}):tostring()
-			}):tostring())
+	-- What foodgroups do we support?
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			--          SRVNAME - VERSION - TOOLID -- TOOLVER -
+			string.char(0x00,0x13,0x00,0x04,0x01,0x10,0x06,0x29) ..
+			--string.char(0x00,0x0a,0x00,0x01,0x01,0x10,0x06,0x29) ..
+			string.char(0x00,0x09,0x00,0x01,0x01,0x10,0x06,0x29) ..
+			string.char(0x00,0x08,0x00,0x01,0x01,0x01,0x04,0x00) ..
+			string.char(0x00,0x04,0x00,0x01,0x01,0x10,0x06,0x29) ..
+			string.char(0x00,0x03,0x00,0x01,0x01,0x10,0x06,0x29) ..
+			string.char(0x00,0x02,0x00,0x01,0x01,0x10,0x06,0x29) ..
+			string.char(0x00,0x01,0x00,0x01,0x01,0x10,0x06,0x29) ..
+			""
+		})
 	self:connected()
 	self.isconnecting = false
 end
@@ -941,20 +946,18 @@ function OSCAR:im_send_message(target, text, isauto)
 	-- Also clear out old ones.
 	self.icbm_recent[(self.icbm_req - 16 + 65536) % 65536] = nil
 	
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0004, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = self.icbm_req, data = 
-				string.char(	0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, -- cookie
-						0x00,0x01, -- channel
-						target:len()) .. target ..
-				OSCAR.TLV{type = 0x0002, value = 
-					string.char(0x05,0x01,0x00,0x01,0x01,0x01,0x01)..
-					numutil.be16tostr(text:len()+4)..
-					string.char(0x00,0x00,0x00,0x00)..
-					text} ..
-				isautotlv
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0004, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = self.icbm_req, data = 
+			string.char(	0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, -- cookie
+					0x00,0x01, -- channel
+					target:len()) .. target ..
+			OSCAR.TLV{type = 0x0002, value = 
+				string.char(0x05,0x01,0x00,0x01,0x01,0x01,0x01)..
+				numutil.be16tostr(text:len()+4)..
+				string.char(0x00,0x00,0x00,0x00)..
+				text} ..
+			isautotlv
+		})
 	return 0
 end
 
@@ -1016,12 +1019,10 @@ OSCAR.snacfamilydispatch[0x0009] = OSCAR.dispatchsubtype({
 function OSCAR:BOSSSILimitReply(snac)
 	self:debug("[BOS] [SSI limit reply]")
 	-- I don't really care about the answer. I do, however, want the buddy list.
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			""
+		})
 	self.groups = {}
 	self.buddies = {}
 end
@@ -1161,12 +1162,10 @@ function OSCAR:BOSSSIRosterReply(snac)
 		self:_CommitDirty()
 		
 		-- make it so! send the activate SSI stuff down the wire
-		self.bossock:send(
-			OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-				OSCAR.SNAC:new({family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
-					""
-					}):tostring()
-				}):tostring())
+		self:FLAPSend(
+			OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
+				""
+			})
 	end
 end
 
@@ -1192,12 +1191,10 @@ function OSCAR:BOSSSIRemoveItem(snac)
 		end
 	end
 	
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			""
+		})
 end
 
 function OSCAR:BOSSSIModAck(snac)
@@ -1229,12 +1226,10 @@ function OSCAR:BOSSSITransactionEnd(snac)
 	end
 	self.ssibusy = false
 	-- Activate new configuration
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			""
+		})
 end
 
 function OSCAR:BOSSSIAdd(snac)
@@ -1304,17 +1299,15 @@ function OSCAR:_updategroup(id)
 		tlvdata = tlvdata .. numutil.be16tostr(k)
 	end
 	tlvs = OSCAR.TLV{type = 0x00c8, value = tlvdata}
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0009, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				numutil.be16tostr(self.groups[id].name:len()) .. self.groups[id].name ..
-				numutil.be16tostr(id) ..
-				numutil.be16tostr(0x0000) ..
-				numutil.be16tostr(0x0001) ..
-				numutil.be16tostr(tlvs:len()) ..
-				tlvs
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0009, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			numutil.be16tostr(self.groups[id].name:len()) .. self.groups[id].name ..
+			numutil.be16tostr(id) ..
+			numutil.be16tostr(0x0000) ..
+			numutil.be16tostr(0x0001) ..
+			numutil.be16tostr(tlvs:len()) ..
+			tlvs
+		})
 end
 
 function OSCAR:_updatemaster()
@@ -1326,17 +1319,15 @@ function OSCAR:_updatemaster()
 		tlvdata = tlvdata .. numutil.be16tostr(k)
 	end
 	tlvs = OSCAR.TLV{type = 0x00c8, value = tlvdata}
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0009, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				numutil.be16tostr(0x0000) .. 
-				numutil.be16tostr(0x0000) ..
-				numutil.be16tostr(0x0000) ..
-				numutil.be16tostr(0x0001) ..
-				numutil.be16tostr(tlvs:len())  ..
-				tlvs
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0009, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			numutil.be16tostr(0x0000) .. 
+			numutil.be16tostr(0x0000) ..
+			numutil.be16tostr(0x0000) ..
+			numutil.be16tostr(0x0001) ..
+			numutil.be16tostr(tlvs:len())  ..
+			tlvs
+		})
 end
 
 function OSCAR:im_add_buddy(account, agroup, afriendly)
@@ -1350,12 +1341,10 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 	self:debug("[BOS] [SSI] Add buddy")
 	-- Start a transaction first.
 	self:debug("[BOS] [SSI] Transaction start")
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0011, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0011, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			""
+		})
 	local gotgroup, newbuddyid, largestgroup
 	largestgroup = 0
 	-- Make sure they're only in one group, and at the same time, look up the new group.
@@ -1369,16 +1358,14 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 		for k2,member in pairs(group.members) do
 			if self:comparenicks(member.name, account) == 0 then
 				self:debug("[BOS] [SSI] Removing "..member.name.." from old group "..group.name)
-				self.bossock:send(
-					OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-						OSCAR.SNAC:new({family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
-							numutil.be16tostr(member.name:len()) .. member.name ..
-							numutil.be16tostr(k) ..
-							numutil.be16tostr(k2) ..
-							numutil.be16tostr(0x0000) ..
-							numutil.be16tostr(0x0000) -- no TLVs
-							}):tostring()
-						}):tostring())
+				self:FLAPSend(
+					OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
+						numutil.be16tostr(member.name:len()) .. member.name ..
+						numutil.be16tostr(k) ..
+						numutil.be16tostr(k2) ..
+						numutil.be16tostr(0x0000) ..
+						numutil.be16tostr(0x0000) -- no TLVs
+					})
 				group.members[k2] = nil
 				self:_updategroup(k)
 				if k2 > maxbuddyid then
@@ -1392,16 +1379,14 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 			newbuddyid = maxbuddyid + 1
 		elseif next(group.members) == nil and k ~= 0x0000 then	-- is the group empty? if so, delete that, too
 			self:debug("[BOS] [SSI] Deleting empty group " .. group.name)
-			self.bossock:send(
-				OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-					OSCAR.SNAC:new({family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
-						numutil.be16tostr(group.name:len()) .. group.name ..
-						numutil.be16tostr(k) ..
-						numutil.be16tostr(0x0000) ..
-						numutil.be16tostr(0x0001) ..	-- group, not user
-						numutil.be16tostr(0x0000) -- no TLVs
-						}):tostring()
-					}):tostring())
+			self:FLAPSend(
+				OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
+					numutil.be16tostr(group.name:len()) .. group.name ..
+					numutil.be16tostr(k) ..
+					numutil.be16tostr(0x0000) ..
+					numutil.be16tostr(0x0001) ..	-- group, not user
+					numutil.be16tostr(0x0000) -- no TLVs
+				})
 			self.groups[k] = nil
 			self:_updatemaster()
 		end
@@ -1413,16 +1398,14 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 		self.groups[gotgroup].name = agroup
 		-- Add the group
 		self:debug("[BOS] [SSI] Creating new group " .. agroup)
-		self.bossock:send(
-			OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-				OSCAR.SNAC:new({family = 0x0013, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 0, data = 
-					numutil.be16tostr(agroup:len()) .. agroup ..
-					numutil.be16tostr(gotgroup) ..
-					numutil.be16tostr(0x0000) ..
-					numutil.be16tostr(0x0001) ..	-- group, not user
-					numutil.be16tostr(0x0000) -- no TLVs
-					}):tostring()
-				}):tostring())	
+		self:FLAPSend(
+			OSCAR.SNAC:new{family = 0x0013, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 0, data = 
+				numutil.be16tostr(agroup:len()) .. agroup ..
+				numutil.be16tostr(gotgroup) ..
+				numutil.be16tostr(0x0000) ..
+				numutil.be16tostr(0x0001) ..	-- group, not user
+				numutil.be16tostr(0x0000) -- no TLVs
+			})
 		self:_updatemaster()
 		newbuddyid = 1
 	end
@@ -1433,36 +1416,30 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 	end
 	self:debug("[BOS] [SSI] Adding user " .. account)
 	-- Add the user
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				numutil.be16tostr(account:len()) .. account ..
-				numutil.be16tostr(gotgroup) ..
-				numutil.be16tostr(newbuddyid) ..
-				numutil.be16tostr(0x0000) ..
-				numutil.be16tostr(tlv:len()) ..
-				tlv
-				}):tostring()
-			}):tostring())	
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			numutil.be16tostr(account:len()) .. account ..
+			numutil.be16tostr(gotgroup) ..
+			numutil.be16tostr(newbuddyid) ..
+			numutil.be16tostr(0x0000) ..
+			numutil.be16tostr(tlv:len()) ..
+			tlv
+		})
 	self:_updategroup(gotgroup)
 	self:buddyadded(account, agroup, afriendly)
 	
 	self:debug("[BOS] [SSI] Ending transaction")
 	-- End the transaction.
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0012, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0012, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			""
+		})
 	
 	-- Activate new configuration
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			""
+		})
 	return 0
 end
 
@@ -1480,26 +1457,22 @@ function OSCAR:im_remove_buddy(account, agroup)
 	end
 	-- Start a transaction first.
 	self:debug("[BOS] [SSI] Transaction start")
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0011, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0011, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			""
+		})
 	for k,group in pairs(self.groups) do
 		for k2,member in pairs(group.members) do
 			if self:comparenicks(member.name, account) == 0 and (agroup:lower() == group.name:lower()) then
 				self:debug("[BOS] [SSI] Removing "..member.name.." from group "..group.name)
-				self.bossock:send(
-					OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-						OSCAR.SNAC:new({family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
-							numutil.be16tostr(member.name:len()) .. member.name ..
-							numutil.be16tostr(k) ..
-							numutil.be16tostr(k2) ..
-							numutil.be16tostr(0x0000) ..
-							numutil.be16tostr(0x0000) -- no TLVs
-							}):tostring()
-						}):tostring())
+				self:FLAPSend(
+					OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
+						numutil.be16tostr(member.name:len()) .. member.name ..
+						numutil.be16tostr(k) ..
+						numutil.be16tostr(k2) ..
+						numutil.be16tostr(0x0000) ..
+						numutil.be16tostr(0x0000) -- no TLVs
+					})
 				group.members[k2] = nil
 				self:_updategroup(k)
 				-- No need to inform the UA -- it will take care of freeing the buddy object itself.
@@ -1508,35 +1481,29 @@ function OSCAR:im_remove_buddy(account, agroup)
 
 		if next(group.members) == nil and k ~= 0x0000 then	-- is the group empty? if so, delete that, too
 			self:debug("[BOS] [SSI] Pruning empty group " .. group.name)
-			self.bossock:send(
-				OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-					OSCAR.SNAC:new({family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
-						numutil.be16tostr(group.name:len()) .. group.name ..
-						numutil.be16tostr(k) ..
-						numutil.be16tostr(0x0000) ..
-						numutil.be16tostr(0x0001) ..	-- group, not user
-						numutil.be16tostr(0x0000) -- no TLVs
-						}):tostring()
-					}):tostring())
+			self:FLAPSend(
+				OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
+					numutil.be16tostr(group.name:len()) .. group.name ..
+					numutil.be16tostr(k) ..
+					numutil.be16tostr(0x0000) ..
+					numutil.be16tostr(0x0001) ..	-- group, not user
+					numutil.be16tostr(0x0000) -- no TLVs
+				})
 			self:_updatemaster()
 		end
 	end
 	self:debug("[BOS] [SSI] Ending transaction")
 	-- End the transaction.
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0012, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0012, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			""
+		})
 	
 	-- Activate new configuration
-	self.bossock:send(
-		OSCAR.FLAP:new({ channel = 2, seq = self:nextbosseq(), data =
-			OSCAR.SNAC:new({family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
-				""
-				}):tostring()
-			}):tostring())
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			""
+		})
 	return 0
 end
 
@@ -1555,15 +1522,16 @@ function OSCAR:room_normalize(room)	-- cute! a failure in this function will cau
 end
 
 -------------------------------------------------------------------------------
--- Connection management
+-- Socket management
 -------------------------------------------------------------------------------
 
 function OSCAR:preselect(r,w,e,n)
 	if self.authsock then
 		n = self.authsock:preselect(r,w,e,n)
 	end
-	if self.bossock then
-		n = self.bossock:preselect(r,w,e,n)
+	
+	for k,conn in pairs(self.flapconns or {}) do
+		n = conn.sock:preselect(r,w,e,n)
 	end
 	return n
 end
@@ -1584,11 +1552,14 @@ function OSCAR:cleanup(reason, verbose)
 		self.authbuf = nil
 	end
 	
-	if self.bossock then
-		self.bossock:close()
-		self.bossock = nil
-		self.bosbuf = nil
+	for k,conn in pairs(self.flapconns) do
+		conn.sock:close()
+		conn.sock = nil
+		conn.buf = nil
+		self.flapconns[k] = nil
 	end
+	
+	self.flapconns = nil
 	
 	if self.isconnecting then
 		self:connectfailed(reason, verbose)
@@ -1608,20 +1579,20 @@ function OSCAR:postselect(r, w, e, n) self:wrap(function()
 			self:got_data_authorizer()
 		end
 	end
-	if self.bossock and self.bosbuf then
-		local err = self.bossock:postselect(r, w, e, self.bosbuf)
+	for k,conn in pairs(self.flapconns or {}) do
+		local err = conn.sock:postselect(r, w, e, conn.buf)
 		if err then
-			self:cleanup(err, "(from BOS)")
+			self:cleanup(err, "(from BOS #"..k..")")
 			return
 		end
-		if self.bossock:connected() and self.bosbuf:readdata() and self.bosbuf:pos() ~= 0 then
-			self:got_data_bos()
+		if conn.sock:connected() and conn.buf:readdata() and conn.buf:pos() ~= 0 then
+			self:FLAPNewData(conn)
 		end
 	end
 end) end
 
 function OSCAR:connect(server, port, sn)
-	if self.bossock or self.authsock then
+	if self.flapconns or self.authsock then
 		self:error("Already connected!")
 		return 1
 	end
@@ -1637,6 +1608,7 @@ function OSCAR:connect(server, port, sn)
 	self.icbm_req = 0
 	self.icbm_recent = {}
 	self.ssibusy = false
+	self.flapconns = {}
 	
 	return 0
 end
