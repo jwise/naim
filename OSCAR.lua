@@ -235,7 +235,7 @@ function OSCAR:got_data_authorizer()
 					
 					self:debug("[auth] connecting to BOS as "..self.screenname)
 					
-					self:FLAPConnect(bosaddr, bosport, authcookie)
+					self:FLAPConnect(bosip, authcookie)
 					
 					if bufdata:len() ~= 0 then
 						self:error("[auth] there was still data left over from the authorizer when I killed its buffer...")
@@ -275,8 +275,14 @@ end
 
 OSCAR.snacfamilydispatch = {}
 
-function OSCAR:FLAPConnect(bosaddr, bosport, cookie)
+function OSCAR:FLAPConnect(bosip, cookie)
 	local flap = {}
+	local bosaddr,bosport = bosip:match("([a-z0-9\.]*):([0-9]*)")
+	
+	if not bosaddr then
+		bosaddr = bosip
+		bosport = 5190
+	end
 	
 	self:debug("[FLAP] connecting to BOS on "..bosaddr.." port "..bosport)
 	
@@ -361,7 +367,22 @@ function OSCAR:FLAPSend(snac)
 		if conn then break end
 	end
 	if not conn then
-		self:error("[FLAP] Could not find FLAP connection to send SNAC with family "..snac.family)
+		self:debug("[FLAP] Trying to open FLAP connection for family "..snac.family)
+		
+		if self.flapspending[snac.family] then
+			self:notice("[FLAP] Connection already pending for SNAC family "..snac.family.."... is something wrong?")
+		else
+			-- Send a request to open the SNAC family connection.
+			self.flapspending[snac.family] = {}
+			self:FLAPSend(
+				OSCAR.SNAC:new{family = 0x0001, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
+					numutil.be16tostr(snac.family)
+				})
+		end
+			
+		self.flapspending[snac.family][snac] = true
+		
+		return
 	end
 	
 	conn.sock:send(
@@ -412,14 +433,52 @@ function OSCAR:BOSControlError(snac)
 end
 
 function OSCAR:BOSControlHostReady(snac)
+	local families = 0
+	
 	while snac.data:len() > 1 do
-		snac.conn.families[numutil.strtobe16(snac.data)] = true
+		local family = numutil.strtobe16(snac.data)
+		
+		snac.conn.families[family] = true
+		
+		-- Anyone queued?
+		if self.flapspending[family] then
+			for txsnac,_ in pairs(self.flapspending[family]) do
+				self:FLAPSend(txsnac)
+			end
+			self.flapspending[family] = nil
+		end
+		
+		families = families + 1
+		self:debug("[BOS] [Host Ready] Family available: "..family)
+		
 		snac.data = snac.data:sub(3)
 	end
-	self:debug("[BOS] [Host Ready] Sending rate request")
-	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0001, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = 0, data = ""}
-		)
+	self:debug("[BOS] [Host Ready] BOS connection online with "..families.." families.")
+	
+	-- This isn't really the right place to do this, but sometimes you
+	-- gotta do what you gotta do.
+	if self.isconnecting then
+		self:debug("[BOS] [Host Ready] Sending rate request")
+		self:FLAPSend(
+			OSCAR.SNAC:new{family = 0x0001, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = 0, data = ""}
+			)
+	end
+end
+
+function OSCAR:BOSControlRedirectService(snac)
+	local srvid, address, cookie
+	
+	while snac.data and OSCAR.TLV:lengthfromstring(snac.data) and OSCAR.TLV:lengthfromstring(snac.data) <= snac.data:len() do
+		local tlv = OSCAR.TLV(snac.data)
+		snac.data = snac.data:sub(tlv.value:len() + 5)
+		    if tlv.type == 0x0005 then address = tlv.value
+		elseif tlv.type == 0x0006 then cookie = tlv.value
+		elseif tlv.type == 0x000D then srvid = numutil.strtobe16(tlv.value)
+		end
+	end
+	self:debug("[BOS] [Redirect Service] Got redirect for family "..(srvid or "???").." to host "..address)
+	
+	self:FLAPConnect(address, cookie)
 end
 
 function OSCAR:BOSControlRateResponse(snac)
@@ -473,7 +532,7 @@ function OSCAR:BOSControlRateResponse(snac)
 end
 
 function OSCAR:BOSControlURL(snac)
-	self:notice("[BOS] [URL] URL data received and ignored")
+	self:debug("[BOS] [URL] URL data received and ignored")
 end
 
 function OSCAR:BOSControlOnlineInfo(snac)
@@ -498,6 +557,7 @@ end
 OSCAR.snacfamilydispatch[0x0001] = OSCAR.dispatchsubtype({
 	[0x0001] = OSCAR.BOSControlError,
 	[0x0003] = OSCAR.BOSControlHostReady,
+	[0x0005] = OSCAR.BOSControlRedirectService,
 	[0x0007] = OSCAR.BOSControlRateResponse,
 	[0x000A] = OSCAR.BOSControlRateUpdate,
 	[0x000F] = OSCAR.BOSControlOnlineInfo,
@@ -1560,6 +1620,7 @@ function OSCAR:cleanup(reason, verbose)
 	end
 	
 	self.flapconns = nil
+	self.flapspending = nil
 	
 	if self.isconnecting then
 		self:connectfailed(reason, verbose)
@@ -1609,6 +1670,7 @@ function OSCAR:connect(server, port, sn)
 	self.icbm_recent = {}
 	self.ssibusy = false
 	self.flapconns = {}
+	self.flapspending = {}
 	
 	return 0
 end
