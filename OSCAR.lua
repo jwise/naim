@@ -235,7 +235,7 @@ function OSCAR:got_data_authorizer()
 					
 					self:debug("[auth] connecting to BOS as "..self.screenname)
 					
-					self:FLAPConnect(bosip, authcookie)
+					self:FLAPConnect(bosip, authcookie, true)
 					
 					if bufdata:len() ~= 0 then
 						self:error("[auth] there was still data left over from the authorizer when I killed its buffer...")
@@ -275,7 +275,7 @@ end
 
 OSCAR.snacfamilydispatch = {}
 
-function OSCAR:FLAPConnect(bosip, cookie)
+function OSCAR:FLAPConnect(bosip, cookie, required)
 	local flap = {}
 	local bosaddr,bosport = bosip:match("([a-z0-9\.]*):([0-9]*)")
 	
@@ -294,6 +294,7 @@ function OSCAR:FLAPConnect(bosip, cookie)
 	flap.buf = naim.buffer.new()
 	flap.buf:resize(65550)
 	flap.families = {}
+	flap.required = required
 	
 	flap.sock:connect(bosaddr, bosport)
 end
@@ -1643,10 +1644,22 @@ function OSCAR:postselect(r, w, e, n) self:wrap(function()
 	for k,conn in pairs(self.flapconns or {}) do
 		local err = conn.sock:postselect(r, w, e, conn.buf)
 		if err then
-			self:cleanup(err, "(from BOS #"..k..")")
-			return
+			if conn.required then
+				-- This was fatal.
+				self:cleanup(err, "(from BOS #"..k..")")
+				return
+			end
+			
+			-- Maybe the other end just timed us out from
+			-- inactivity.  No sweat.
+			conn.sock:close()
+			conn.sock = nil
+			conn.buf = nil
+			self.flapconns[k] = nil
+			
+			self:notice("[FLAP] BOS #"..k.." disconnected; non-fatal.")
 		end
-		if conn.sock:connected() and conn.buf:readdata() and conn.buf:pos() ~= 0 then
+		if conn.sock and conn.sock:connected() and conn.buf:readdata() and conn.buf:pos() ~= 0 then
 			self:FLAPNewData(conn)
 		end
 	end
