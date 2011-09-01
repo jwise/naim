@@ -1498,6 +1498,15 @@ fte_t	firetalk_set_away(firetalk_connection_t *conn, const char *const message, 
 	return(firetalk_protocols[conn->protocol]->set_away(conn->handle, message, auto_flag));
 }
 
+fte_t	firetalk_set_available(firetalk_connection_t *conn, const char *const message) {
+	assert(firetalk_connection_t_valid(conn));
+
+	if (conn->connected == FCS_NOTCONNECTED)
+		return(FE_NOTCONNECTED);
+
+	return(firetalk_protocols[conn->protocol]->set_available(conn->handle, message));
+}
+
 fte_t	firetalk_set_nickname(firetalk_connection_t *conn, const char *const nickname) {
 	assert(firetalk_connection_t_valid(conn));
 

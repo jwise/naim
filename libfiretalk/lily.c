@@ -1815,6 +1815,10 @@ static fte_t lily_set_away(lily_conn_t *c, const char *const message, const int 
 		return(lily_send_printf(c, "/HERE off"));
 }
 
+static fte_t lily_set_available(lily_conn_t *c, const char *const message) {
+	return(FE_SUCCESS);
+}
+
 static fte_t lily_periodic(firetalk_connection_t *const c) {
 	return(FE_SUCCESS);
 }
@@ -1850,6 +1854,7 @@ const firetalk_driver_t firetalk_protocol_slcp = {
 	get_info:		lily_get_info,
 	set_info:		lily_set_info,
 	set_away:		lily_set_away,
+	set_available:		lily_set_available,
 	set_nickname:		lily_set_nickname,
 	set_password:		lily_set_password,
 	im_add_buddy:		lily_im_add_buddy,

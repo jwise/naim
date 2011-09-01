@@ -149,6 +149,7 @@ fte_t	firetalk_compare_nicks(struct firetalk_connection_t *conn, const char *con
 fte_t	firetalk_isprint(struct firetalk_connection_t *conn, const int c);
 fte_t	firetalk_set_info(struct firetalk_connection_t *conn, const char *const info);
 fte_t	firetalk_set_away(struct firetalk_connection_t *c, const char *const message, const int auto_flag);
+fte_t	firetalk_set_available(struct firetalk_connection_t *c, const char *const message);
 const char *firetalk_chat_normalize(struct firetalk_connection_t *conn, const char *const room);
 fte_t	firetalk_set_nickname(struct firetalk_connection_t *conn, const char *const nickname);
 fte_t	firetalk_set_password(struct firetalk_connection_t *conn, const char *const oldpass, const char *const newpass);

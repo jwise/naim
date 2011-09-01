@@ -146,6 +146,7 @@ PD_CALL_WRAPPER(connect, HOOK_T_STRING HOOK_T_UINT32 HOOK_T_STRING) /* const cha
 PD_CALL_WRAPPER(get_info, HOOK_T_STRING) /* const char *const account */
 PD_CALL_WRAPPER(set_info, HOOK_T_STRING) /* const char *const text */
 PD_CALL_WRAPPER(set_away, HOOK_T_STRING HOOK_T_UINT32) /* const char *const text, const int isauto */
+PD_CALL_WRAPPER(set_available, HOOK_T_STRING) /* const char *const text */
 PD_CALL_WRAPPER(set_nickname, HOOK_T_STRING HOOK_T_STRING) /* const char *const account */
 PD_CALL_WRAPPER(set_password, HOOK_T_STRING HOOK_T_STRING) /* const char *const password, const char *const password2 */
 PD_CALL_WRAPPER(set_privacy, HOOK_T_STRING) /* const char *const flag */
@@ -293,6 +294,7 @@ static const firetalk_driver_t firetalk_protocol_template = {
 	get_info:		_nlua_pd_get_info,
 	set_info:		_nlua_pd_set_info,
 	set_away:		_nlua_pd_set_away,
+	set_available:		_nlua_pd_set_available,
 	set_nickname:		_nlua_pd_set_nickname,
 	set_password:		_nlua_pd_set_password,
 	im_add_buddy:		_nlua_pd_im_add_buddy,

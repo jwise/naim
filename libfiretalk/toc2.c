@@ -1080,6 +1080,10 @@ static fte_t toc_set_away(toc_conn_t *c, const char *const message, const int au
 	}
 }
 
+static fte_t toc_set_available(toc_conn_t *c, const char *const message) {
+	return(FE_SUCCESS);
+}
+
 static fte_t toc_set_nickname(toc_conn_t *c, const char *const nickname) {
 	return(toc_send_printf(c, "toc_format_nickname %s", nickname));
 }
@@ -2668,6 +2672,7 @@ const firetalk_driver_t firetalk_protocol_toc2 = {
 	get_info:		toc_get_info,
 	set_info:		toc_set_info,
 	set_away:		toc_set_away,
+	set_available:		toc_set_available,
 	set_nickname:		toc_set_nickname,
 	set_password:		toc_set_password,
 	set_privacy:		toc_set_privacy,

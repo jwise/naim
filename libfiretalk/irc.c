@@ -1566,6 +1566,10 @@ static fte_t irc_set_away(irc_conn_t *c, const char *const message, const int au
 		return(irc_send_printf(c,"AWAY"));
 }
 
+static fte_t irc_set_available(irc_conn_t *c, const char *const message) {
+	return(FE_SUCCESS);
+}
+
 static fte_t irc_periodic(firetalk_connection_t *const conn) {
 	return(FE_SUCCESS);
 }
@@ -1637,6 +1641,7 @@ const firetalk_driver_t firetalk_protocol_irc = {
 	get_info:		irc_get_info,
 	set_info:		irc_set_info,
 	set_away:		irc_set_away,
+	set_available:		irc_set_available,
 	set_nickname:		irc_set_nickname,
 	set_password:		irc_set_password,
 	im_add_buddy:		irc_im_add_buddy,

@@ -386,6 +386,7 @@ typedef struct {
 	fte_t	(*get_info)(struct firetalk_driver_connection_t *c, const char *const account);
 	fte_t	(*set_info)(struct firetalk_driver_connection_t *c, const char *const text);
 	fte_t	(*set_away)(struct firetalk_driver_connection_t *c, const char *const text, const int isauto);
+	fte_t	(*set_available)(struct firetalk_driver_connection_t *c, const char *const status);
 	fte_t	(*set_nickname)(struct firetalk_driver_connection_t *c, const char *const account);
 	fte_t	(*set_password)(struct firetalk_driver_connection_t *c, const char *const password, const char *const password2);
 	fte_t	(*set_privacy)(struct firetalk_driver_connection_t *c, const char *const flag);
