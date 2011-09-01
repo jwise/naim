@@ -615,7 +615,7 @@ function OSCAR:BOSLocationGotInfo(snac)
 		end
 	end
 	if snac.data:len() > 0 then
-		self:debug(tohex(snac.data))
+		self:warning("[BOS] [GotInfo] Data left over after TLVs: "..numutil.tohex(snac.data))
 	end
 	
 	self:gotinfo(screenname, info, wlevel, online, idle, flags)
