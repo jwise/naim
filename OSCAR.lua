@@ -566,6 +566,27 @@ OSCAR.snacfamilydispatch[0x0001] = OSCAR.dispatchsubtype({
 	[0x0021] = OSCAR.BOSControlExtStatus,
 	})
 
+-- Why is this part of the OSERVICE foodgroup instead of the Location
+-- foodgroup?  We may never know.  Thanks, AOL.
+function OSCAR:set_available(avail)
+	avail = avail or ""
+	if avail:len() > 252 then
+		avail = avail:sub(1,252)
+	end
+
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x001E, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			OSCAR.TLV{type = 0x001D, value =
+				numutil.be16tostr(0x0002) ..
+				numutil.be16tostr(0x0404 + avail:len()) ..
+				numutil.be16tostr(avail:len()) ..
+				avail ..
+				numutil.be16tostr(0x0000)}
+		})
+	
+	return 0
+end
+
 -------------------------------------------------------------------------------
 -- Location control SNACs (family 0x0002)
 -------------------------------------------------------------------------------
