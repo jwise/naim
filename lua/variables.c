@@ -40,6 +40,22 @@ int	nlua_setvar(const char *const name, const char *const value) {
 	return(1);
 }
 
+int	nlua_unsetvar(const char *const name) {
+	const int top = lua_gettop(lua);
+
+	if (name == NULL)
+		return(0);
+
+	_get_global_ent(lua, "naim", "variables", NULL);
+	lua_pushstring(lua, name);
+	lua_pushnil(lua);
+	lua_settable(lua, -3);
+	lua_pop(lua, 1);
+
+	assert(lua_gettop(lua) == top);
+	return(1);
+}
+
 long	nlua_getvar_int(const char *const name) {
 	const int top = lua_gettop(lua);
 	long	result;

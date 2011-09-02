@@ -97,6 +97,7 @@ extern long int timezone;
 # define script_getvar_copy	nlua_getvar_safe
 # define script_setvar		nlua_setvar
 # define script_setvar_int	nlua_setvar_int
+# define script_unsetvar	nlua_unsetvar
 # define script_expand		nlua_expand
 # define script_script_parse	nlua_script_parse
 # define script_cmd		nlua_luacmd
@@ -122,6 +123,7 @@ long	script_getvar_int(const char *name);
 char	*script_getvar_copy(const char *name, char **buf);
 int	script_setvar(const char *name, const char *val);
 int	script_setvar_int(const char *name, const long val);
+int	script_unsetvar(const char *name);
 char	*script_expand(const char *instr);
 int	script_script_parse(const char *line);
 void	script_cmd(conn_t *conn, char *cmd, char *arg);
