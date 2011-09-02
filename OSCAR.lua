@@ -1608,6 +1608,11 @@ function OSCAR:room_normalize(room)	-- cute! a failure in this function will cau
 	return room
 end
 
+-- All characters can be transmitted over the wire equally well.
+function OSCAR:isprintable(c)
+	return 0
+end
+
 -------------------------------------------------------------------------------
 -- Socket management
 -------------------------------------------------------------------------------
