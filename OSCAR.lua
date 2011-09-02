@@ -589,6 +589,7 @@ function OSCAR:BOSLocationLimitations(snac)
 	end
 	self:debug("[BOS] [Location Limitations] Max profile length: "..maxprof..", maximum capabilities: "..maxcaps)
 	self:set_info("LuaOSCAR user")
+	self:set_caps()
 	self:debug("[BOS] [Location Limitations] Sent profile et al")
 end
 
@@ -658,12 +659,18 @@ OSCAR.caps = OSCAR.uuid_to_bytes("{0946134D-4C7F-11D1-8222-444553540000}") ..
              OSCAR.uuid_to_bytes("{09461348-4C7F-11D1-8222-444553540000}") ..
              OSCAR.uuid_to_bytes("{748F2420-6287-11D1-8222-444553540000}")
 
+function OSCAR:set_caps()
+	self:FLAPSend(
+		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			OSCAR.TLV{type = 0x0005, value=OSCAR.caps} 
+		})
+end
+
 function OSCAR:set_info(info)
 	self:FLAPSend(
 		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
 			OSCAR.TLV{type = 0x0001, value='text/x-aolrtf; charset="us-ascii"'} ..
-			OSCAR.TLV{type = 0x0002, value=info} ..
-			OSCAR.TLV{type = 0x0005, value=OSCAR.caps} 
+			OSCAR.TLV{type = 0x0002, value=info}
 		})
 end
 
@@ -672,8 +679,7 @@ function OSCAR:set_away(away, isauto)
 	self:FLAPSend(
 		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
 			OSCAR.TLV{type = 0x0003, value='text/x-aolrtf; charset="us-ascii"'} ..
-			OSCAR.TLV{type = 0x0004, value=away} ..
-			OSCAR.TLV{type = 0x0005, value=OSCAR.caps}
+			OSCAR.TLV{type = 0x0004, value=away}
 		})
 	return 0
 end
