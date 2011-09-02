@@ -293,16 +293,34 @@ void	setaway(const int auto_flag) {
 
 void	unsetaway(void) {
 	conn_t	*conn = curconn;
+	char	*availmsg = script_getvar("availmsg"); /* OK if it's NULL */
 
 	awaytime = 0;
 	updateidletime();
 	do {
 		status_echof(conn, "You are no longer away--welcome back =)\n");
 		firetalk_set_away(conn->conn, NULL, 0);
+		firetalk_set_available(conn->conn, availmsg);
 		if (conn->online > 0)
 			naim_set_info(conn, conn->profile);
 	} while ((conn = conn->next) != curconn);
 }
+
+void	updavail(void) {
+	conn_t	*conn = curconn;
+	char	*availmsg = script_getvar("availmsg"); /* OK if it's NULL */
+
+	do {
+		if (availmsg)
+			status_echof(conn, "You are now available: %s\n", availmsg);
+		else
+			status_echof(conn, "Your available message is now unset.\n");
+		firetalk_set_available(conn->conn, availmsg);
+		if (conn->online > 0)
+			naim_set_info(conn, conn->profile);
+	} while ((conn = conn->next) != curconn);
+}
+
 
 int	getvar_int(conn_t *conn, const char *str) {
 	char	buf[1024], *ptr;

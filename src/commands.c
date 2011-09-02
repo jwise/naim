@@ -1077,6 +1077,20 @@ UAAOPT(string,message)
 	}
 }
 
+UAFUNC(avail) {
+UAALIA(available)
+UADESC(Set or unset available (status) message)
+UAAOPT(string,message)
+	if (argc == 0 && (awaytime > 0))
+		unsetaway();
+	else if (argc == 0)
+		script_unsetvar("availmsg");
+	else
+		script_setvar("availmsg", script_expand(args[0]));
+
+	updavail();
+}
+
 UAFUNC(buddylist) {
 UADESC(Display buddy list)
 UAAOPT(string,type)

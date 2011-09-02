@@ -272,6 +272,7 @@ void	naim_send_im_away(conn_t *conn, const char *, const char *, int force);
 void	naim_send_act(conn_t *const conn, const char *const, const unsigned char *const);
 void	setaway(const int auto_flag);
 void	unsetaway(void);
+void	updavail(void);
 void	sendaway(conn_t *conn, const char *);
 int	getvar_int(conn_t *conn, const char *);
 char	*getvar(conn_t *conn, const char *);
