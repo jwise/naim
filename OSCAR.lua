@@ -961,6 +961,7 @@ function OSCAR:BOSICBM(snac)
 	else
 		self:im_getmessage(screenname, auto, realmessage)
 	end
+	self:typing(screenname, 0)
 end
 
 function OSCAR:BOSICBMMissed(snac)
