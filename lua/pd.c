@@ -651,6 +651,21 @@ static int _nlua_chat_getmessage(lua_State *L) {
 	return(0);
 }
 
+static int _nlua_user_nickchanged(lua_State *L) {
+	struct firetalk_driver_connection_t *c;
+	const char *oldnick, *newnick;
+	
+	c = _nlua_pd_lua_to_driverconn(L, 1);
+	if (!c)
+		return luaL_error(L, "expected a connection for argument #1");
+	oldnick = luaL_checkstring(L, 2);
+	newnick = luaL_checkstring(L, 3);
+	
+	firetalk_callback_user_nickchanged(c, oldnick, newnick);
+	
+	return(0);
+}
+
 static int _nlua_chat_joined(lua_State *L) {
 	struct firetalk_driver_connection_t *c;
 	const char *room;
@@ -789,7 +804,8 @@ const struct luaL_reg naim_pd_internallib[] = {
 	{ "idleinfo",		_nlua_idleinfo },
 	{ "statusinfo",		_nlua_statusinfo },
 	{ "doinit",		_nlua_doinit },
-	/* setidle, eviled, newnick, passchanged, user_nickchanged */
+	/* setidle, eviled, newnick, passchanged */
+	{ "user_nickchanged",	_nlua_user_nickchanged },
 	{ "chat_joined",	_nlua_chat_joined },
 	{ "chat_left",		_nlua_chat_left },
 	/* chat_kicked */

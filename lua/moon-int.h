@@ -14,7 +14,7 @@
 
 /* Bump this whenever you add a feature that a client could reasonably want
  * to depend on.  */
-#define NLUA_API_VERSION 3
+#define NLUA_API_VERSION 4
 
 /* conn.c */
 void	_push_conn_t(lua_State *L, conn_t *conn);
