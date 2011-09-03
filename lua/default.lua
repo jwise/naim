@@ -1,8 +1,14 @@
+-- XXX This does NOT really handle nicknames correctly in general...  but
+-- this code has no knowledge of calling into Firetalk to call up
+-- compare_nicks.
+function naim.internal.compare_nicks(a, b)
+	a = a:lower():gsub(" ", "")
+	b = b:lower():gsub(" ", "")
+	return a == b
+end
+
 naim.internal.insensitive_index = {
 	__index = function(t, s)
-		-- XXX This does NOT really handle nicknames correctly in
-		-- general...  but this code has no knowledge of calling
-		-- into Firetalk to call up compare_nicks.
 		s = s:lower():gsub(" ", "")
 
 		for k,v in pairs(t) do
@@ -700,9 +706,11 @@ naim.hooks.add('proto_buddy_nickchanged', function(conn, who, newnick)
 	if window then
 		window:echo("<font color=\"#00FFFF\">" .. who .. "</font> is now known as <font color=\"#00FFFF\">" .. newnick .. "</font>.")
 		window.name = newnick
-		assert(not conn.windows[newnick], "proto_buddy_nickchanged: not conn.windows[newnick]")
-		conn.windows[newnick] = conn.windows[who]
-		conn.windows[who] = nil
+		if not naim.internal.compare_nicks(who, newnick) then
+			assert(not conn.windows[newnick], "proto_buddy_nickchanged: not conn.windows[newnick]")
+			conn.windows[newnick] = conn.windows[who]
+			conn.windows[who] = nil
+		end
 	end
 end, 100)
 
