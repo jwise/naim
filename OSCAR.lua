@@ -1133,6 +1133,18 @@ OSCAR.debug_commands["request-ssi"] = function(self, text)
 	self:BOSSSILimitReply(nil)
 end
 
+OSCAR.SSITypes = {
+	BUDDY = 0x0,
+	GROUP = 0x1,
+	PERMIT = 0x2,
+	DENY = 0x3,
+	PERMITDENY = 0x4,
+	PRESENCE = 0x5,
+	IGNORELIST = 0xE,
+	LASTUPDATE = 0xF,
+	RECENTBUDDY = 0x19
+}
+
 function OSCAR:_snactorosterentry(indata)
 	local ent = {}
 	
@@ -1159,7 +1171,7 @@ function OSCAR:_snactorosterentry(indata)
 	
 	local types = { [0x0000] = "Buddy record", [0x0001] = "Group record", [0x0002] = "Permit record",
 			[0x0003] = "Deny record", [0x0004] = "Permit/deny settings", [0x0005] = "Presence info",
-			[0x000E] = "Ignore list record", [0x000F] = "Last update date", [0x0019] = "Buddy record (deleted)"}
+			[0x000E] = "Ignore list record", [0x000F] = "Last update date", [0x0019] = "Recent buddy"}
 	local thestring = "[BOS] [SSI] Item: " .. ent.itemname .. ", group " .. ent.groupid .. ", item " ..ent.itemid .. ", "
 	if types[ent.type] then thestring = thestring .. types[ent.type]
 	else thestring = thestring .. "Type " .. ent.type
@@ -1175,7 +1187,10 @@ function OSCAR:_snactorosterentry(indata)
 end
 
 function OSCAR:_AddItem(roster, differential)
-	if roster.type == 0x0001 then
+	if roster.itemid == 0 then
+		if roster.type ~= OSCAR.SSITypes.GROUP then
+			self:fatal("[SSI] Roster item with itemid 0, but wasn't a group?")
+		end
 		if not self.groups[roster.groupid] then
 			self.groups[roster.groupid] = {}
 		end
@@ -1192,14 +1207,15 @@ function OSCAR:_AddItem(roster, differential)
 		else
 			self.groups[roster.groupid].name = "Unassigned"
 		end
-	elseif roster.type == 0x0000 then
+	else
+		-- roster.type OSCAR.SSITypes.Buddy
 		if not self.groups[roster.groupid] then
 			self:error("[BOS] [SSI] Item without group created first?")
 			self.groups[roster.groupid] = {}
 			self.groups[roster.groupid].members = {}
 		end
 		if not self.groups[roster.groupid].members[roster.itemid] then
-			if not differential then
+			if not differential and roster.groupid ~= 0 then
 				self:warning("[BOS] [SSI] Item did not exist in group, but we're not doing a differential update...")
 			end
 			
@@ -1216,6 +1232,7 @@ function OSCAR:_AddItem(roster, differential)
 		self.groups[roster.groupid].members[roster.itemid].name = roster.itemname
 		self.groups[roster.groupid].members[roster.itemid].friendly = roster.nickname
 		self.groups[roster.groupid].members[roster.itemid].comment = roster.comment
+		self.groups[roster.groupid].members[roster.itemid].type = roster.type
 		self.groups[roster.groupid].members[roster.itemid].dirty = true
 	end
 end
@@ -1227,14 +1244,15 @@ function OSCAR:_CommitDirty()
 		end
 		self:debug("[BOS] [SSI] ["..group.name.."]")
 		for k2,v in pairs(group.members) do
-			if v.friendly then
+			if v.type ~= OSCAR.SSITypes.BUDDY then
+			elseif v.friendly then
 				self:debug("[BOS] [SSI] * ".. v.name .. " ("..v.friendly..")" .. (v.dirty and " [dirty]" or ""))
 			elseif v.name then
 				self:debug("[BOS] [SSI] * ".. v.name .. (v.dirty and " [dirty]" or ""))
 			else
 				self:debug("[BOS] [SSI] *** UNKNOWN ***" .. (v.dirty and " [dirty]" or ""))
 			end
-			if v.name and v.dirty then
+			if v.name and v.dirty and v.type == OSCAR.SSITypes.BUDDY then
 				self:buddyadded(v.name, group.name, v.friendly)
 				v.dirty = false
 			end
@@ -1464,7 +1482,7 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 						numutil.be16tostr(member.name:len()) .. member.name ..
 						numutil.be16tostr(k) ..
 						numutil.be16tostr(k2) ..
-						numutil.be16tostr(0x0000) ..
+						numutil.be16tostr(member.type) ..
 						numutil.be16tostr(0x0000) -- no TLVs
 					})
 				group.members[k2] = nil
@@ -1510,7 +1528,7 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 		self:_updatemaster()
 		newbuddyid = 1
 	end
-	self.groups[gotgroup].members[newbuddyid] = { name = account, friendly = afriendly }
+	self.groups[gotgroup].members[newbuddyid] = { name = account, friendly = afriendly, type = OSCAR.SSITypes.BUDDY }
 	local tlv = ""
 	if afriendly then
 		tlv = OSCAR.TLV{type = 0x0131, value = afriendly}
@@ -1522,7 +1540,7 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 			numutil.be16tostr(account:len()) .. account ..
 			numutil.be16tostr(gotgroup) ..
 			numutil.be16tostr(newbuddyid) ..
-			numutil.be16tostr(0x0000) ..
+			numutil.be16tostr(OSCAR.SSITypes.BUDDY) ..
 			numutil.be16tostr(tlv:len()) ..
 			tlv
 		})
