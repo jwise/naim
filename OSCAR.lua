@@ -671,7 +671,7 @@ function OSCAR.uuid_to_bytes(uuid)
 	end
 	return uuid:gsub("[{%-}]", ""):gsub("(..)",
 		function(a)
-			return dehex(a:byte(1))*16 + dehex(a:byte(2))
+			return string.char(dehex(a:byte(1))*16 + dehex(a:byte(2)))
 		end)
 end
 
