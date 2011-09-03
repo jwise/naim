@@ -678,7 +678,8 @@ end
 OSCAR.caps = OSCAR.uuid_to_bytes("{0946134D-4C7F-11D1-8222-444553540000}") ..
              OSCAR.uuid_to_bytes("{0946134E-4C7F-11D1-8222-444553540000}") ..
              OSCAR.uuid_to_bytes("{09461348-4C7F-11D1-8222-444553540000}") ..
-             OSCAR.uuid_to_bytes("{748F2420-6287-11D1-8222-444553540000}")
+             OSCAR.uuid_to_bytes("{748F2420-6287-11D1-8222-444553540000}") ..
+             OSCAR.uuid_to_bytes("{563FC809-0B6F-41BD-9F79-422609DFA2F3}")
 
 function OSCAR:set_caps()
 	self:FLAPSend(
@@ -860,7 +861,7 @@ function OSCAR:BOSICBMParameters(snac)
 	self:FLAPSend(
 		OSCAR.SNAC:new{family = 0x0004, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 0, data = 
 			string.char(	0x00, 0x00, -- channel
-					0x00, 0x00, 0x00, 0x07, -- message flags
+					0x00, 0x00, 0x01, 0x1B, -- message flags
 					0x1F, 0x40, -- max message snac size
 					0x03, 0xE7, -- max sender warning level
 					0x03, 0xE7, -- max rcvr warning level
