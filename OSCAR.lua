@@ -12,7 +12,7 @@ module("OSCAR", package.seeall)
 require"numutil"
 require"OSCAR"
 
-OSCAR.required_version = 3
+OSCAR.required_version = 4
 
 OSCAR.name = "OSCAR"		-- remember that this guy gets sourced and used as the PD itself!
 OSCAR.server = "login.oscar.aol.com"
@@ -817,6 +817,17 @@ function OSCAR:BOSBlistOnline(snac, from_offline)
 			self:statusinfo(uname, (status and not away) and status or "")
 		else
 			self:im_buddyonline(uname, 0)
+		end
+		
+		-- Look to see if they changed their capitalization.
+		for _,group in pairs(self.groups) do
+			for _,member in pairs(group.members) do
+				if self:comparenicks(member.name, uname) == 0 and member.name ~= uname then
+					self:user_nickchanged(member.name, uname)
+					self:debug("[BOS] [Blist online] name change from "..member.name.." to "..uname)
+					member.name = uname
+				end
+			end
 		end
 	end
 end
