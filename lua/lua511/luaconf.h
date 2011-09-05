@@ -67,9 +67,9 @@
 @* checks for initialization code.
 ** CHANGE them if you want different names.
 */
-#define LUA_PATH        "LUA_PATH"
-#define LUA_CPATH       "LUA_CPATH"
-#define LUA_INIT	"LUA_INIT"
+#define LUA_PATH        "NAIM_LUA_PATH"
+#define LUA_CPATH       "NAIM_LUA_CPATH"
+#define LUA_INIT	"NAIM_LUA_INIT"
 
 
 /*
@@ -77,33 +77,23 @@
 @* Lua libraries.
 @@ LUA_CPATH_DEFAULT is the default path that Lua uses to look for
 @* C libraries.
-** CHANGE them if your machine has a non-conventional directory
-** hierarchy or if you want to install your libraries in
-** non-conventional directories.
+** In naim, the search path is ~/.naim, PKGMODDIR/lua, and ABS_BUILDDIR.
 */
-#if defined(_WIN32)
-/*
-** In Windows, any exclamation mark ('!') in the path is replaced by the
-** path of the directory of the executable file of the current process.
-*/
-#define LUA_LDIR	"!\\lua\\"
-#define LUA_CDIR	"!\\"
 #define LUA_PATH_DEFAULT  \
-		".\\?.lua;"  LUA_LDIR"?.lua;"  LUA_LDIR"?\\init.lua;" \
-		             LUA_CDIR"?.lua;"  LUA_CDIR"?\\init.lua"
-#define LUA_CPATH_DEFAULT \
-	".\\?.dll;"  LUA_CDIR"?.dll;" LUA_CDIR"loadall.dll"
+	"./.naim/?.lua;" \
+	"./.naim/?/init.lua;" \
+	"./?.lua;" \
+	"./?/init.lua;" \
+	PKGMODDIR "/?.lua;" \
+	PKGMODDIR "/?/init.lua;" \
+	LUASRCPATH "/?.lua;" \
+	LUASRCPATH "/?/init.lua"
 
-#else
-#define LUA_ROOT	"/usr/local/"
-#define LUA_LDIR	LUA_ROOT "share/lua/5.1/"
-#define LUA_CDIR	LUA_ROOT "lib/lua/5.1/"
-#define LUA_PATH_DEFAULT  \
-		"./?.lua;"  LUA_LDIR"?.lua;"  LUA_LDIR"?/init.lua;" \
-		            LUA_CDIR"?.lua;"  LUA_CDIR"?/init.lua"
 #define LUA_CPATH_DEFAULT \
-	"./?.so;"  LUA_CDIR"?.so;" LUA_CDIR"loadall.so"
-#endif
+	"./.naim/?.so;" \
+	"./?.so;" \
+	PKGMODDIR "/?.so;" \
+	LUABUILDPATH "/?.so"
 
 
 /*

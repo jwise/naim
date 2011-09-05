@@ -90,6 +90,7 @@ extern long int timezone;
 
 #ifdef ENABLE_LUA
 # define script_init		nlua_init
+# define script_ready		nlua_ready
 # define script_clean_garbage	nlua_clean_garbage
 # define script_shutdown	nlua_shutdown
 # define script_getvar		nlua_getvar

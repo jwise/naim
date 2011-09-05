@@ -24,6 +24,7 @@ liblua_la_SOURCES = \
 	lua511/ldo.h lua511/llex.h lua511/lobject.h lua511/lstate.h lua511/ltm.h lua511/lualib.h lua511/lzio.h lua511/lcode.h \
 	lua511/lfunc.h lua511/llimits.h lua511/lopcodes.h lua511/lstring.h lua511/lua.h lua511/lundump.h
 liblua_la_LIBADD = -lm
+liblua_la_CPPFLAGS = -DPKGMODDIR='"${pkgmoddir}"' -DLUASRCPATH='"${abs_srcdir}"' -DLUABUILDPATH='"${abs_builddir}"'
 
 libnlua_la_SOURCES = \
 	commands.c \
@@ -39,7 +40,7 @@ libnlua_la_SOURCES = \
 	util.c \
 	variables.c
 libnlua_la_LIBADD = liblua.la ../libfiretalk/libfiretalk.la
-libnlua_la_CPPFLAGS = -I${srcdir}/lua511 -I${top_srcdir}/include -I${top_srcdir}/src -I${top_srcdir}/libfiretalk -I${top_builddir}/src ${INCLTDL}
+libnlua_la_CPPFLAGS = ${liblua_la_CPPFLAGS} -I${srcdir}/lua511 -I${top_srcdir}/include -I${top_srcdir}/src -I${top_srcdir}/libfiretalk -I${top_builddir}/src ${INCLTDL}
 
 noinst_PROGRAMS = luac
 luac_SOURCES = \

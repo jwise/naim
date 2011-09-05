@@ -327,6 +327,8 @@ int	main_stub(int argc, char **args) {
 
 		chdir(home);
 
+		script_ready();
+
 		invocation = naim_basename(args[0]);
 		if (*invocation == 'n')
 			invocation++;

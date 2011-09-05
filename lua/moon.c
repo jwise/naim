@@ -227,6 +227,14 @@ void	nlua_init(void) {
 	}
 }
 
+void	nlua_ready(void) {
+	_get_global_ent(lua, "naim", "internal", "ready", NULL);
+	if (lua_pcall(lua, 0, 0, 0) != 0) {
+		printf("naim.internal.ready run error: %s\n", lua_tostring(lua, -1));
+		abort();
+	}
+}
+
 void	nlua_shutdown(void) {
 	lua_close(lua);
 }

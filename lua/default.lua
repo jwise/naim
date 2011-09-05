@@ -21,6 +21,35 @@ naim.internal.insensitive_index = {
 
 setmetatable(naim.commands, naim.internal.insensitive_index)
 
+
+function naim.internal.ready()
+	local code = os.getenv("NAIM_LUA_INIT")
+	
+	if code then
+		naim.statusbar("Evaluating NAIM_LUA_INIT...")
+		local f,err = loadstring(code)
+		if not f then error(err) end
+		f()
+	end
+	
+	function load(init)
+		local status,err = pcall(function () require(init) end)
+		if status then
+			naim.echo("Successfully loaded "..init..".lua.")
+		elseif not err:match("module '"..init.."' not found") then
+			naim.echo(init..".lua failed: "..err)
+		end
+	end
+	
+	naim.statusbar("Loading naim initialization code...")
+	load("distinit")
+	naim.statusbar("Loading site-specific initialization code...")
+	load("siteinit")
+	naim.statusbar("Loading user initialization code...")
+	load("userinit")
+end
+
+
 function naim.prototypes.windows.event(window, e, s)
 	if window.eventtab and window.eventtab[e] then
 		window.eventtab[e].func(window, e, s)
