@@ -236,16 +236,14 @@ function OSCAR:got_data_authorizer()
 					self:debug("[auth] connecting to BOS as "..self.screenname)
 					
 					self:FLAPConnect(bosip, authcookie, true)
-					
-					if bufdata:len() ~= 0 then
-						self:error("[auth] there was still data left over from the authorizer when I killed its buffer...")
-					end
-					self.authsock:close()
-					self.authsock = nil
-					self.authbuf = nil
-					return 0
 				end
 			end
+		elseif flap.channel == 4 then
+			self:debug("[auth] authorizer closing the connection through normal channel 4 termination")
+			
+			self.authsock:close()
+			self.authsock = nil
+			self.authbuf = nil
 		else
 			return self:fatal("[auth] Unknown channel from authorizer: "..flap.channel)
 		end
