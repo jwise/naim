@@ -40,7 +40,7 @@ echodescriptions = {
 	[OSCAR.FATAL] = "<body bgcolor=\"#FF0000\"><b>[fatal error]</b></body> ",
 }
 
-debuglevel = 	0x1F
+debuglevel = 	0x1E
 function OSCAR:echo(class, text)
 	local descr = "[unknown echo level] "
 	if naim.bit._and(class, self.debuglevel) == 0 then
