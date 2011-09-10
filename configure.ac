@@ -1,5 +1,5 @@
 AC_PREREQ(2.50)
-AC_INIT(naim, 0.12.0, [Daniel Reed <n@ml.org>])
+AC_INIT(naim, 0.12.0, [Joshua Wise <joshua@joshuawise.com>])
 AC_CONFIG_SRCDIR([src/naim-int.h])
 AC_CONFIG_HEADER([src/config.h])
 AC_CONFIG_AUX_DIR([libltdl/config])
