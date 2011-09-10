@@ -7,6 +7,7 @@ libfiretalk_la_SOURCES = \
 	firetalk.c \
 	md5.c \
 	firetalk-int.h \
+	firetalk-errors.h \
 	irc.c \
 	pdutil.c \
 	toc2.c \
