@@ -52,16 +52,13 @@ static void firetalk_register_default_protocols(void) {
 	extern const firetalk_driver_t
 		firetalk_protocol_irc,
 		firetalk_protocol_irc_pass,
-		firetalk_protocol_slcp,
-		firetalk_protocol_toc2;
+		firetalk_protocol_slcp;
 
 	if (firetalk_register_protocol(&firetalk_protocol_irc) != FE_SUCCESS)
 		abort();
 	if (firetalk_register_protocol(&firetalk_protocol_irc_pass) != FE_SUCCESS)
 		abort();
 	if (firetalk_register_protocol(&firetalk_protocol_slcp) != FE_SUCCESS)
-		abort();
-	if (firetalk_register_protocol(&firetalk_protocol_toc2) != FE_SUCCESS)
 		abort();
 }
 

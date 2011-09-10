@@ -10,9 +10,9 @@ libfiretalk_la_SOURCES = \
 	firetalk-errors.h \
 	irc.c \
 	pdutil.c \
-	toc2.c \
-	toc2_uuids.h \
 	lily.c
+
+# toc2.c toc2_uuids.h
 
 check_PROGRAMS = tester toctest
 tester_SOURCES = \

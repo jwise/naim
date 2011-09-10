@@ -313,7 +313,7 @@ int	main_stub(int argc, char **args) {
 	childexit(SIGCHLD);
 
 	{
-		const char *args[] = { "dummy", "AIM" };
+		const char *args[] = { "dummy", "IRC" };
 		extern void ua_newconn(conn_t *, int, const char **);
 
 		ua_newconn(NULL, 2, args);
@@ -366,11 +366,11 @@ int	main_stub(int argc, char **args) {
 			} while ((conn = conn->next) != curconn);
 		} else {
 			if (want_aim)
-				ua_handlecmd("/newconn AIM TOC2");
+				ua_handlecmd("/newconn AIM OSCAR");
 			else if (want_irc)
 				ua_handlecmd("/newconn EFnet IRC");
 			else if (want_icq)
-				ua_handlecmd("/newconn ICQ IRC");
+				ua_handlecmd("/newconn ICQ OSCAR");
 			else if (want_lily)
 				ua_handlecmd("/newconn Lily SLCP");
 			ua_handlecmd("/help");

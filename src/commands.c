@@ -1950,7 +1950,7 @@ UAAOPT(string,protocol)
 			protostr = "IRC";
 		else if ((strcasecmp(args[0], "AIM") == 0)
 			|| (strcasecmp(args[0], "ICQ") == 0))
-			protostr = "TOC2";
+			protostr = "OSCAR";
 		else if (strcasecmp(args[0], "lily") == 0)
 			protostr = "SLCP";
 		else {
@@ -1966,8 +1966,9 @@ UAAOPT(string,protocol)
 			|| (strcasecmp(args[1], "ICQ") == 0)
 			|| (strcasecmp(args[1], "ICQ/TOC") == 0)
 			|| (strcasecmp(args[1], "ICQ/TOC2") == 0)
-			|| (strcasecmp(args[1], "TOC") == 0))
-			protostr = "TOC2";
+			|| (strcasecmp(args[1], "TOC") == 0)
+			|| (strcasecmp(args[1], "TOC2") == 0))
+			protostr = "OSCAR";
 		else if (strcasecmp(args[1], "Lily") == 0)
 			protostr = "SLCP";
 		else
