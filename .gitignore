@@ -9,6 +9,7 @@ src/commands.txt
 src/config.h
 src/conio_keys.h
 src/stamp-h1
+src/snapshot.h
 lua/default_lua.h
 libtool
 *~
