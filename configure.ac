@@ -53,6 +53,7 @@ AC_CONFIG_FILES([
 Makefile
 libfiretalk/Makefile
 libltdl/Makefile
+modules/Makefile
 lua/Makefile
 src/Makefile
 CYGWIN-PATCHES/Makefile

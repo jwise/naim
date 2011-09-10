@@ -86,14 +86,14 @@
 	"./?/init.lua;" \
 	PKGMODDIR "/?.lua;" \
 	PKGMODDIR "/?/init.lua;" \
-	LUASRCPATH "/?.lua;" \
-	LUASRCPATH "/?/init.lua"
+	MODSRCPATH "/?.lua;" \
+	MODSRCPATH "/?/init.lua"
 
 #define LUA_CPATH_DEFAULT \
 	"./.naim/?.so;" \
 	"./?.so;" \
 	PKGMODDIR "/?.so;" \
-	LUABUILDPATH "/?.so"
+	MODBUILDPATH "/?.so"
 
 
 /*
