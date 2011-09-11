@@ -124,48 +124,48 @@ static fte_t _nlua_pd_periodic(firetalk_connection_t *const conn) {
 	return(FE_SUCCESS);
 }
 
-#define PD_CALL_WRAPPER(name, signature) \
-	static fte_t _nlua_pd_##name(struct firetalk_driver_connection_t *c, ...) { \
+#define PD_CALL_WRAPPER(name, signature, csig, ...) \
+	static fte_t _nlua_pd_##name csig { \
 		multival_t val; \
 		int ret; \
-		va_list msg; \
 		\
-		va_start(msg, c); \
-		ret = _nlua_pdvcall(&val, c, #name , signature, msg); \
+		ret = _nlua_pdcall(&val, c, #name , signature, ##__VA_ARGS__); \
 		if ((ret == 0) && ((val.t == HOOK_T_UINT32c) || (val.t == HOOK_T_FLOATc))) \
 			return((val.t == HOOK_T_UINT32c)?val.u.u32:val.u.f); \
 		return(FE_UNKNOWN); \
 	}
 
-PD_CALL_WRAPPER(comparenicks, HOOK_T_STRING HOOK_T_STRING) /* const char *const s1, const char *const s2 */
-PD_CALL_WRAPPER(isprintable, HOOK_T_UINT32) /* const int key */
-PD_CALL_WRAPPER(preselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET HOOK_T_WRUINT32) /* fd_set *read, fd_set *write, fd_set *except, int *n */
-PD_CALL_WRAPPER(postselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET) /* fd_set *read, fd_set *write, fd_set *except */
-PD_CALL_WRAPPER(disconnect, "") /* */
-PD_CALL_WRAPPER(connect, HOOK_T_STRING HOOK_T_UINT32 HOOK_T_STRING) /* const char *server, uint16_t port, const char *const username */
-PD_CALL_WRAPPER(get_info, HOOK_T_STRING) /* const char *const account */
-PD_CALL_WRAPPER(set_info, HOOK_T_STRING) /* const char *const text */
-PD_CALL_WRAPPER(set_away, HOOK_T_STRING HOOK_T_UINT32) /* const char *const text, const int isauto */
-PD_CALL_WRAPPER(set_available, HOOK_T_STRING) /* const char *const text */
-PD_CALL_WRAPPER(set_nickname, HOOK_T_STRING HOOK_T_STRING) /* const char *const account */
-PD_CALL_WRAPPER(set_password, HOOK_T_STRING HOOK_T_STRING) /* const char *const password, const char *const password2 */
-PD_CALL_WRAPPER(set_privacy, HOOK_T_STRING) /* const char *const flag */
-PD_CALL_WRAPPER(im_add_buddy, HOOK_T_STRING HOOK_T_STRING HOOK_T_STRING) /* const char *const account, const char *const group, const char *const friendly */
-PD_CALL_WRAPPER(im_remove_buddy, HOOK_T_STRING HOOK_T_STRING) /* const char *const account, const char *const group */
-PD_CALL_WRAPPER(im_add_deny, HOOK_T_STRING) /* const char *const account */
-PD_CALL_WRAPPER(im_remove_deny, HOOK_T_STRING) /* const char *const account */
-PD_CALL_WRAPPER(im_send_message, HOOK_T_STRING HOOK_T_STRING HOOK_T_UINT32) /* const char *const account, const char *const text, const int isauto */
-PD_CALL_WRAPPER(im_send_action, HOOK_T_STRING HOOK_T_STRING HOOK_T_UINT32) /* const char *const account, const char *const text, const int isauto */
-PD_CALL_WRAPPER(im_evil, HOOK_T_STRING) /* const char *const account */
-PD_CALL_WRAPPER(chat_join, HOOK_T_STRING) /* const char *const group */
-PD_CALL_WRAPPER(chat_part, HOOK_T_STRING) /* const char *const group */
-PD_CALL_WRAPPER(chat_invite, HOOK_T_STRING HOOK_T_STRING HOOK_T_STRING) /* const char *const group, const char *const account, const char *const text */
-PD_CALL_WRAPPER(chat_set_topic, HOOK_T_STRING HOOK_T_STRING) /* const char *const group, const char *const text */
-PD_CALL_WRAPPER(chat_op, HOOK_T_STRING HOOK_T_STRING) /* const char *const group, const char *const account */
-PD_CALL_WRAPPER(chat_deop, HOOK_T_STRING HOOK_T_STRING) /* const char *const group, const char *const account */
-PD_CALL_WRAPPER(chat_kick, HOOK_T_STRING HOOK_T_STRING HOOK_T_STRING) /* const char *const group, const char *const account, const char *const text */
-PD_CALL_WRAPPER(chat_send_message, HOOK_T_STRING HOOK_T_STRING HOOK_T_UINT32) /* const char *const group, const char *const text, const int isauto */
-PD_CALL_WRAPPER(chat_send_action, HOOK_T_STRING HOOK_T_STRING HOOK_T_UINT32) /* const char *const group, const char *const text, const int isauto */
+#define CONN struct firetalk_driver_connection_t *c
+
+PD_CALL_WRAPPER(comparenicks, HOOK_T_STRING HOOK_T_STRING, (CONN, const char *const s1, const char *const s2), s1, s2)
+PD_CALL_WRAPPER(isprintable, HOOK_T_UINT32, (CONN, const int key), key)
+PD_CALL_WRAPPER(preselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET HOOK_T_WRUINT32, (CONN, fd_set *read, fd_set *write, fd_set *except, int *n), read, write, except, n)
+PD_CALL_WRAPPER(postselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET, (CONN, fd_set *read, fd_set *write, fd_set *except), read, write, except)
+PD_CALL_WRAPPER(disconnect, "", (CONN))
+PD_CALL_WRAPPER(connect, HOOK_T_STRING HOOK_T_UINT32 HOOK_T_STRING, (CONN, const char *server, uint16_t port, const char *const username), server, port, username)
+PD_CALL_WRAPPER(get_info, HOOK_T_STRING, (CONN, const char *const account), account)
+PD_CALL_WRAPPER(set_info, HOOK_T_STRING, (CONN, const char *const text), text)
+PD_CALL_WRAPPER(set_away, HOOK_T_STRING HOOK_T_UINT32, (CONN, const char *const text, const int isauto), text, isauto)
+PD_CALL_WRAPPER(set_available, HOOK_T_STRING, (CONN, const char *const text), text)
+PD_CALL_WRAPPER(set_nickname, HOOK_T_STRING HOOK_T_STRING, (CONN, const char *const account), account)
+PD_CALL_WRAPPER(set_password, HOOK_T_STRING HOOK_T_STRING, (CONN, const char *const password, const char *const password2), password, password2)
+PD_CALL_WRAPPER(set_privacy, HOOK_T_STRING, (CONN, const char *const flag), flag)
+PD_CALL_WRAPPER(im_add_buddy, HOOK_T_STRING HOOK_T_STRING HOOK_T_STRING, (CONN, const char *const account, const char *const group, const char *const friendly), account, group, friendly)
+PD_CALL_WRAPPER(im_remove_buddy, HOOK_T_STRING HOOK_T_STRING, (CONN, const char *const account, const char *const group), account, group)
+PD_CALL_WRAPPER(im_add_deny, HOOK_T_STRING, (CONN, const char *const account), account)
+PD_CALL_WRAPPER(im_remove_deny, HOOK_T_STRING, (CONN, const char *const account), account)
+PD_CALL_WRAPPER(im_send_message, HOOK_T_STRING HOOK_T_STRING HOOK_T_UINT32, (CONN, const char *const account, const char *const text, const int isauto), account, text, isauto)
+PD_CALL_WRAPPER(im_send_action, HOOK_T_STRING HOOK_T_STRING HOOK_T_UINT32, (CONN, const char *const account, const char *const text, const int isauto), account, text, isauto)
+PD_CALL_WRAPPER(im_evil, HOOK_T_STRING, (CONN, const char *const account), account)
+PD_CALL_WRAPPER(chat_join, HOOK_T_STRING, (CONN, const char *const group), group)
+PD_CALL_WRAPPER(chat_part, HOOK_T_STRING, (CONN, const char *const group), group)
+PD_CALL_WRAPPER(chat_invite, HOOK_T_STRING HOOK_T_STRING HOOK_T_STRING, (CONN, const char *const group, const char *const account, const char *const text), group, account, text)
+PD_CALL_WRAPPER(chat_set_topic, HOOK_T_STRING HOOK_T_STRING, (CONN, const char *const group, const char *const text), group, text)
+PD_CALL_WRAPPER(chat_op, HOOK_T_STRING HOOK_T_STRING, (CONN, const char *const group, const char *const account), group, account)
+PD_CALL_WRAPPER(chat_deop, HOOK_T_STRING HOOK_T_STRING, (CONN, const char *const group, const char *const account), group, account)
+PD_CALL_WRAPPER(chat_kick, HOOK_T_STRING HOOK_T_STRING HOOK_T_STRING, (CONN, const char *const group, const char *const account, const char *const text), group, account, text)
+PD_CALL_WRAPPER(chat_send_message, HOOK_T_STRING HOOK_T_STRING HOOK_T_UINT32, (CONN, const char *const group, const char *const text, const int isauto), group, text, isauto)
+PD_CALL_WRAPPER(chat_send_action, HOOK_T_STRING HOOK_T_STRING HOOK_T_UINT32, (CONN, const char *const group, const char *const text, const int isauto), group, text, isauto)
 
 static char *_nlua_pd_subcode_encode(struct firetalk_driver_connection_t *c, const char *const command, const char *const text) {
 	multival_t val;
@@ -283,7 +283,6 @@ static void  _nlua_pd_destroy_conn(struct firetalk_driver_connection_t *c) {
 }
 
 static const firetalk_driver_t firetalk_protocol_template = {
-#warning The following 29 warnings are harmless.
 	periodic:		_nlua_pd_periodic,
 	preselect:		_nlua_pd_preselect,
 	postselect:		_nlua_pd_postselect,
@@ -320,7 +319,6 @@ static const firetalk_driver_t firetalk_protocol_template = {
 	room_normalize:		_nlua_pd_room_normalize,
 	create_conn:		_nlua_pd_create_conn,
 	destroy_conn:		_nlua_pd_destroy_conn,
-#warning No further warnings are harmless, unless you are using gcc 4.
 };
 
 static int _nlua_create(lua_State *L) {
