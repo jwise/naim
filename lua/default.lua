@@ -250,6 +250,18 @@ function naim.internal.expandstring(s)
 	return(naim.internal.varsub(s, naim.variables))
 end
 
+naim.internal.windows_index = {
+	__index = function(t, s)
+		s = s:lower():gsub(" ", "")
+
+		for k,v in pairs(t) do
+			if v.winname:lower():gsub(" ", "") == s then
+				return v
+			end
+		end
+	end,
+}
+
 function naim.internal.newconn(name, handle)
 	setmetatable(naim.connections, {})
 	naim.connections[name] = {
@@ -259,7 +271,7 @@ function naim.internal.newconn(name, handle)
 		buddies = {},
 		groups = {},
 	}
-	setmetatable(naim.connections[name].windows, naim.internal.insensitive_index)
+	setmetatable(naim.connections[name].windows, naim.internal.windows_index)
 	setmetatable(naim.connections[name].buddies, naim.internal.insensitive_index)
 	setmetatable(naim.connections[name].groups, naim.internal.insensitive_index)
 	setmetatable(naim.connections[name], naim.internal.rwmetatable(naim.prototypes.connections))
@@ -273,16 +285,16 @@ function naim.internal.delconn(name)
 end
 
 function naim.internal.newwin(conn, winname, handle)
-	conn.windows[winname] = {
+	conn.windows[handle] = {
 		handle = handle,
 		conn = conn,
 		name = winname,
 	}
-	setmetatable(conn.windows[winname], naim.internal.rwmetatable(naim.prototypes.windows))
+	setmetatable(conn.windows[handle], naim.internal.rwmetatable(naim.prototypes.windows))
 end
 
 function naim.internal.delwin(conn, winname)
-	conn.windows[winname] = nil
+	conn.windows[conn.windows[winname].handle] = nil
 end
 
 function naim.internal.newbuddy(conn, account, handle)
@@ -734,12 +746,7 @@ naim.hooks.add('proto_buddy_nickchanged', function(conn, who, newnick)
 
 	if window then
 		window:echo("<font color=\"#00FFFF\">" .. who .. "</font> is now known as <font color=\"#00FFFF\">" .. newnick .. "</font>.")
-		window.name = newnick
-		if not naim.internal.compare_nicks(who, newnick) then
-			assert(not conn.windows[newnick], "proto_buddy_nickchanged: not conn.windows[newnick]")
-			conn.windows[newnick] = conn.windows[who]
-			conn.windows[who] = nil
-		end
+		window.name = newnick -- Though this has now been subsumed, more or less, into winname.
 	end
 end, 100)
 
@@ -947,7 +954,7 @@ naim.hooks.add('proto_chat_user_left', function(conn, chat, who, reason)
 	local group = conn.groups[chat]
 	local window = conn.windows[chat]
 
-	assert(group.members[who], "proto_chat_user_left: group.members[who]")
+	assert(group.members[who], "proto_chat_user_left: group("..chat..").members[who("..who..")]")
 	group.members[who] = nil
 
 	if window then
@@ -1077,7 +1084,7 @@ end, 100)
 
 naim.hooks.add('postselect', function(rfd, wfd, efd)
 	for connname,conn in pairs(naim.connections) do
-		for winname,window in pairs(conn.windows) do
+		for winhand,window in pairs(conn.windows) do
 			if window.events then
 				for who,events in pairs(window.events) do
 					local t = { "<font color=\"#00FFFF\">" .. who .. "</font> " }
