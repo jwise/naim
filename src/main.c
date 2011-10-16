@@ -90,7 +90,7 @@ void naim_faulthandler(int sig) {
 	len = backtrace(bt, sizeof(bt)/sizeof(*bt));
 	symbols = backtrace_symbols(bt, len);
 //	wshutitdown();
-	fprintf(stderr, "\r\n");
+	fprintf(stderr, "\r\nnaim has crashed.  Sorry about that!\r\n\r\n");
 	fprintf(stderr, "Running " PACKAGE_STRING NAIM_SNAPSHOT " for %s.\r\n", dtime(now - startuptime));
 #ifdef HAVE_STRSIGNAL
 	{
@@ -103,7 +103,17 @@ void naim_faulthandler(int sig) {
 #endif
 	for (i = 0; i < len; i++)
 		fprintf(stderr, "%i: %s\r\n", i, symbols[i]);
-	fprintf(stderr, "\r\nThis information is not a replacement for running naim in gdb. If you are interested in debugging this problem, please re-run naim within gdb and reproduce the fault. When you are presented with the (gdb) prompt again, type \"backtrace\" to receive the full symbolic backtrace and mail this to Daniel Reed <n@ml.org>.\r\n\r\n");
+		
+	fprintf(stderr, "\r\nThis information is not a replacement for "
+		"running naim in gdb.  If you are interested in debugging "
+		"this problem, please re-run naim within gdb and reproduce "
+		"the fault.  When you are presented with the (gdb) prompt "
+		"again, type \"backtrace\" to receive the full symbolic "
+		"backtrace and file a bug at "
+		"<https://github.com/jwise/naim/issues>.  If you can, leave "
+		"the debug session open pending further instructions."
+		"\r\n\r\n");
+	
 	free(symbols);
 	raise(sig);
 }
