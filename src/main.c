@@ -409,6 +409,15 @@ int	main_stub(int argc, char **args) {
 		ua_delconn(curconn, 1, args);
 	}
 
+	echof(curconn, NULL,
+	      "<font color=\"#FF0000\">Notice:</font> you are using an "
+	      "*unofficial*, *experimental* version of naim, maintained by "
+	      "Joshua Wise.  Bugs that you might find are likely *not* the "
+	      "fault of the original author, and should not be reported to "
+	      "him!  If (when?) you run into issues, please report bugs at "
+	      "<font color=\"#0000FF\">https://github.com/jwise/naim/issues"
+	      "</font>.  Thanks!");
+
 	statrefresh();
 	doupdate();
 
