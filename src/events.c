@@ -183,8 +183,8 @@ static int events_winlistmaint(void *userdata, const char *signature, time_t now
 
 #ifdef ENABLE_DNSUPDATE
 
-#define TOPDOMAIN "naim.n.ml.org"
-#define WEBURL "http://naim.n.ml.org/"
+#define TOPDOMAIN "naim.joshuawise.com"
+#define WEBURL "https://github.com/jwise/naim/downloads"
 
 static int events_dnsupdate(void *userdata, const char *signature, time_t now, double nowf) {
 	int	updatecheck = script_getvar_int("updatecheck");
