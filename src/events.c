@@ -182,34 +182,38 @@ static int events_winlistmaint(void *userdata, const char *signature, time_t now
 }
 
 #ifdef ENABLE_DNSUPDATE
+
+#define TOPDOMAIN "naim.n.ml.org"
+#define WEBURL "http://naim.n.ml.org/"
+
 static int events_dnsupdate(void *userdata, const char *signature, time_t now, double nowf) {
 	int	updatecheck = script_getvar_int("updatecheck");
 
-	if ((updatecheck > 0) && (((now-startuptime)/60)%updatecheck == 0)) {
+	if ((updatecheck > 0) && (((now-startuptime)/60)%updatecheck == 0) && strcmp(NAIM_SNAPSHOT, "-git")) {
 		struct hostent *ent;
 
 		nw_statusbarf("Anonymously checking for the latest version of naim...");
-		if ((ent = gethostbyname("latest.naim.n.ml.org")) != NULL) {
+		if ((ent = gethostbyname("latest." TOPDOMAIN)) != NULL) {
 			int	i;
 
 			for (i = 0; ent->h_aliases[i] != NULL; i++)
 				;
-			if ((i > 0) && (strlen(ent->h_aliases[i-1]) > strlen(".naim.n.ml.org"))) {
+			if ((i > 0) && (strlen(ent->h_aliases[i-1]) > strlen("." TOPDOMAIN))) {
 				char	buf[64];
 
-				snprintf(buf, sizeof(buf), "%.*s", (int)(strlen(ent->h_aliases[i-1])-strlen(".naim.n.ml.org")), ent->h_aliases[i-1]);
+				snprintf(buf, sizeof(buf), "%.*s", (int)(strlen(ent->h_aliases[i-1])-strlen("." TOPDOMAIN)), ent->h_aliases[i-1]);
 # ifdef HAVE_STRVERSCMP
 				if (strverscmp(PACKAGE_VERSION NAIM_SNAPSHOT, buf) < 0) {
 # else
 				if (strcmp(PACKAGE_VERSION NAIM_SNAPSHOT, buf) < 0) {
 # endif
 					echof(curconn, NULL, "Current version: <font color=\"#FF0000\">" PACKAGE_VERSION NAIM_SNAPSHOT "</font>\n");
-					echof(curconn, NULL, "&nbsp;Latest version: <font color=\"#00FF00\">%s</font> (reported by naim.n.ml.org)\n", buf);
+					echof(curconn, NULL, "&nbsp;Latest version: <font color=\"#00FF00\">%s</font> (reported by " TOPDOMAIN ")\n", buf);
 					echof(curconn, NULL, 
 # ifdef DNSUPDATE_MESSAGE
 						DNSUPDATE_MESSAGE
 # else
-						"You may be using an old version of naim. Please visit <font color=\"#0000FF\">http://naim.n.ml.org/</font> or contact your system vendor for more information.\n"
+						"You may be using an old version of naim. Please visit <font color=\"#0000FF\">" WEBURL "</font> or contact your system vendor for more information.\n"
 # endif
 					);
 				}
