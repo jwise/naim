@@ -8,11 +8,11 @@
 
 #include "naim-int.h"
 
-extern faimconf_t	faimconf;
+extern faimconf_t faimconf;
 extern conn_t	*curconn;
-extern int	inplayback;
+extern int	colormode;
 
-typedef struct {
+typedef struct h_t {
 	win_t	*win;
 	struct {
 		int	len,
@@ -21,86 +21,92 @@ typedef struct {
 			secondwhite;
 		char	buf[1024];
 	} addch;
+	struct {
+		int	pair;
+		unsigned char
+			inbold:1,
+			initalic:1,
+			inunderline:1,
+			bodytag:1;
+	} fontstack[20];
+	int	fontstacklen, newlines, pair;
 	unsigned char
 		white:1,
+		newline:1,
 		inbold:1,
 		initalic:1,
-		inunderline:1;
-	int	pair;
+		inunderline:1,
+		last_inunderline:1;
 } h_t;
 
-static void h_zero(h_t *h, win_t *win) {
-	h->win = win;
-	{
-		int	i, max;
+static void h_init_addch(h_t *h) {
+	int	i, max;
 
-		max = h->addch.len = nw_getcol(win);
-		if (max >= sizeof(h->addch.buf))
-			max = sizeof(h->addch.buf)-1;
-		memset(h->addch.buf, 0, sizeof(h->addch.buf));
-		nw_getline(h->win, h->addch.buf, sizeof(h->addch.buf));
-		assert(strlen(h->addch.buf) == h->addch.len);
-		h->addch.lastwhite = -1;
-		h->addch.firstwhite = -1;
-		h->addch.secondwhite = -1;
-		for (i = 0; i < max; i++)
-			if (isspace(h->addch.buf[i])) {
-				h->addch.firstwhite = i;
-				break;
-			}
-		for (i++; i < max; i++)
-			if (isspace(h->addch.buf[i])) {
-				h->addch.secondwhite = i;
-				break;
-			}
-		for (i++; i < max; i++)
-			if (isspace(h->addch.buf[i]))
-				h->addch.lastwhite = i;
-	}
-	h->white = 0;
-	h->inbold = 0;
-	h->initalic = 0;
-	h->inunderline = 0;
-	h->pair = 0;
+	max = h->addch.len = nw_getcol(h->win);
+	if (max >= sizeof(h->addch.buf))
+		max = sizeof(h->addch.buf)-1;
+	nw_getline(h->win, h->addch.buf, sizeof(h->addch.buf));
+	assert(strlen(h->addch.buf) == h->addch.len);
+	h->addch.lastwhite = -1;
+	h->addch.firstwhite = -1;
+	h->addch.secondwhite = -1;
+	for (i = 0; i < max; i++)
+		if (isspace(h->addch.buf[i])) {
+			h->addch.firstwhite = i;
+			break;
+		}
+	for (i++; i < max; i++)
+		if (isspace(h->addch.buf[i])) {
+			h->addch.secondwhite = i;
+			break;
+		}
+	for (i++; i < max; i++)
+		if (isspace(h->addch.buf[i]))
+			h->addch.lastwhite = i;
 }
 
-HOOK_DECLARE(notify);
+static void h_init(h_t *h, win_t *win) {
+	h->win = win;
+	h_init_addch(h);
+	h->fontstacklen = h->pair = 0;
+	h->newline = h->white = h->inbold = h->initalic = h->inunderline = h->last_inunderline = 0;
+}
+
+static void nw_decode_addch(win_t *win, unsigned char c) {
+	if (c == '\1')
+		c = ' ';
+
+	nw_addch(win, c);
+}
+
 static void nw_wrap_addch(h_t *h, unsigned char c) {
-	if (h->win->logfile != NULL) {
-		char	buf[2] = { c, 0 };
-
-		HOOK_CALL(notify, (NULL, h->win, buf));
-	}
-
 	if (h->addch.len >= (faimconf.wstatus.widthx-1)) {
 		int	i;
 
 		if ((h->addch.lastwhite > -1) && (h->addch.lastwhite > h->addch.firstwhite) && (h->addch.lastwhite > h->addch.secondwhite)) {
 			for (i = h->addch.len; i > h->addch.lastwhite; i--)
 				nw_addstr(h->win, "\b \b");
-			nw_addch(h->win, '\n');
+			nw_decode_addch(h->win, '\n');
 			for (i = 0; i <= h->addch.secondwhite; i++)
-				nw_addch(h->win, ' ');
+				nw_decode_addch(h->win, ' ');
 			for (i = h->addch.lastwhite+1; i < h->addch.len; i++)
-				nw_addch(h->win, h->addch.buf[i]);
+				nw_decode_addch(h->win, h->addch.buf[i]);
 			h->addch.len -= h->addch.lastwhite-1;
 		} else {
 			for (i = 0; i <= (h->addch.secondwhite+1); i++)
-				nw_addch(h->win, ' ');
+				nw_decode_addch(h->win, ' ');
 			h->addch.len = 0;
 		}
 
 		h->addch.len += h->addch.secondwhite+1;
 		h->addch.lastwhite = -1;
-		memset(h->addch.buf, 0, sizeof(h->addch.buf));
 	}
 
-	nw_addch(h->win, c);
+	nw_decode_addch(h->win, c);
 
 	if (c == '\n') {
 		h->addch.lastwhite = h->addch.firstwhite = h->addch.secondwhite = -1;
 		h->addch.len = 0;
-		memset(h->addch.buf, 0, sizeof(h->addch.buf));
 	} else if (c == '\b') {
 		if (h->addch.len > 0)
 			h->addch.len--;
@@ -109,23 +115,22 @@ static void nw_wrap_addch(h_t *h, unsigned char c) {
 		if (h->addch.secondwhite == h->addch.len)
 			h->addch.secondwhite = -1;
 	} else {
-		if (isspace(c)) {
+		if (isspace(c) || (c == '\1')) {
 			if (h->addch.firstwhite == -1)
 				h->addch.firstwhite = h->addch.len;
 			else if (h->addch.secondwhite == -1)
 				h->addch.secondwhite = h->addch.len;
-			else
+			else if (c != '\1')
 				h->addch.lastwhite = h->addch.len;
 		}
-		h->addch.buf[h->addch.len] = c;
-		h->addch.len++;
+		h->addch.buf[h->addch.len++] = c;
 	}
 }
 
 /* this is a terrible way of doing this */
 static void nw_wrap_addstr(h_t *h, const unsigned char *str) {
 	if (str == NULL)
-		nw_addch(h->win, '.');
+		nw_decode_addch(h->win, '.');
 	else {
 		int	i;
 
@@ -156,11 +161,8 @@ static const struct {
 	{	COLOR_WHITE,	0xFF, 0xFF, 0xFF	},
 };
 
-#define CHECKTAG(tag)	(strcasecmp(tagbase, (tag)) == 0)
-#define CHECKAMP(tag)	(strcasecmp(tagbuf, (tag)) == 0)
-
 static const char *const parsehtml_pair_RGB(int pair, char bold) {
-	static char	buf[20];
+	static char buf[20];
 	int	i;
 
 	for (i = 0; i < sizeof(colar)/sizeof(*colar); i++)
@@ -227,37 +229,28 @@ static int parsehtml_pair(const unsigned char *buf, int _pair, char *inbold, cha
 	return(parsehtml_pair_closest(_pair, R, G, B, inbold, foreorback));
 }
 
-static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
-	unsigned char
-		tagbuf[20], argbuf[1024], *textsave = text, *tagbase;
-	int	tagpos = 0;
-	static char
-		last_inunderline = 0;
-	static struct {
-		int	pair;
-		unsigned char
-			inbold:1,
-			initalic:1,
-			inunderline:1;
-	} fontstack[20];
-	static int
-		fontstacklen = 0;
+#define CHECKTAG(tag)	(strcasecmp(tagbase, (tag)) == 0)
+#define CHECKAMP(tag)	(strcasecmp(tagbuf, (tag)) == 0)
 
-	memset(tagbuf, 0, sizeof(tagbuf));
-	memset(argbuf, 0, sizeof(argbuf));
+static unsigned long parsehtml_tag(h_t *h, const unsigned char *text, int backup) {
+	unsigned char tagbuf[20] = { 0 },
+		argbuf[1024] = { 0 },
+		*tagbase;
+	const unsigned char *textsave = text;
+	int	tagpos = 0;
 
 	while (isspace(*text))
 		text++;
-	while ((*text) && (!isspace(*text)) && (*text != '>')) {
-		if (tagpos < sizeof(tagbuf))
+	while ((*text != 0) && !isspace(*text) && (*text != '>')) {
+		if (tagpos < sizeof(tagbuf)-1)
 			tagbuf[tagpos++] = *text;
 		text++;
 	}
 	while (isspace(*text))
 		text++;
 	tagpos = 0;
-	while ((*text) && (*text != '>')) {
-		if (tagpos < sizeof(argbuf))
+	while ((*text != 0) && (*text != '>')) {
+		if (tagpos < sizeof(argbuf)-1)
 			argbuf[tagpos++] = *text;
 		text++;
 	}
@@ -310,8 +303,8 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 						}
 					}
 					refbuf[i] = 0;
-					secs_setvar("lasturl", refbuf);
-					last_inunderline = h->inunderline;
+					script_setvar("lasturl", refbuf);
+					h->last_inunderline = h->inunderline;
 					h->inunderline = 1;
 					found = 1;
 				} else {
@@ -337,9 +330,9 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 				}
 			}
 		} else {
-			char	*lasturl = secs_getvar("lasturl");
+			char	*lasturl = script_getvar("lasturl");
 
-			h->inunderline = last_inunderline;
+			h->inunderline = h->last_inunderline;
 			if ((lasturl != NULL) && (backup > 1) && (strncmp(textsave-backup, lasturl, strlen(lasturl)) != 0)) {
 				nw_wrap_addstr(h, " [");
 				nw_wrap_addstr(h, lasturl);
@@ -352,11 +345,14 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 		nw_wrap_addch(h, ']');
 	} else if (CHECKTAG("BR") || CHECKTAG("BR/")) {
 		nw_wrap_addstr(h, "\n ");
-		h->white = 1;
+		h->newline = h->white = 1;
+		h->newlines++;
 	} else if CHECKTAG("HR") {
-		nw_wrap_addstr(h, "----------------\n");
+		nw_wrap_addstr(h, "----------------\n ");
+		h->newline = h->white = 1;
+		h->newlines++;
 	} else if CHECKTAG("FONT") {
-		if (inplayback || (secs_getvar_int("color") == 1)) {
+		if ((colormode == COLOR_FORCE_ON) || ((colormode == COLOR_HONOR_USER) && script_getvar_int("color"))) {
 		    if (*tagbuf != '/') {
 			char	*t = argbuf;
 			int	found = 0;
@@ -394,12 +390,12 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 						}
 					}
 					colbuf[i] = 0;
-					fontstack[fontstacklen].pair = h->pair;
-					fontstack[fontstacklen].inbold = h->inbold;
-					fontstack[fontstacklen].initalic = h->initalic;
-					fontstack[fontstacklen].inunderline = h->inunderline;
-					if (fontstacklen < sizeof(fontstack)/sizeof(*fontstack))
-						fontstacklen++;
+					h->fontstack[h->fontstacklen].pair = h->pair;
+					h->fontstack[h->fontstacklen].inbold = h->inbold;
+					h->fontstack[h->fontstacklen].initalic = h->initalic;
+					h->fontstack[h->fontstacklen].inunderline = h->inunderline;
+					if (h->fontstacklen < sizeof(h->fontstack)/sizeof(*(h->fontstack)))
+						h->fontstacklen++;
 					{
 						char	inbold = h->inbold;
 
@@ -430,20 +426,20 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 				}
 			}
 		    } else {
-			if (fontstacklen > 0)
-				fontstacklen--;
+			if (h->fontstacklen > 0)
+				h->fontstacklen--;
 			else
-				fontstacklen = 0;
-			h->pair = fontstack[fontstacklen].pair;
-			h->inbold = fontstack[fontstacklen].inbold;
-			h->initalic = fontstack[fontstacklen].initalic;
-			h->inunderline = fontstack[fontstacklen].inunderline;
+				h->fontstacklen = 0;
+			h->pair = h->fontstack[h->fontstacklen].pair;
+			h->inbold = h->fontstack[h->fontstacklen].inbold;
+			h->initalic = h->fontstack[h->fontstacklen].initalic;
+			h->inunderline = h->fontstack[h->fontstacklen].inunderline;
 		    }
 		}
 	} else if CHECKTAG("PRE") {
 	} else if CHECKTAG("P") {
 	} else if (CHECKTAG("HTML") || CHECKTAG("BODY") || CHECKTAG("DIV") || CHECKTAG("SPAN")) {
-		if (inplayback || (secs_getvar_int("color") == 1)) {
+		if ((colormode == COLOR_FORCE_ON) || ((colormode == COLOR_HONOR_USER) && script_getvar_int("color"))) {
 		    if (*tagbuf != '/') {
 			char	*t = argbuf;
 			int	found = 0;
@@ -481,12 +477,13 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 						}
 					}
 					colbuf[i] = 0;
-					fontstack[fontstacklen].pair = h->pair;
-					fontstack[fontstacklen].inbold = h->inbold;
-					fontstack[fontstacklen].initalic = h->initalic;
-					fontstack[fontstacklen].inunderline = h->inunderline;
-					if (fontstacklen < sizeof(fontstack)/sizeof(*fontstack))
-						fontstacklen++;
+					h->fontstack[h->fontstacklen].pair = h->pair;
+					h->fontstack[h->fontstacklen].inbold = h->inbold;
+					h->fontstack[h->fontstacklen].initalic = h->initalic;
+					h->fontstack[h->fontstacklen].inunderline = h->inunderline;
+					h->fontstack[h->fontstacklen].bodytag = 1;
+					if (h->fontstacklen < sizeof(h->fontstack)/sizeof(*(h->fontstack)))
+						h->fontstacklen++;
 					{
 						char	inbold = h->inbold;
 
@@ -516,25 +513,35 @@ static unsigned long parsehtml_tag(h_t *h, unsigned char *text, int backup) {
 					}
 				}
 			}
-		    } else
-			h->inbold = h->initalic = h->inunderline = fontstacklen = 0;
+		    } else {
+			if (h->fontstacklen > 0) {
+				int	i;
+
+				for (i = h->fontstacklen-1; i >= 0; i--)
+					if (h->fontstack[i].bodytag)
+						break;
+				h->pair = h->fontstack[i].pair;
+				h->inbold = h->fontstack[i].inbold;
+				h->initalic = h->fontstack[i].initalic;
+				h->inunderline = h->fontstack[i].inunderline;
+			} else
+				h->inbold = h->initalic = h->inunderline = 0;
+			h->fontstacklen = 0;
+		    }
 		}
 	} else
 		return(0);
 	return((unsigned long)(text-textsave+1));
 }
 
-static unsigned long parsehtml_amp(h_t *h, unsigned char *text) {
-	unsigned char
-		tagbuf[20], *textsave = text;
+static unsigned long parsehtml_amp(h_t *h, const unsigned char *text) {
+	unsigned char tagbuf[20] = { 0 };
+	const unsigned char *textsave = text;
 	int	tagpos = 0;
-
-	memset(tagbuf, 0, sizeof(tagbuf));
 
 	while (isspace(*text))
 		text++;
-	while ((*text) && (!isspace(*text)) && (*text != ';')
-		&& (*text != '\n')) {
+	while ((*text != 0) && !isspace(*text) && (*text != ';') && (*text != '\n')) {
 		if (tagpos < sizeof(tagbuf)-1)
 			tagbuf[tagpos++] = *text;
 		else
@@ -553,7 +560,7 @@ static unsigned long parsehtml_amp(h_t *h, unsigned char *text) {
 		else
 			nw_wrap_addstr(h, keyname(c));
 	} else if CHECKAMP("NBSP") {
-		nw_wrap_addch(h, ' ');
+		nw_wrap_addch(h, '\1');
 	} else if CHECKAMP("AMP") {
 		nw_wrap_addch(h, '&');
 	} else if CHECKAMP("LT") {
@@ -565,11 +572,11 @@ static unsigned long parsehtml_amp(h_t *h, unsigned char *text) {
 	} else
 		return(0);
 
-	h->white = 0;
+	h->newline = h->white = 0;
 	return((unsigned long)(text-textsave+1));
 }
 
-static unsigned long parsehtml(h_t *h, char *str, int backup) {
+static unsigned long parsehtml(h_t *h, const unsigned char *str, int backup) {
 	if (*str == '<')
 		return(parsehtml_tag(h, str+1, backup));
 	else if (*str == '&')
@@ -578,32 +585,109 @@ static unsigned long parsehtml(h_t *h, char *str, int backup) {
 		return(0);
 }
 
-int	vhwprintf(win_t *win, int _pair, const unsigned char *format, va_list msg) {
-	static unsigned char
-		buf[20*1024];
-	size_t	len = 0;
-	int	pos = -1, lines = 0;
-	h_t	h;
+int	hhprint(h_t *h, const unsigned char *str, const size_t len) {
+	int	pos, lastpos = 0;
 
-	assert(win != NULL);
+	for (pos = 0; pos < len; pos++)
+		if ((str[pos] == '<') || (str[pos] == '&')) {
+			unsigned long skiplen = 0;
+
+			if ((skiplen = parsehtml(h, str+pos, pos-lastpos)) == 0) {
+				nw_wrap_addch(h, str[pos]);
+				continue;
+			}
+			pos += skiplen;
+			nw_attr(h->win, h->inbold, h->initalic, h->inunderline, 0, 0, 0);
+			nw_color(h->win, h->pair);
+			lastpos = pos;
+		} else {
+			if (str[pos] == '\r')
+				continue;
+			h->newline = 0;
+			if (isspace(str[pos]) || (str[pos] == '\n')) {
+				if (!h->white)
+					nw_wrap_addch(h, ' ');
+				h->white = 1;
+				continue;
+			} else
+				h->white = 0;
+			if (naimisprint(str[pos]))
+				nw_wrap_addch(h, str[pos]);
+			else
+				nw_wrap_addstr(h, keyname(str[pos]));
+		}
+
+	return(h->newlines);
+}
+
+h_t	*hhandle(win_t *win) {
+	static h_t h;
+
+	h_init(&h, win);
+
+	return(&h);
+}
+
+void	hendblock(h_t *h) {
+	if (h->newline)
+		nw_wrap_addch(h, '\b');
+
+	h->fontstacklen = 0;
+}
+
+int	vhhprintf(h_t *h, const int dolog, const unsigned char *format, va_list msg) {
+	unsigned char _buf[1024*9], *str;
+	size_t	len;
+	int	ret;
+
+	assert(h->win != NULL);
 	assert(format != NULL);
 
-	h_zero(&h, win);
+	len = vsnprintf(_buf, sizeof(_buf), format, msg);
 
-	memset(buf, 0, sizeof(buf));
+	if (len >= sizeof(_buf)) {
+		size_t	len2;
 
-	len = vsnprintf(buf, sizeof(buf), format, msg);
+		str = malloc(len+1);
+		assert(str != NULL);
 
-	if (_pair > -1) {
-		if (win->logfile != NULL)
-			fprintf(win->logfile, "<font color=\"%s\">%s%s%s%s%s</font>\n",
-				parsehtml_pair_RGB(_pair, h.inbold),
-				h.initalic?"<I>":"",
-				h.inunderline?"<U>":"",
-				buf,
-				h.inunderline?"</U>":"",
-				h.initalic?"</I>":"");
+		len2 = vsnprintf(str, len+1, format, msg);
+		assert(len2 == len);
 	} else
+		str = _buf;
+
+	if (dolog && (h->win->logfile != NULL))
+		fprintf(h->win->logfile, "<font color=\"%s\">%s%s%s%s%s</font>\n",
+			parsehtml_pair_RGB(h->pair, h->inbold),
+			h->initalic?"<I>":"",
+			h->inunderline?"<U>":"",
+			str,
+			h->inunderline?"</U>":"",
+			h->initalic?"</I>":"");
+
+	nw_attr(h->win, h->inbold, h->initalic, h->inunderline, 0, 0, 0);
+	nw_color(h->win, h->pair);
+
+	ret = hhprint(h, str, len);
+
+	if (str != _buf)
+		free(str);
+
+	if (dolog)
+		h->win->logfilelines += ret;
+
+	return(ret);
+}
+
+int	vhwprintf(win_t *win, int _pair, const unsigned char *format, va_list msg) {
+	h_t	h;
+	int	ret, dolog = 0;
+
+	h_init(&h, win);
+
+	if (_pair > -1)
+		dolog = 1;
+	else
 		_pair = -_pair-1;
 
 	if (_pair >= 2*(nw_COLORS*nw_COLORS)) {
@@ -615,51 +699,21 @@ int	vhwprintf(win_t *win, int _pair, const unsigned char *format, va_list msg) {
 	}
 	h.pair = _pair;
 
-	nw_attr(win, h.inbold, h.initalic, h.inunderline, 0, 0, 0);
-	nw_color(win, h.pair);
-	while (++pos < len) {
-		if ((buf[pos] == '<') || (buf[pos] == '&')) {
-			static int	lastpos = 0;
-			unsigned long	skiplen = 0;
+	ret = vhhprintf(&h, dolog, format, msg);
 
-			if ((skiplen = parsehtml(&h, buf+pos, pos-lastpos)) == 0) {
-				nw_wrap_addch(&h, buf[pos]);
-				continue;
-			}
-			pos += skiplen;
-			nw_attr(win, h.inbold, h.initalic, h.inunderline, 0, 0, 0);
-			nw_color(win, h.pair);
-			lastpos = pos;
-			continue;
-		} else {
-			if (buf[pos] == '\r')
-				continue;
-			if (isspace(buf[pos]) || (buf[pos] == '\n')) {
-				if (h.white == 0)
-					nw_wrap_addch(&h, ' ');
-				h.white = 1;
-				continue;
-			} else
-				h.white = 0;
-			if (naimisprint(buf[pos]))
-				nw_wrap_addch(&h, buf[pos]);
-			else
-				nw_wrap_addstr(&h, keyname(buf[pos]));
-			continue;
-		}
-	}
-	if (h.white == 1)
+	if (h.white)
 		nw_wrap_addch(&h, '\b');
-	return(lines);
+
+	return(ret);
 }
 
 int	hwprintf(win_t *win, int _pair, const unsigned char *format, ...) {
 	va_list	msg;
-	int	lines;
+	int	ret;
 
 	va_start(msg, format);
-	lines = vhwprintf(win, _pair, format, msg);
+	ret = vhwprintf(win, _pair, format, msg);
 	va_end(msg);
 
-	return(lines);
+	return(ret);
 }

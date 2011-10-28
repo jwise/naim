@@ -1,4 +1,4 @@
-.TH naim 1 "2005-10-26" "naim-0.11.8" "AIM/ICQ/IRC/Lily Communication Client"
+.TH naim 1 "2011-09-10" "naim-0.12.0" "AIM/ICQ/IRC/Lily Communication Client"
 .SH NAME
 naim \- console mode chat client
 .SH SYNOPSIS
@@ -10,7 +10,7 @@ nirc [\fInickname\fR [\fIserver\fR]]
 .br
 nlily
 .SH "DESCRIPTION"
-naim is the original ncurses AIM client. It uses the TOC protocol, and 
+naim is the original ncurses AIM client. It uses the OSCAR protocol, and
 features many commonly-requested features found nowhere else, while still
 providing an intuitive chat interface.
 .PP
@@ -18,13 +18,14 @@ providing an intuitive chat interface.
 If a `\fB.naimrc\fR' file exists in your home directory, naim executes
 that and ignores all command line options. Otherwise...
 .PP
-When invoked as `\fBnaim\fR', naim will create a connection of type 
-AIM/TOC and will display some helpful information to the screen (but won't
+When invoked as `\fBnaim\fR', naim will create a connection of type
+AIM/OSCAR and will display some helpful information to the screen (but won't
 actually try to sign you on).
 .PP
 When invoked as `\fBnicq\fR', naim will create a connection of type
-ICQ/TOC and will display some helpful information to the screen (but won't
-actually try to sign you on).
+ICQ/OSCAR and will display some helpful information to the screen (but won't
+actually try to sign you on).  ICQ support is currently experimental, and is
+likely broken.  Please report if it works for you.
 .PP
 When invoked as `\fBnirc\fR', naim will create a connection of type IRC
 and will attempt to sign you on using the \fInickname\fR and \fIserver\fR,
@@ -54,15 +55,15 @@ If you wanted to sign on to AIM more than once, you might type:
 /connect othername
 .br
 .PP
-If you start naim as `\fBnaim\fR' it will issue `\fB/newconn AIM TOC\fR'
+If you start naim as `\fBnaim\fR' it will issue `\fB/newconn AIM OSCAR\fR'
 automatically. If you start naim as `\fBnicq\fR' it will issue
-`\fB/newconn ICQ TOC\fR' automatically. If you start naim as
+`\fB/newconn ICQ OSCAR\fR' automatically. If you start naim as
 `\fBnlily\fR' it will issue `\fB/newconn Lily SLCP\fR' automatically.
 The first argument to /newconn is the connection "name", which can be
 anything you dream up (it might make sense to use your screen name if
 you are going to be connecting to the same service more than once), and
 the second argument is the connection type. AIM and ICQ both use the
-same connection type (TOC).
+same connection type (OSCAR).
 .PP
 By default, the Ins and Del keys will switch between connections. See
 `\fB/help keys\fR' for additional information, including how to change
@@ -84,17 +85,22 @@ Online help is available by typing \fB/help\fR at the console.
 Use the \fB/quit\fR command.
 .PP
 .SH AUTHOR
-Daniel Reed <n@ml.org>, with notable contributions from Ian Gulliver 
+Daniel Reed <n@ml.org>, with notable contributions from Ian Gulliver
 <ian@penguinhosting.net> and Joshua Wise <joshua@joshuawise.com>.
 .PP
+The current interim maintainer of naim is Joshua Wise
+<joshua@joshuawise.com>.
+.PP
 .SH UPDATES
-The latest version of naim will always be available from
-\fBhttp://naim.n.ml.org/\fR . If you ever use naim, you are strongly encouraged
-to subscribe to the naim-announce mailing list. This is a low-volume mailing
-list used exclusively to announce new releases of naim or changes in the AIM
-service that affects naim users. To subscribe, simply send a blank email to 
-<naim-announce-subscribe@n.ml.org> and reply to the confirmation message you
-will receive.
+The latest official version of naim will always be available from
+\fBhttp://naim.n.ml.org/\fR .  The branch of naim that you have installed,
+which may contain newer updates, is available from Joshua Wise's GitHub
+page, at \fBhttps://github.com/jwise/naim\fR.  If you ever use naim,
+you are strongly encouraged to subscribe to the naim-announce mailing list.
+This is a low-volume mailing list used exclusively to announce new releases
+of naim or changes in the AIM service that affects naim users.  To
+subscribe, simply send a blank email to <naim-announce-subscribe@n.ml.org>
+and reply to the confirmation message you will receive.
 .PP
 .SH "BUG REPORTS"
 Before reporting any bugs, please review Simon Tatham (of PuTTY)'s wonderful
@@ -103,17 +109,18 @@ essay, \fIHow to Report Bugs Effectively\fR at
 .PP
 To report issues with the front end (things having to do with buddy
 windows, colors, .naimrc, and anything else "user oriented") contact the
-naim maintainer, Daniel Reed <n@ml.org>.
+naim maintainers, listed above, or file a bug at the bug tracker, at
+\fBhttps://github.com/jwise/naim/issues\fR.
 .PP
 To report issues with the protocol library (problems connecting, error
 messages while connected, and anything else not a part of the front end)
-contact the FireTalk maintainer, now also Daniel Reed <n@ml.org>.
+contact the FireTalk maintainer, now also the naim maintainers.
 .PP
 To report issues with the FreeBSD port, contact Ryan T. Dean
 <rtdean@cytherianage.net>.
 .PP
 .SH "FEATURE REQUESTS"
-If you would like to suggest new features or significant behavior changes, 
+If you would like to suggest new features or significant behavior changes,
 subscribe to the naim-users mailing list and suggest it there. I get a lot
 of mail every day, and non-bug reports get a fairly low priority. The best
 way to make sure something you want is implemented is to post it to
@@ -123,10 +130,10 @@ confirmation message you will receive.
 .PP
 .SH PATCHES
 
-If you would like to participate to naim's development in a more active 
-role, feel free to submit patches either to myself or to the naim-users 
-mailing list. Patches in context output format are prefered. In order to 
-work on naim, you may wish to extract naim twice, and perform your 
+If you would like to participate to naim's development in a more active
+role, feel free to submit patches either to myself or to the naim-users
+mailing list. Patches in context output format are prefered. In order to
+work on naim, you may wish to extract naim twice, and perform your
 builds in a third directory, as in:
 .br
 \fI tar -jxvf naim-0.11.8.tar.bz2\fR
@@ -141,7 +148,7 @@ builds in a third directory, as in:
 .br
 \fI ../naim-0.11.8/configure --prefix=/usr\fR
 .PP
-Then you may modify the files in ../naim-0.11.8, compile, test, modify 
+Then you may modify the files in ../naim-0.11.8, compile, test, modify
 again, recompile, test, etc. until your are satisfied, then:
 .br
 \fI cd ..\fR
@@ -150,6 +157,6 @@ again, recompile, test, etc. until your are satisfied, then:
 .br
 \fI       naim-0.11.8.feature1.patch\fR
 .PP
-And submit `\fBnaim-0.11.8.feature1.patch\fR'. Do not gzip or otherwise 
+And submit `\fBnaim-0.11.8.feature1.patch\fR'. Do not gzip or otherwise
 encode patches, so they may be reviewed from within a mail client.
 .PP

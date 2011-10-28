@@ -33,10 +33,10 @@ as the result of a key press. You an also execute /commands
 
 :BUDDY_SCROLL_BACK                These scroll the conversation window
 :BUDDY_SCROLL_FORWARD             forward and backward by a page, so
-                                  you can see what you and your buddy 
+                                  you can see what you and your buddy
                                   said earlier in the conversation.
 
-:CONN_NEXT                        Move to the previous and next 
+:CONN_NEXT                        Move to the previous and next
 :CONN_PREV                        connections in your buddy list
 
 :INPUT_BACKSPACE                  General editing keys while you're
@@ -53,14 +53,14 @@ as the result of a key press. You an also execute /commands
 
 :INPUT_KILL                Erases everything on the current input line
 :INPUT_KILL_EOL            Erases everything after the cursor
-:INPUT_KILL_WORD           Erases the whole word, but only up to the 
-                           cursor. (To erase a whole word, put the 
+:INPUT_KILL_WORD           Erases the whole word, but only up to the
+                           cursor. (To erase a whole word, put the
                            cursor in the space immediately preceding
                            that word.)
-                           
 
-:INPUT_PASTE               Using this command enters paste mode, 
-                           where you may enter a long multi-line 
+
+:INPUT_PASTE               Using this command enters paste mode,
+                           where you may enter a long multi-line
                            message. To send that message, hit the
                            paste-mode key again, then hit your usual
                            send key (:INPUT_ENTER)
@@ -73,7 +73,7 @@ as the result of a key press. You an also execute /commands
 
 :INPUT_SYM_AMP             The ampersand, greater than, and less than
 :INPUT_SYM_GT              symbols have special uses in HTML. Because
-:INPUT_SYM_LT              naim uses HTML for formatting, naim is bound 
+:INPUT_SYM_LT              naim uses HTML for formatting, naim is bound
                            by default so that < > and & generate the
                            correct HTML codes to show a literal < > or &
                            These are the commands behind that binding.
@@ -89,11 +89,11 @@ as the result of a key press. You an also execute /commands
 :STATUS_POKE               Displays the status window for a few seconds
 
 :TAB                       I haven't figured out how :TAB_BUDDY_NEXT is
-:TAB_BUDDY_NEXT            different from :BUDDY_NEXT, but :TAB is the 
-                           will insert the HTML control codes for 5 
+:TAB_BUDDY_NEXT            different from :BUDDY_NEXT, but :TAB is the
+                           will insert the HTML control codes for 5
                            non-breaking spaces into your input line,
-                           so that you can 
+                           so that you can
 
-:WINLIST_HIDE              Would you like to see the buddy list? This 
-                           toggles through its three states: always 
+:WINLIST_HIDE              Would you like to see the buddy list? This
+                           toggles through its three states: always
                            visible, always hidden, and auto-hiding

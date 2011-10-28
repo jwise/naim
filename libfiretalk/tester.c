@@ -16,7 +16,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
-#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,7 +29,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define FIRETALK_TEST_STRING	"FireTalk test for " PACKAGE_NAME " " PACKAGE_VERSION
 
 struct {
-	void	*handle;
+	void	*conn;
 	char	*username;
 	char	*password;
 	int	waitingfor;
@@ -85,15 +84,15 @@ void *curconn = NULL;
 #endif
 
 #define CALLBACK_SANITY()					\
-	assert((c == conn1.handle) || (c == conn2.handle));
+	assert((c == conn1.conn) || (c == conn2.conn));
 
 
 #define WAITING_MUSTBE(EVENT) do {				\
-	if (c == conn1.handle) {				\
+	if (c == conn1.conn) {				\
 		assert(conn1.waitingfor == EVENT);		\
 		conn1.waitingfor = 0;				\
 		conn1.waitingstr = NULL;			\
-	} else if (c == conn2.handle) {				\
+	} else if (c == conn2.conn) {				\
 		assert(conn2.waitingfor == EVENT);		\
 		conn2.waitingfor = 0;				\
 		conn2.waitingstr = NULL;			\
@@ -104,7 +103,7 @@ void *curconn = NULL;
 } while (0)
 
 #define WAITING_WANT(EVENT, STR) do {				\
-	if (c == conn1.handle) {				\
+	if (c == conn1.conn) {					\
 		if (conn1.waitingfor == EVENT) {		\
 			if (strcmp(STR, conn1.waitingstr) == 0)	{ \
 				conn1.waitingfor = 0;		\
@@ -118,7 +117,7 @@ void *curconn = NULL;
 		else						\
 			fprintf(stderr, " [%s:%i: warning: spurious %s event (unwanted)]", \
 				__FILE__, __LINE__, events[EVENT]); \
-	} else if (c == conn2.handle) {				\
+	} else if (c == conn2.conn) {				\
 		if (conn2.waitingfor == EVENT) {		\
 			if (strcmp(STR, conn2.waitingstr) == 0) { \
 				conn2.waitingfor = 0;		\
@@ -141,18 +140,18 @@ void *curconn = NULL;
 
 void	needpass(void *c, void *cs, char *pass, int size) {
 	pass[size-1] = 0;
-	if (c == conn1.handle)
+	if (c == conn1.conn)
 		strncpy(pass, conn1.password, size-1);
-	else if (c == conn2.handle)
+	else if (c == conn2.conn)
 		strncpy(pass, conn2.password, size-1);
 }
 
 void	doinit(void *c, void *cs, char *nickname) {
 	CALLBACK_SANITY();
 	WAITING_MUSTBE(WF_DOINIT);
-	if (c == conn1.handle)
+	if (c == conn1.conn)
 		conn1.waitingfor = WF_CONNECTED;
-	else if (c == conn2.handle)
+	else if (c == conn2.conn)
 		conn2.waitingfor = WF_CONNECTED;
 	else
 		abort();
@@ -321,98 +320,98 @@ int	main(int argc, char *argv[]) {
 		fprintf(stderr, "Protocol: %s\r\n", firetalk_strprotocol(i));
 		fprintf(stderr, "\r\n");
 
-		DO_TEST(create_handle, (i, NULL), ret == NULL, firetalkerror);
-			conn1.handle = ret;
-		DO_TEST(create_handle, (i, NULL), ret == NULL, firetalkerror);
-			conn2.handle = ret;
-		DO_TEST(register_callback, (conn1.handle, FC_ERROR, (ptrtofnct)error), ret != FE_SUCCESS, ret);
-		DO_TEST(register_callback, (conn1.handle, FC_NEEDPASS, (ptrtofnct)needpass), ret != FE_SUCCESS, ret);
-		DO_TEST(register_callback, (conn1.handle, FC_CONNECTED, (ptrtofnct)connected), ret != FE_SUCCESS, ret);
-		DO_TEST(register_callback, (conn1.handle, FC_CONNECTFAILED, (ptrtofnct)connectfailed), ret != FE_SUCCESS, ret);
-		DO_TEST(signon, (conn1.handle, NULL, 0, conn1.username), ret != FE_SUCCESS, ret);
+		DO_TEST(create_conn, (i, NULL), ret == NULL, firetalkerror);
+			conn1.conn = ret;
+		DO_TEST(create_conn, (i, NULL), ret == NULL, firetalkerror);
+			conn2.conn = ret;
+		DO_TEST(register_callback, (conn1.conn, FC_ERROR, (ptrtofnct)error), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_NEEDPASS, (ptrtofnct)needpass), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_CONNECTED, (ptrtofnct)connected), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_CONNECTFAILED, (ptrtofnct)connectfailed), ret != FE_SUCCESS, ret);
+		DO_TEST(signon, (conn1.conn, NULL, 0, conn1.username), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_CONNECTED, NULL);
 
-		DO_TEST(register_callback, (conn2.handle, FC_ERROR, (ptrtofnct)error), ret != FE_SUCCESS, ret);
-		DO_TEST(register_callback, (conn2.handle, FC_NEEDPASS, (ptrtofnct)needpass), ret != FE_SUCCESS, ret);
-		DO_TEST(register_callback, (conn2.handle, FC_CONNECTED, (ptrtofnct)connected), ret != FE_SUCCESS, ret);
-		DO_TEST(register_callback, (conn2.handle, FC_CONNECTFAILED, (ptrtofnct)connectfailed), ret != FE_SUCCESS, ret);
-		DO_TEST(register_callback, (conn2.handle, FC_DOINIT, (ptrtofnct)doinit), ret != FE_SUCCESS, ret);
-		DO_TEST(signon, (conn2.handle, NULL, 0, conn2.username), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn2.conn, FC_ERROR, (ptrtofnct)error), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn2.conn, FC_NEEDPASS, (ptrtofnct)needpass), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn2.conn, FC_CONNECTED, (ptrtofnct)connected), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn2.conn, FC_CONNECTFAILED, (ptrtofnct)connectfailed), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn2.conn, FC_DOINIT, (ptrtofnct)doinit), ret != FE_SUCCESS, ret);
+		DO_TEST(signon, (conn2.conn, NULL, 0, conn2.username), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn2, WF_DOINIT, NULL);
 
-		DO_TEST(register_callback, (conn1.handle, FC_IM_GOTINFO, (ptrtofnct)gotinfo), ret != FE_SUCCESS, ret);
-		DO_TEST(set_info, (conn2.handle, FIRETALK_TEST_STRING), ret != FE_SUCCESS, ret);
-		DO_TEST(im_get_info, (conn1.handle, conn2.username), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_IM_GOTINFO, (ptrtofnct)gotinfo), ret != FE_SUCCESS, ret);
+		DO_TEST(set_info, (conn2.conn, FIRETALK_TEST_STRING), ret != FE_SUCCESS, ret);
+		DO_TEST(im_get_info, (conn1.conn, conn2.username), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_GOTINFO, conn2.username);
 
-		DO_TEST(register_callback, (conn1.handle, FC_IM_GETMESSAGE, (ptrtofnct)im_getmessage), ret != FE_SUCCESS, ret);
-		DO_TEST(im_send_message, (conn2.handle, conn1.username, FIRETALK_TEST_STRING, 0), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_IM_GETMESSAGE, (ptrtofnct)im_getmessage), ret != FE_SUCCESS, ret);
+		DO_TEST(im_send_message, (conn2.conn, conn1.username, FIRETALK_TEST_STRING, 0), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_IM_GETMESSAGE, FIRETALK_TEST_STRING);
 
-		DO_TEST(register_callback, (conn1.handle, FC_IM_GETACTION, (ptrtofnct)im_getaction), ret != FE_SUCCESS, ret);
-		DO_TEST(im_send_action, (conn2.handle, conn1.username, FIRETALK_TEST_STRING, 0), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_IM_GETACTION, (ptrtofnct)im_getaction), ret != FE_SUCCESS, ret);
+		DO_TEST(im_send_action, (conn2.conn, conn1.username, FIRETALK_TEST_STRING, 0), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_IM_GETACTION, FIRETALK_TEST_STRING);
 
-		DO_TEST(subcode_register_reply_callback, (conn1.handle, "PING", subcode_reply), ret != FE_SUCCESS, ret);
-		DO_TEST(subcode_send_request, (conn1.handle, conn2.username, "PING", FIRETALK_TEST_STRING), ret != FE_SUCCESS, ret);
+		DO_TEST(subcode_register_reply_callback, (conn1.conn, "PING", subcode_reply), ret != FE_SUCCESS, ret);
+		DO_TEST(subcode_send_request, (conn1.conn, conn2.username, "PING", FIRETALK_TEST_STRING), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_SUBCODE_REPLY, FIRETALK_TEST_STRING);
 
-		DO_TEST(chat_normalize, (conn1.handle, "fttest"), ret == NULL, firetalkerror);
+		DO_TEST(chat_normalize, (conn1.conn, "fttest2"), ret == NULL, firetalkerror);
 			fttest = strdup(ret);
 
-		DO_TEST(register_callback, (conn1.handle, FC_CHAT_JOINED, (ptrtofnct)chat_joined), ret != FE_SUCCESS, ret);
-		DO_TEST(chat_join, (conn1.handle, fttest), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_CHAT_JOINED, (ptrtofnct)chat_joined), ret != FE_SUCCESS, ret);
+		DO_TEST(chat_join, (conn1.conn, fttest), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_CHAT_JOINED, fttest);
 
-		DO_TEST(register_callback, (conn1.handle, FC_CHAT_USER_JOINED, (ptrtofnct)chat_user_joined), ret != FE_SUCCESS, ret);
-		DO_TEST(register_callback, (conn2.handle, FC_CHAT_JOINED, (ptrtofnct)chat_joined), ret != FE_SUCCESS, ret);
-		DO_TEST(chat_join, (conn2.handle, fttest), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_CHAT_USER_JOINED, (ptrtofnct)chat_user_joined), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn2.conn, FC_CHAT_JOINED, (ptrtofnct)chat_joined), ret != FE_SUCCESS, ret);
+		DO_TEST(chat_join, (conn2.conn, fttest), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_CHAT_USER_JOINED, conn2.username);
 		DO_WAITFOR(conn2, WF_CHAT_JOINED, fttest);
 
-		DO_TEST(register_callback, (conn1.handle, FC_IM_BUDDYONLINE, (ptrtofnct)buddy_online), ret != FE_SUCCESS, ret);
-		DO_TEST(im_remove_buddy, (conn1.handle, conn2.username), (ret != FE_SUCCESS) && (ret != (void *)FE_NOTFOUND), ret);
-		DO_TEST(im_add_buddy, (conn1.handle, conn2.username, "Test Group", "Test Friendly"), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_IM_BUDDYONLINE, (ptrtofnct)buddy_online), ret != FE_SUCCESS, ret);
+		DO_TEST(im_remove_buddy, (conn1.conn, conn2.username), (ret != FE_SUCCESS) && (ret != (void *)FE_NOTFOUND), ret);
+		DO_TEST(im_add_buddy, (conn1.conn, conn2.username, "Test Group", "Test Friendly"), ret != FE_SUCCESS, ret);
 //		DO_WAITFOR(conn1, WF_BUDDYONLINE, conn2.username);
 
-		DO_TEST(register_callback, (conn1.handle, FC_IM_BUDDYAWAY, (ptrtofnct)im_buddyaway), ret != FE_SUCCESS, ret);
-		DO_TEST(set_away, (conn2.handle, FIRETALK_TEST_STRING, 0), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_IM_BUDDYAWAY, (ptrtofnct)im_buddyaway), ret != FE_SUCCESS, ret);
+		DO_TEST(set_away, (conn2.conn, FIRETALK_TEST_STRING, 0), ret != FE_SUCCESS, ret);
 //		DO_WAITFOR(conn1, WF_IM_BUDDYAWAY, conn2.username);
 
-		DO_TEST(register_callback, (conn1.handle, FC_IM_BUDDYUNAWAY, (ptrtofnct)im_buddyunaway), ret != FE_SUCCESS, ret);
-		DO_TEST(set_away, (conn2.handle, NULL, 0), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_IM_BUDDYUNAWAY, (ptrtofnct)im_buddyunaway), ret != FE_SUCCESS, ret);
+		DO_TEST(set_away, (conn2.conn, NULL, 0), ret != FE_SUCCESS, ret);
 //		DO_WAITFOR(conn1, WF_IM_BUDDYUNAWAY, conn2.username);
 
-		DO_TEST(register_callback, (conn1.handle, FC_CHAT_GETMESSAGE, (ptrtofnct)chat_getmessage), ret != FE_SUCCESS, ret);
-		DO_TEST(chat_send_message, (conn2.handle, fttest, FIRETALK_TEST_STRING, 0), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_CHAT_GETMESSAGE, (ptrtofnct)chat_getmessage), ret != FE_SUCCESS, ret);
+		DO_TEST(chat_send_message, (conn2.conn, fttest, FIRETALK_TEST_STRING, 0), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_CHAT_GETMESSAGE, FIRETALK_TEST_STRING);
 
-		DO_TEST(register_callback, (conn1.handle, FC_CHAT_GETACTION, (ptrtofnct)chat_getaction), ret != FE_SUCCESS, ret);
-		DO_TEST(chat_send_action, (conn2.handle, fttest, FIRETALK_TEST_STRING, 0), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_CHAT_GETACTION, (ptrtofnct)chat_getaction), ret != FE_SUCCESS, ret);
+		DO_TEST(chat_send_action, (conn2.conn, fttest, FIRETALK_TEST_STRING, 0), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_CHAT_GETACTION, FIRETALK_TEST_STRING);
 
-		DO_TEST(register_callback, (conn1.handle, FC_CHAT_USER_LEFT, (ptrtofnct)chat_user_left), ret != FE_SUCCESS, ret);
-		DO_TEST(chat_part, (conn2.handle, fttest), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_CHAT_USER_LEFT, (ptrtofnct)chat_user_left), ret != FE_SUCCESS, ret);
+		DO_TEST(chat_part, (conn2.conn, fttest), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_CHAT_USER_LEFT, conn2.username);
 
-		DO_TEST(register_callback, (conn1.handle, FC_CHAT_LEFT, (ptrtofnct)chat_left), ret != FE_SUCCESS, ret);
-		DO_TEST(chat_part, (conn1.handle, fttest), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_CHAT_LEFT, (ptrtofnct)chat_left), ret != FE_SUCCESS, ret);
+		DO_TEST(chat_part, (conn1.conn, fttest), ret != FE_SUCCESS, ret);
 		DO_WAITFOR(conn1, WF_CHAT_LEFT, fttest);
 
-		DO_TEST(register_callback, (conn1.handle, FC_IM_BUDDYOFFLINE, (ptrtofnct)buddy_offline), ret != FE_SUCCESS, ret);
-		DO_TEST(disconnect, (conn2.handle), ret != FE_SUCCESS, ret);
+		DO_TEST(register_callback, (conn1.conn, FC_IM_BUDDYOFFLINE, (ptrtofnct)buddy_offline), ret != FE_SUCCESS, ret);
+		DO_TEST(disconnect, (conn2.conn), ret != FE_SUCCESS, ret);
 //		DO_WAITFOR(conn1, WF_BUDDYOFFLINE, conn2.username);
 
-		DO_TEST(disconnect, (conn1.handle), ret != FE_SUCCESS, ret);
+		DO_TEST(disconnect, (conn1.conn), ret != FE_SUCCESS, ret);
 
-		fprintf(stderr, "destroying conn1.handle...");
+		fprintf(stderr, "destroying conn1.conn...");
 		fflush(stderr);
-		firetalk_destroy_handle(conn1.handle);
+		firetalk_destroy_conn(conn1.conn);
 		fprintf(stderr, " done\r\n");
 
-		fprintf(stderr, "destroying conn2.handle...");
+		fprintf(stderr, "destroying conn2.conn...");
 		fflush(stderr);
-		firetalk_destroy_handle(conn2.handle);
+		firetalk_destroy_conn(conn2.conn);
 		fprintf(stderr, " done\r\n");
 
 		free(fttest);
@@ -428,5 +427,5 @@ int	main(int argc, char *argv[]) {
 
 		fprintf(stderr, "\r\n");
 	}
-	return 0;
+	return(0);
 }

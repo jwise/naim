@@ -1,1 +1,1 @@
-#define NAIM_SNAPSHOT ""
+#define NAIM_SNAPSHOT "-git"

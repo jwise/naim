@@ -13,24 +13,17 @@ extern faimconf_t faimconf;
 extern time_t	now, awaytime;
 extern double	nowf, changetime;
 extern char	*lastclose;
-extern const char *home;
-extern int	awayc;
-extern awayar_t	*awayar;
 extern int	printtitle;
 
-extern int
-	buddyc G_GNUC_INTERNAL,
-	wbuddy_widthy G_GNUC_INTERNAL,
-	inplayback G_GNUC_INTERNAL;
+extern int buddyc G_GNUC_INTERNAL,
+	wbuddy_widthy G_GNUC_INTERNAL;
 int	buddyc = -1,
-	wbuddy_widthy = -1,
-	inplayback = 0;
+	wbuddy_widthy = -1;
 
-static void
-	iupdate(void) {
+static void iupdate(void) {
 	time_t	t;
-	long	idletime = secs_getvar_int("idletime");
-	struct tm	*tmptr;
+	long	idletime = script_getvar_int("idletime");
+	struct tm *tmptr;
 	char	buf[1024];
 
 	assert(sizeof(buf) > faimconf.winfo.widthx);
@@ -42,124 +35,124 @@ static void
 
 	if (curconn->online > 0) {
 		t = now - curconn->online;
-		secs_setvar("online", dtime(t));
+		script_setvar("online", dtime(t));
 	} else
-		secs_setvar("online", "(not connected)");
+		script_setvar("online", "(not connected)");
 
-	secs_setvar("SN", curconn->sn);
-	secs_setvar("conn", curconn->winname);
+	script_setvar("SN", curconn->sn);
+	script_setvar("conn", curconn->winname);
 
 	if (inconn) {
-		secs_setvar("cur", curconn->curbwin->winname);
+		script_setvar("cur", curconn->curbwin->winname);
 		if ((curconn->curbwin->et == BUDDY) && (curconn->curbwin->e.buddy->tag != NULL)) {
 			snprintf(buf, sizeof(buf), " !%.*s!",
 				(int)(sizeof(buf)-4),
 				curconn->curbwin->e.buddy->tag);
 			htmlstrip(buf);
-			secs_setvar("iftopic", buf);
+			script_setvar("iftopic", buf);
 		} else if (curconn->curbwin->blurb != NULL) {
 			snprintf(buf, sizeof(buf), " (%.*s)",
 				(int)(sizeof(buf)-4),
 				curconn->curbwin->blurb);
 			htmlstrip(buf);
-			secs_setvar("iftopic", buf);
+			script_setvar("iftopic", buf);
 		} else if (curconn->curbwin->status != NULL) {
 			snprintf(buf, sizeof(buf), " (%.*s)",
 				(int)(sizeof(buf)-4),
 				curconn->curbwin->status);
 			htmlstrip(buf);
-			secs_setvar("iftopic", buf);
+			script_setvar("iftopic", buf);
 		} else
-			secs_setvar("iftopic", "");
+			script_setvar("iftopic", "");
 
-		if ((curconn->curbwin->et != BUDDY) || (curconn->curbwin->e.buddy->typing == 0))
-			secs_setvar("iftyping", "");
+		if ((curconn->curbwin->et != BUDDY) || (curconn->curbwin->e.buddy->typing < now-10*60))
+			script_setvar("iftyping", "");
 		else
-			secs_setvar("iftyping", secs_script_expand(NULL, getvar(curconn, "statusbar_typing")));
+			script_setvar("iftyping", script_expand(getvar(curconn, "statusbar_typing")));
 
 		switch (curconn->curbwin->et) {
 		  case BUDDY:
 			if (curconn->curbwin->e.buddy->docrypt)
-				secs_setvar("ifcrypt", getvar(curconn, "statusbar_crypt"));
+				script_setvar("ifcrypt", getvar(curconn, "statusbar_crypt"));
 			else
-				secs_setvar("ifcrypt", "");
+				script_setvar("ifcrypt", "");
 			if (curconn->curbwin->e.buddy->tzname != NULL) {
-				secs_setvar("tzname", curconn->curbwin->e.buddy->tzname);
-				secs_setvar("iftzname", secs_script_expand(NULL, getvar(curconn, "statusbar_tzname")));
+				script_setvar("tzname", curconn->curbwin->e.buddy->tzname);
+				script_setvar("iftzname", script_expand(getvar(curconn, "statusbar_tzname")));
 			} else {
-				secs_setvar("tzname", "");
-				secs_setvar("iftzname", "");
+				script_setvar("tzname", "");
+				script_setvar("iftzname", "");
 			}
-			secs_setvar("ifoper", "");
-			secs_setvar("ifquery",
-				secs_script_expand(NULL, getvar(curconn, "statusbar_query")));
-			secs_setvar("ifchat", "");
+			script_setvar("ifoper", "");
+			script_setvar("ifquery",
+				script_expand(getvar(curconn, "statusbar_query")));
+			script_setvar("ifchat", "");
 			break;
 		  case CHAT:
 			if (curconn->curbwin->e.chat->isoper)
-				secs_setvar("ifoper",
-					secs_script_expand(NULL, getvar(curconn, "statusbar_oper")));
+				script_setvar("ifoper",
+					script_expand(getvar(curconn, "statusbar_oper")));
 			else
-				secs_setvar("ifoper", "");
-			secs_setvar("ifquery", "");
-			secs_setvar("ifchat",
-				secs_script_expand(NULL, getvar(curconn, "statusbar_chat")));
+				script_setvar("ifoper", "");
+			script_setvar("ifquery", "");
+			script_setvar("ifchat",
+				script_expand(getvar(curconn, "statusbar_chat")));
 			break;
 		  case TRANSFER:
-			secs_setvar("ifoper", "");
-			secs_setvar("ifquery", "");
-			secs_setvar("ifchat", "");
+			script_setvar("ifoper", "");
+			script_setvar("ifquery", "");
+			script_setvar("ifchat", "");
 			break;
 		}
 	} else {
-		secs_setvar("cur", "");
-		secs_setvar("ifoper", "");
-		secs_setvar("ifquery", "");
-		secs_setvar("iftyping", "");
-		secs_setvar("ifchat", "");
+		script_setvar("cur", "");
+		script_setvar("ifoper", "");
+		script_setvar("ifquery", "");
+		script_setvar("iftyping", "");
+		script_setvar("ifchat", "");
 	}
 
-	secs_setvar("iftransfer", "");
+	script_setvar("iftransfer", "");
 
 	if (awaytime > 0)
-		secs_setvar("ifaway",
-			secs_script_expand(NULL, getvar(curconn, "statusbar_away")));
+		script_setvar("ifaway",
+			script_expand(getvar(curconn, "statusbar_away")));
 	else
-		secs_setvar("ifaway", "");
+		script_setvar("ifaway", "");
 
 	if (idletime > 10) {
-		secs_setvar("idle", dtime(60*idletime));
-		secs_setvar("ifidle",
-			secs_script_expand(NULL, getvar(curconn, "statusbar_idle")));
+		script_setvar("idle", dtime(60*idletime));
+		script_setvar("ifidle",
+			script_expand(getvar(curconn, "statusbar_idle")));
 	} else {
-		secs_setvar("idle", "");
-		secs_setvar("ifidle", "");
+		script_setvar("idle", "");
+		script_setvar("ifidle", "");
 	}
 
 	if (curconn->lag > 0.1) {
-		secs_setvar("lag", dtime(curconn->lag));
-		secs_setvar("iflag",
-			secs_script_expand(NULL, getvar(curconn, "statusbar_lag")));
+		script_setvar("lag", dtime(curconn->lag));
+		script_setvar("iflag",
+			script_expand(getvar(curconn, "statusbar_lag")));
 	} else {
-		secs_setvar("lag", "0");
-		secs_setvar("iflag", "");
+		script_setvar("lag", "0");
+		script_setvar("iflag", "");
 	}
 
 	if (curconn->warnval > 0) {
 		snprintf(buf, sizeof(buf), "%li", curconn->warnval);
-		secs_setvar("warnval", buf);
-		secs_setvar("ifwarn",
-			secs_script_expand(NULL, getvar(curconn, "statusbar_warn")));
+		script_setvar("warnval", buf);
+		script_setvar("ifwarn",
+			script_expand(getvar(curconn, "statusbar_warn")));
 	} else {
-		secs_setvar("warnval", "0");
-		secs_setvar("ifwarn", "");
+		script_setvar("warnval", "0");
+		script_setvar("ifwarn", "");
 	}
 
 	if (strftime(buf, sizeof(buf), getvar(curconn, "statusbar"), tmptr) > 0) {
 		char	*left, *right;
 
 		assert(*buf != 0);
-		right = secs_script_expand(NULL, buf);
+		right = script_expand(buf);
 		assert(right != NULL);
 		left = strdup(right);
 		assert(left != NULL);
@@ -278,17 +271,17 @@ static void bsort(conn_t *conn) {
 }
 
 void	bupdate(void) {
-	static win_t	*lwin = NULL;
+	static win_t *lwin = NULL;
 	int	waiting,
-		widthx = secs_getvar_int("winlistchars"),
+		widthx = script_getvar_int("winlistchars"),
 		M = widthx,
 #ifdef ENABLE_FORCEASCII
-		fascii = secs_getvar_int("forceascii"),
+		fascii = script_getvar_int("forceascii"),
 #endif
 		bb, line = 0;
 	conn_t	*conn = curconn;
 
-	wbuddy_widthy = secs_getvar_int("winlistheight")*faimconf.wstatus.widthy/100;
+	wbuddy_widthy = script_getvar_int("winlistheight")*faimconf.wstatus.widthy/100;
 	if (wbuddy_widthy > faimconf.wstatus.widthy)
 		wbuddy_widthy = faimconf.wstatus.widthy;
 
@@ -332,7 +325,7 @@ void	bupdate(void) {
 	}
 
 	do {
-		buddywin_t	*bwin = conn->curbwin;
+		buddywin_t *bwin = conn->curbwin;
 		char	*lastgroup = NULL;
 		int	hidegroup = 0,
 			autosort = getvar_int(conn, "autosort");
@@ -375,7 +368,7 @@ void	bupdate(void) {
 		do {
 			if ((inconn && (conn == curconn)) || bwin->waiting) {
 				char	buf[256], *group;
-				int	col = -1;
+				int	back = -1, fore = -1;
 
 				assert(bwin->winname != NULL);
 				buddyc++;
@@ -409,7 +402,7 @@ void	bupdate(void) {
 					else
 						snprintf(tmp, sizeof(tmp),
 							" [Ctrl-N to %s:%s]", conn->winname, buf);
-					secs_setvar("ifpending", tmp);
+					script_setvar("ifpending", tmp);
 					waiting = 1;
 				}
 				if (printtitle && bwin->waiting && (waiting < 2) && ((bwin->et == BUDDY) || ((bwin->et == CHAT) && bwin->e.chat->isaddressed))) {
@@ -425,70 +418,71 @@ void	bupdate(void) {
 					buf[M] = 0;
 				}
 
-				if ((bwin->et == CHAT) && bwin->e.chat->isaddressed) {
-					assert(bwin->waiting);
-					col = C(WINLIST,BUDDY_ADDRESSED);
-				} else if (bwin->waiting)
-					if (bwin->et == BUDDY)
-						col = C(WINLIST,BUDDY_ADDRESSED);
-					else
-						col = C(WINLIST,BUDDY_WAITING);
-				else if (bwin->pouncec > 0)
-					col = C(WINLIST,BUDDY_QUEUED);
-				else
-					switch (bwin->et) {
-					  case BUDDY:
-						if (bwin->e.buddy->tag != NULL)
-							col = CI(WINLIST,BUDDY_TAGGED);
-						else if (bwin->e.buddy->offline)
-							col = C(WINLIST,BUDDY_OFFLINE);
-						else if (bwin->e.buddy->ismobile)
-							col = C(WINLIST,BUDDY_MOBILE);
-						else if (bwin->e.buddy->isaway)
-							col = C(WINLIST,BUDDY_AWAY);
-						else if (bwin->e.buddy->isidle)
-							col = C(WINLIST,BUDDY_IDLE);
-						else
-							col = C(WINLIST,BUDDY);
-						break;
-					  case CHAT:
-						assert(bwin->e.chat != NULL);
-						if (bwin->e.chat->offline)
-							col = C(WINLIST,BUDDY_OFFLINE);
-						else
-							col = C(WINLIST,BUDDY);
-						break;
-					  case TRANSFER:
-						col = C(WINLIST,BUDDY);
-						break;
-					}
-				assert(col != -1);
-				if (bwin == curconn->curbwin) {
-					int	affect = col/COLOR_PAIRS,
-						back;
+				back = faimconf.b[cWINLIST];
+				switch (bwin->et) {
+				  case BUDDY:
+					assert(bwin->e.buddy != NULL);
+					if (bwin->e.buddy->typing >= now-10*60)
+						back = faimconf.f[cBUDDY_TYPING];
+					else if (bwin->e.buddy->tag != NULL)
+						back = faimconf.f[cBUDDY_TAGGED];
 
-#if 0
-					if (faimconf.b[cIMWIN] == faimconf.b[cWINLIST])
-						back = (faimconf.b[cIMWIN]+1)%nw_COLORS;
+					if (bwin->waiting)
+						fore = faimconf.f[cBUDDY_ADDRESSED];
+					else if (bwin->pouncec > 0)
+						fore = faimconf.f[cBUDDY_QUEUED];
+					else if (bwin->e.buddy->offline)
+						fore = faimconf.f[cBUDDY_OFFLINE];
+					else if (bwin->e.buddy->ismobile)
+						fore = faimconf.f[cBUDDY_MOBILE];
+					else if (bwin->e.buddy->isaway && bwin->e.buddy->isidle)
+						fore = faimconf.f[cBUDDY_AWAY];
+					else if (bwin->e.buddy->isaway)
+						fore = faimconf.f[cBUDDY_FAKEAWAY];
+					else if (bwin->e.buddy->isidle)
+						fore = faimconf.f[cBUDDY_IDLE];
 					else
-						back = faimconf.b[cIMWIN];
-#else
-						back = faimconf.b[cWINLISTHIGHLIGHT];
-#endif
-
-					col %= nw_COLORS;
-					col += nw_COLORS*back;
-					col += affect*COLOR_PAIRS;
+						fore = faimconf.f[cBUDDY];
+					break;
+				  case CHAT:
+					assert(bwin->e.chat != NULL);
+					if (bwin->e.chat->isaddressed) {
+						assert(bwin->waiting);
+						fore = faimconf.f[cBUDDY_ADDRESSED];
+					} else if (bwin->waiting)
+						fore = faimconf.f[cBUDDY_WAITING];
+					else if (bwin->e.chat->offline)
+						fore = faimconf.f[cBUDDY_OFFLINE];
+					else
+						fore = faimconf.f[cBUDDY];
+					break;
+				  case TRANSFER:
+					if (bwin->waiting)
+						fore = faimconf.f[cBUDDY_WAITING];
+					else
+						fore = faimconf.f[cBUDDY];
+					break;
 				}
-				nw_move(&win_buddy, line, 1);
-				if ((col >= 2*COLOR_PAIRS) || (col < COLOR_PAIRS))
-					nw_printf(&win_buddy, col%COLOR_PAIRS, 1, "%*s", M, buf);
-				else
-					nw_printf(&win_buddy, col%COLOR_PAIRS, 0, "%*s", M, buf);
-				if (bwin->waiting) {
-					nw_move(&win_buddy, line, 0);
-					nw_addch(&win_buddy, ACS_LTEE_C   | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
-					nw_addch(&win_buddy, ACS_RARROW_C | A_BOLD | COLOR_PAIR(col%COLOR_PAIRS));
+
+				if (bwin == curconn->curbwin)
+					back = faimconf.b[cWINLISTHIGHLIGHT];
+
+				assert(fore != -1);
+				assert(back != -1);
+
+				{
+					int	col = nw_COLORS*back + fore;
+
+					nw_move(&win_buddy, line, 1);
+					if ((col >= 2*COLOR_PAIRS) || (col < COLOR_PAIRS))
+						nw_printf(&win_buddy, col%COLOR_PAIRS, 1, "%*s", M, buf);
+					else
+						nw_printf(&win_buddy, col%COLOR_PAIRS, 0, "%*s", M, buf);
+					if (bwin->waiting) {
+						nw_move(&win_buddy, line, 0);
+						nw_addch(&win_buddy, ACS_LTEE_C   | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
+						nw_addch(&win_buddy, ACS_RARROW_C | A_BOLD | COLOR_PAIR(col%COLOR_PAIRS));
+					}
 				}
 				line++;
 			}
@@ -513,7 +507,7 @@ void	bupdate(void) {
 	if (waiting)
 		buddyc = -buddyc;
 	else
-		secs_setvar("ifpending", "");
+		script_setvar("ifpending", "");
 
 	if (inconn)
 		assert(curconn->curbwin != NULL);
@@ -535,28 +529,22 @@ void	bupdate(void) {
 	iupdate();
 }
 
-buddywin_t
-	*bgetwin(conn_t *conn, const char *buddy, et_t et) {
-	buddywin_t	*bwin = conn->curbwin;
+buddywin_t *bgetwin(conn_t *conn, const char *buddy, et_t et) {
+	buddywin_t *bwin = conn->curbwin;
 
 	assert(buddy != NULL);
 	if (bwin == NULL)
 		return(NULL);
 	do {
-		if (bwin->et == et) {
-			if (firetalk_compare_nicks(conn->conn, buddy, bwin->winname) == FE_SUCCESS)
-				return(bwin);
-//			if ((bwin->et == BUDDY) && (firetalk_compare_nicks(conn->conn, buddy, USER_NAME(bwin->e.buddy)) == FE_SUCCESS))
-//				return(bwin);
-		}
+		if ((bwin->et == et) && (firetalk_compare_nicks(conn->conn, buddy, bwin->winname) == FE_SUCCESS))
+			return(bwin);
 	} while ((bwin = bwin->next) != conn->curbwin);
 
 	return(NULL);
 }
 
-buddywin_t
-	*bgetanywin(conn_t *conn, const char *buddy) {
-	buddywin_t	*bwin = conn->curbwin;
+buddywin_t *bgetanywin(conn_t *conn, const char *buddy) {
+	buddywin_t *bwin = conn->curbwin;
 
 	assert(buddy != NULL);
 	if (bwin == NULL)
@@ -571,8 +559,21 @@ buddywin_t
 	return(NULL);
 }
 
-static void
-	bremove(buddywin_t *bwin) {
+buddywin_t *bgetbuddywin(conn_t *conn, const buddylist_t *blist) {
+	buddywin_t *bwin = conn->curbwin;
+
+	assert(blist != NULL);
+	if (bwin == NULL)
+		return(NULL);
+	do {
+		if ((bwin->et == BUDDY) && (bwin->e.buddy == blist))
+			return(bwin);
+	} while ((bwin = bwin->next) != conn->curbwin);
+
+	return(NULL);
+}
+
+static void bremove(buddywin_t *bwin) {
 	int	i;
 
 	assert(bwin != NULL);
@@ -588,7 +589,7 @@ static void
 	FREESTR(bwin->status);
 
 	if (bwin->nwin.logfile != NULL) {
-		struct tm	*tmptr;
+		struct tm *tmptr;
 
 		tmptr = localtime(&now);
 		fprintf(bwin->nwin.logfile, "<I>-----</I> <font color=\"#FFFFFF\">Log file closed %04i-%02i-%02iT%02i:%02i</font> <I>-----</I><br>\n",
@@ -601,7 +602,7 @@ static void
 }
 
 void	verify_winlist_sanity(conn_t *const conn, const buddywin_t *const verifywin) {
-	buddywin_t	*bwin;
+	buddywin_t *bwin;
 	int	i = 0, found = 0;
 
 	assert(conn != NULL);
@@ -630,7 +631,11 @@ void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 	if (bwin == NULL)
 		return;
 
+	assert(bwin->conn == conn);
+
 	verify_winlist_sanity(conn, bwin);
+
+	script_hook_delwin(bwin);
 
 	switch (bwin->et) {
 	  case BUDDY:
@@ -695,158 +700,20 @@ void	bclose(conn_t *conn, buddywin_t *bwin, int _auto) {
 		nw_touchwin(&(conn->nwin));
 }
 
-const unsigned char *naim_normalize(const unsigned char *const name) {
-	static char	newname[2048];
-	int	i, j = 0;
-
-	for (i = 0; (name[i] != 0) && (j < sizeof(newname)-1); i++)
-		if ((name[i] == '/') || (name[i] == '.'))
-			newname[j++] = '_';
-		else if (name[i] != ' ')
-			newname[j++] = tolower(name[i]);
-	newname[j] = 0;
-	return(newname);
-}
-
-static int
-	makedir(const char *d) {
-	char	*dir;
-
-	if (*d != '/') {
-		static char buf[1024];
-
-		snprintf(buf, sizeof(buf), "%s/%s", home, d);
-		d = buf;
-	}
-	dir = strdup(d);
-	while (chdir(d) != 0) {
-		strcpy(dir, d);
-		while (chdir(dir) != 0) {
-			char	*pdir = strrchr(dir, '/');
-
-			if (mkdir(dir, 0700) != 0)
-				if (errno != ENOENT) {
-					chdir(home);
-					free(dir);
-					return(-1);
-				}
-			if (pdir == NULL)
-				break;
-			*pdir = 0;
-		}
-	}
-	chdir(home);
-	free(dir);
-	return(0);
-}
-
-static FILE
-	*playback_fopen(conn_t *const conn, buddywin_t *const bwin, const char *const mode) {
-	FILE	*rfile;
-	char	*n, *nhtml, *ptr,
-		buf[256];
-
-	secs_setvar("conn", conn->winname);
-	secs_setvar("cur", naim_normalize(bwin->winname));
-
-	n = secs_script_expand(NULL, secs_getvar("logdir"));
-	snprintf(buf, sizeof(buf), "%s", n);
-	if ((ptr = strrchr(buf, '/')) != NULL) {
-		*ptr = 0;
-		makedir(buf);
-	}
-
-	if (strstr(n, ".html") == NULL) {
-		snprintf(buf, sizeof(buf), "%s.html", n);
-		nhtml = buf;
-	} else {
-		nhtml = n;
-		snprintf(buf, sizeof(buf), "%s", nhtml);
-		if ((ptr = strstr(buf, ".html")) != NULL)
-			*ptr = 0;
-		n = buf;
-	}
-
-	if ((rfile = fopen(n, "r")) != NULL) {
-		fclose(rfile);
-		if ((rfile = fopen(nhtml, "r")) != NULL) {
-			fclose(rfile);
-			status_echof(conn, "Warning: While opening logfile for %s, two versions were found: [%s] and [%s]. I will use [%s], but you may want to look into this discrepency.\n",
-				bwin->winname, n, nhtml, nhtml);
-		} else
-			rename(n, nhtml);
-	}
-
-	return(fopen(nhtml, mode));
-}
-
-void	playback(conn_t *const conn, buddywin_t *const bwin, const int lines) {
-	FILE	*rfile;
-
-	assert(bwin->nwin.logfile != NULL);
-	fflush(bwin->nwin.logfile);
-	bwin->nwin.dirty = 0;
-
-	if ((rfile = playback_fopen(conn, bwin, "r")) != NULL) {
-		char	buf[2048];
-		int	maxlen = lines*faimconf.wstatus.widthx;
-		long	filesize, playbackstart, playbacklen, pos;
-		time_t	lastprogress = now;
-
-#ifdef DEBUG_ECHO
-		status_echof(conn, "Redrawing window for %s.", bwin->winname);
-#endif
-
-		nw_statusbarf("Redrawing window for %s.", bwin->winname);
-
-		fseek(rfile, 0, SEEK_END);
-		while (((filesize = ftell(rfile)) == -1) && (errno == EINTR))
-			;
-		assert(filesize >= 0);
-		if (filesize > maxlen) {
-			fseek(rfile, -maxlen, SEEK_CUR);
-			while ((fgetc(rfile) != '\n') && !feof(rfile))
-				;
-		} else
-			fseek(rfile, 0, SEEK_SET);
-		while (((playbackstart = ftell(rfile)) == -1) && (errno == EINTR))
-			;
-		assert(playbackstart >= 0);
-		pos = 0;
-		playbacklen = filesize-playbackstart;
-		inplayback = 1;
-		while (fgets(buf, sizeof(buf), rfile) != NULL) {
-			long	len = strlen(buf);
-
-			pos += len;
-			hwprintf(&(bwin->nwin), -C(IMWIN,TEXT)-1, "%s", buf);
-			if ((now = time(NULL)) > lastprogress) {
-				nw_statusbarf("Redrawing window for %s (%li lines left).",
-					bwin->winname, lines*(playbacklen-pos)/playbacklen);
-				lastprogress = now;
-			}
-		}
-		inplayback = 0;
-		fclose(rfile);
-	}
-}
-
 void	bnewwin(conn_t *conn, const char *name, et_t et) {
-	buddywin_t	*bwin;
+	buddywin_t *bwin;
 	int	i;
+	struct tm *tmptr;
 
 	assert(name != NULL);
 
 	if (bgetwin(conn, name, et) != NULL)
 		return;
 
+	tmptr = localtime(&now);
+
 	bwin = calloc(1, sizeof(buddywin_t));
 	assert(bwin != NULL);
-
-	nw_newwin(&(bwin->nwin));
-	nw_initwin(&(bwin->nwin), cIMWIN);
-	for (i = 0; i < faimconf.wstatus.pady; i++)
-		nw_printf(&(bwin->nwin), 0, 0, "\n");
 
 	bwin->winname = strdup(name);
 	assert(bwin->winname != NULL);
@@ -871,8 +738,8 @@ void	bnewwin(conn_t *conn, const char *name, et_t et) {
 		bwin->next = bwin;
 		conn->curbwin = bwin;
 	} else {
-		buddywin_t	*lastbwin = conn->curbwin,
-				*srchbwin = conn->curbwin;
+		buddywin_t *lastbwin = conn->curbwin,
+			*srchbwin = conn->curbwin;
 
 		do {
 			if (aimcmp(lastbwin->winname, lastbwin->next->winname) == 1)
@@ -890,44 +757,49 @@ void	bnewwin(conn_t *conn, const char *name, et_t et) {
 		srchbwin->next = bwin;
 	}
 
-	{
-		if ((bwin->nwin.logfile = playback_fopen(conn, bwin, "a")) == NULL)
-			status_echof(conn, "Unable to open scrollback buffer file: %s\n",
-				strerror(errno));
-		else {
-			struct tm	*tmptr;
-
-			fchmod(fileno(bwin->nwin.logfile), 0600);
-			tmptr = localtime(&now);
-			fprintf(bwin->nwin.logfile, "&nbsp;<br>\n<I>-----</I> <font color=\"#FFFFFF\">Log file opened %04i-%02i-%02iT%02i:%02i</font> <I>-----</I><br>\n",
-				1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday, tmptr->tm_hour, tmptr->tm_min);
-			if (firetalk_compare_nicks(conn->conn, name, "naim help") == FE_SUCCESS) {
-				fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">Once you have signed on, anything you type that does not start with a slash is sent as a private message to whoever's window you are in.</font><br>\n");
-				fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">Right now you are \"in\" a window for <font color=\"#00FF00\">naim help</font>, which is the screen name of naim's maintainer, <font color=\"#00FFFF\">Daniel Reed</font>.</font><br>\n");
-				fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">If you would like help, first try using naim's online help by typing <font color=\"#00FF00\">/help</font>. If you need further help, feel free to ask your question here, and Mr. Reed will get back to you as soon as possible.</font><br>\n");
-				fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#800000\">If you are using Windows telnet to connect to a shell account to run naim, you may notice severe screen corruption. You may wish to try PuTTy, available for free from www.tucows.com. PuTTy handles both telnet and SSH.</font><br>\n");
-			}
-			nw_resize(&(bwin->nwin), 1, 1);
-			bwin->nwin.dirty = 1;
+	if ((bwin->nwin.logfile = logging_open(conn, bwin)) == NULL) {
+		nw_newwin(&(bwin->nwin), faimconf.wstatus.pady, faimconf.wstatus.widthx);
+		nw_initwin(&(bwin->nwin), cIMWIN);
+		for (i = 0; i < faimconf.wstatus.pady; i++)
+			nw_printf(&(bwin->nwin), 0, 0, "\n");
+		hwprintf(&(bwin->nwin), C(IMWIN,TEXT), "<I>-----</I> <font color=\"#FFFFFF\">Session started %04i-%02i-%02iT%02i:%02i</font> <I>-----</I><br>\n",
+			1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday, tmptr->tm_hour, tmptr->tm_min);
+	} else {
+		fchmod(fileno(bwin->nwin.logfile), 0600);
+		fprintf(bwin->nwin.logfile, "&nbsp;<br>\n<I>-----</I> <font color=\"#FFFFFF\">Log file opened %04i-%02i-%02iT%02i:%02i</font> <I>-----</I><br>\n",
+			1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday, tmptr->tm_hour, tmptr->tm_min);
+		if (firetalk_compare_nicks(conn->conn, name, "naim help") == FE_SUCCESS) {
+			fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">Once you have signed on, anything you type that does not start with a slash is sent as a private message to whoever's window you are in.</font><br>\n");
+			fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">Right now you are \"in\" a window for <font color=\"#00FF00\">naim help</font>, which is the screen name of naim's maintainer, <font color=\"#00FFFF\">Daniel Reed</font>.</font><br>\n");
+			fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#808080\">If you would like help, first try using naim's online help by typing <font color=\"#00FF00\">/help</font>. If you need further help, visit the naim documentation site online at http://naimdoc.net/. If all else fails, feel free to ask your question here and wait patiently :).</font><br>\n");
+			fprintf(bwin->nwin.logfile, "<I>*****</I> <font color=\"#800000\">If you are using Windows telnet to connect to a shell account to run naim, you may notice severe screen corruption. You may wish to try PuTTy, available for free from www.tucows.com. PuTTy handles both telnet and SSH.</font><br>\n");
 		}
+		nw_newwin(&(bwin->nwin), 1, 1);
+		nw_initwin(&(bwin->nwin), cIMWIN);
+		bwin->nwin.dirty = 1;
+		bwin->nwin.logfilelines = 0;
 	}
+
+	bwin->conn = conn;
+	script_hook_newwin(bwin);
 }
 
 void	bcoming(conn_t *conn, const char *buddy) {
-	buddywin_t	*bwin = NULL;
-	buddylist_t	*blist = NULL;
+	buddywin_t *bwin = NULL;
+	buddylist_t *blist = NULL;
 
 	assert(buddy != NULL);
 
-	if ((blist = rgetlist(conn, buddy)) == NULL) {
-		status_echof(conn, "Adding %s to your buddy list due to sign-on.\n", buddy);
-		blist = raddbuddy(conn, buddy, DEFAULT_GROUP, NULL);
+	blist = rgetlist(conn, buddy);
+	assert(blist != NULL);
+	if (strcmp(blist->_account, buddy) != 0) {
+		script_hook_changebuddy(blist, buddy);
+		STRREPLACE(blist->_account, buddy);
 	}
-	STRREPLACE(blist->_account, buddy);
-	if ((bwin = bgetwin(conn, buddy, BUDDY)) == NULL) {
+	if ((bwin = bgetbuddywin(conn, blist)) == NULL) {
 		if (getvar_int(conn, "autoquery") != 0) {
 			bnewwin(conn, buddy, BUDDY);
-			bwin = bgetwin(conn, buddy, BUDDY);
+			bwin = bgetbuddywin(conn, blist);
 			assert(bwin != NULL);
 		}
 	}
@@ -968,8 +840,8 @@ void	bcoming(conn_t *conn, const char *buddy) {
 }
 
 void	bgoing(conn_t *conn, const char *buddy) {
-	buddywin_t	*bwin = conn->curbwin;
-	buddylist_t	*blist = NULL;
+	buddywin_t *bwin = conn->curbwin;
+	buddylist_t *blist = NULL;
 
 	assert(buddy != NULL);
 
@@ -981,16 +853,11 @@ void	bgoing(conn_t *conn, const char *buddy) {
 			echof(conn, NULL, "Strangeness while marking %s offline: no autopeer negotiated, but autocrypt set!\n",
 				buddy);
 		blist->docrypt = blist->peer = 0;
-		if (blist->crypt != NULL) {
-			free(blist->crypt);
-			blist->crypt = NULL;
-		}
-		if (blist->tzname != NULL) {
-			free(blist->tzname);
-			blist->tzname = NULL;
-		}
+		FREESTR(blist->crypt);
+		FREESTR(blist->tzname);
+		FREESTR(blist->caps);
 
-		status_echof(conn, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> has just logged off :(\n", 
+		status_echof(conn, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> has just logged off :(\n",
 			user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 		blist->offline = 1;
 		blist->warnval = blist->typing = blist->isadmin = blist->ismobile = blist->isidle = blist->isaway = 0;
@@ -1017,10 +884,9 @@ void	bgoing(conn_t *conn, const char *buddy) {
 				/* assert(bwin->waiting == 0); */
 				bclose(conn, bwin, 1);
 				bwin = NULL;
-				if ((autoclose > 0) && !USER_PERMANENT(blist)) {
-					rdelbuddy(conn, buddy);
-					firetalk_im_remove_buddy(conn->conn, buddy);
-				}
+				if ((autoclose > 0) && !USER_PERMANENT(blist))
+					if (firetalk_im_remove_buddy(conn->conn, buddy) != FE_SUCCESS)
+						rdelbuddy(conn, buddy);
 			}
 			bupdate();
 			return;
@@ -1029,8 +895,8 @@ void	bgoing(conn_t *conn, const char *buddy) {
 }
 
 void	bidle(conn_t *conn, const char *buddy, int isidle) {
-	buddywin_t	*bwin = NULL;
-	buddylist_t	*blist = NULL;
+	buddywin_t *bwin = NULL;
+	buddylist_t *blist = NULL;
 
 	assert(buddy != NULL);
 	bwin = bgetwin(conn, buddy, BUDDY);
@@ -1053,8 +919,8 @@ void	bidle(conn_t *conn, const char *buddy, int isidle) {
 }
 
 void	baway(conn_t *conn, const char *buddy, int isaway) {
-	buddywin_t	*bwin = NULL;
-	buddylist_t	*blist = NULL;
+	buddywin_t *bwin = NULL;
+	buddylist_t *blist = NULL;
 
 	assert(buddy != NULL);
 	bwin = bgetwin(conn, buddy, BUDDY);
@@ -1064,26 +930,11 @@ void	baway(conn_t *conn, const char *buddy, int isaway) {
 		blist = bwin->e.buddy;
 	assert(blist != NULL);
 
+	/* XXX need to pass to chain available message: bwin->status */
 	if (bwin != NULL) {
-		if (isaway == 0)
-			FREESTR(bwin->blurb);
-		if ((isaway == 1) && (blist->isaway == 0)) {
-			if ((conn->online+30) < now) {
-				awayc++;
-				awayar = realloc(awayar, awayc*sizeof(*awayar));
-				awayar[awayc-1].name = strdup(buddy);
-				awayar[awayc-1].gotaway = 0;
-				firetalk_im_get_info(conn->conn, buddy);
-			} else
-				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now away.\n",
-					user_name(NULL, 0, conn, blist));
-		} else if ((isaway == 0) && (blist->isaway == 1)) {
-			if (bwin->status != NULL)
-				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is now available: %s\n",
-					user_name(NULL, 0, conn, blist), bwin->status);
-			else
-				window_echof(bwin, "<font color=\"#00FFFF\">%s</font> is no longer away!\n",
-					user_name(NULL, 0, conn, blist));
+		if ((isaway == 0) && (bwin->blurb != NULL)) {
+			free(bwin->blurb);
+			bwin->blurb = NULL;
 		}
 	}
 
@@ -1125,23 +976,17 @@ static void
 	}
 }
 
-static void
-	bclearall_buddy(buddylist_t *buddy) {
-	if (buddy->crypt != NULL) {
-		free(buddy->crypt);
-		buddy->crypt = NULL;
-	}
-	if (buddy->tzname != NULL) {
-		free(buddy->tzname);
-		buddy->tzname = NULL;
-	}
-	buddy->docrypt = buddy->peer = 0;
+static void bclearall_buddy(buddylist_t *buddy) {
+	FREESTR(buddy->crypt);
+	FREESTR(buddy->tzname);
+	FREESTR(buddy->caps);
+	buddy->docrypt = buddy->warnval = buddy->typing = buddy->peer = buddy->isaway = buddy->isidle = buddy->isadmin = buddy->ismobile = 0;
 	buddy->offline = 1;
 }
 
 void	bclearall(conn_t *conn, int force) {
 	if (conn->curbwin != NULL) {
-		buddywin_t	*bwin = conn->curbwin;
+		buddywin_t *bwin = conn->curbwin;
 		int	i, l = 0;
 
 		do {
@@ -1149,7 +994,7 @@ void	bclearall(conn_t *conn, int force) {
 		} while ((bwin = bwin->next) != conn->curbwin);
 
 		for (i = 0; i < l; i++) {
-			buddywin_t	*bnext = bwin->next;
+			buddywin_t *bnext = bwin->next;
 
 			bclearall_bwin(conn, bwin, force);
 			bwin = bnext;
@@ -1159,15 +1004,15 @@ void	bclearall(conn_t *conn, int force) {
 	}
 
 	if (conn->buddyar != NULL) {
-		buddylist_t	*blist = conn->buddyar;
+		buddylist_t *blist = conn->buddyar;
 
 		if (force) {
 			buddylist_t *bnext;
 
 			do {
 				bnext = blist->next;
-				firetalk_im_remove_buddy(conn->conn, blist->_account);
-				do_delbuddy(blist);
+				if (firetalk_im_remove_buddy(conn->conn, blist->_account) != FE_SUCCESS)
+					do_delbuddy(blist);
 			} while ((blist = bnext) != NULL);
 			conn->buddyar = NULL;
 		} else
@@ -1180,7 +1025,7 @@ void	bclearall(conn_t *conn, int force) {
 }
 
 void	naim_changetime(void) {
-	int	autohide = secs_getvar_int("autohide");
+	int	autohide = script_getvar_int("autohide");
 
 	if (changetime > 0) {
 		if (buddyc < 0)

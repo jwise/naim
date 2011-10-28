@@ -11,49 +11,36 @@
 #include <sys/wait.h>
 
 #include "naim-int.h"
-#include "naimrc_sample.h"
 #include "snapshot.h"
-#include "help.h"
 
-extern int
-	wsetup_called;
-extern mod_fd_list_t
-	*mod_fd_listar;
-extern int
-	mod_fd_listc;
+extern int wsetup_called;
 
-extern faimconf_t
-	faimconf G_GNUC_INTERNAL;
-extern int
-	stayconnected G_GNUC_INTERNAL,
+extern faimconf_t faimconf G_GNUC_INTERNAL;
+extern int stayconnected G_GNUC_INTERNAL,
 	printtitle G_GNUC_INTERNAL;
-extern time_t
-	startuptime G_GNUC_INTERNAL,
+extern time_t startuptime G_GNUC_INTERNAL,
 	now G_GNUC_INTERNAL;
-extern double
-	nowf G_GNUC_INTERNAL,
+extern double nowf G_GNUC_INTERNAL,
 	changetime G_GNUC_INTERNAL;
-extern const char
-	*home G_GNUC_INTERNAL,
+extern const char *home G_GNUC_INTERNAL,
 	*sty G_GNUC_INTERNAL,
 	*invocation G_GNUC_INTERNAL;
-extern char
-	naimrcfilename[1024] G_GNUC_INTERNAL;
+extern char naimrcfilename[1024] G_GNUC_INTERNAL;
+extern lt_dlhandle dl_self G_GNUC_INTERNAL;
+
 conn_t	*curconn = NULL;
-faimconf_t
-	faimconf;
+faimconf_t faimconf;
 int	stayconnected = 0,
 	printtitle = 0;
 time_t	startuptime = 0,
 	now = 0;
 double	nowf = 0.0,
 	changetime = 0.0;
-const char
-	*home = NULL,
+const char *home = NULL,
 	*sty = NULL,
 	*invocation = NULL;
-char	naimrcfilename[1024];
-
+char	naimrcfilename[1024] = { 0 };
+lt_dlhandle dl_self = NULL;
 
 
 
@@ -69,8 +56,7 @@ char	naimrcfilename[1024];
 # endif
 #endif
 
-static void
-	dummy(int sig) {
+static void dummy(int sig) {
 	signal(sig, dummy);
 	switch (sig) {
 #ifdef KEY_SIGHUP
@@ -94,22 +80,46 @@ static void
 }
 
 #ifdef HAVE_BACKTRACE
-static void
-	naim_segfault(int sig) {
+void naim_faulthandler(int sig) {
 	void	*bt[25];
 	size_t	len;
+	char	**symbols;
+	int	i;
 
-	wshutitdown();
+	signal(sig, SIG_DFL);
 	len = backtrace(bt, sizeof(bt)/sizeof(*bt));
-	fprintf(stderr, "\r\n\r\n\r\nSegmentation violation; partial symbolic backtrace:\r\n");
-	backtrace_symbols_fd(bt, len, STDERR_FILENO);
-	fprintf(stderr, "\r\nThis information is not a replacement for running naim in gdb. If you are interested in debugging this problem, please re-run naim within gdb and reproduce the fault. When you are presented with the (gdb) prompt again, type \"backtrace\" to receive the full symbolic backtrace and mail this to Daniel Reed <n@ml.org>.\r\n\r\n");
-	abort();
+	symbols = backtrace_symbols(bt, len);
+//	wshutitdown();
+	fprintf(stderr, "\r\nnaim has crashed.  Sorry about that!\r\n\r\n");
+	fprintf(stderr, "Running " PACKAGE_STRING NAIM_SNAPSHOT " for %s.\r\n", dtime(now - startuptime));
+#ifdef HAVE_STRSIGNAL
+	{
+		char	*strsignal(int sig);
+
+		fprintf(stderr, "%s; partial symbolic backtrace:\r\n", strsignal(sig));
+	}
+#else
+	fprintf(stderr, "Signal %i; partial symbolic backtrace:\r\n", sig);
+#endif
+	for (i = 0; i < len; i++)
+		fprintf(stderr, "%i: %s\r\n", i, symbols[i]);
+
+	fprintf(stderr, "\r\nThis information is not a replacement for "
+		"running naim in gdb.  If you are interested in debugging "
+		"this problem, please re-run naim within gdb and reproduce "
+		"the fault.  When you are presented with the (gdb) prompt "
+		"again, type \"backtrace\" to receive the full symbolic "
+		"backtrace and file a bug at "
+		"<https://github.com/jwise/naim/issues>.  If you can, leave "
+		"the debug session open pending further instructions."
+		"\r\n\r\n");
+
+	free(symbols);
+	raise(sig);
 }
 #endif
 
-static void
-	childexit(int sig) {
+static void childexit(int sig) {
 	int	saveerrno = errno;
 
 	signal(sig, childexit);
@@ -121,6 +131,10 @@ static void
 #ifdef HAVE_GETOPT_LONG
 # include <getopt.h>
 #endif
+
+HOOK_DECLARE(preselect);
+HOOK_DECLARE(postselect);
+HOOK_DECLARE(periodic);
 
 #ifndef FAKE_MAIN_STUB
 int	main(int argc, char **args) {
@@ -157,7 +171,7 @@ int	main_stub(int argc, char **args) {
 
 #ifdef HAVE_GETOPT_LONG
 	while (1) {
-		int	i, c,
+		int	/*i,*/ c,
 			option_index = 0;
 		static struct option long_options[] = {
 # ifdef ALLOW_DETACH
@@ -190,9 +204,9 @@ int	main_stub(int argc, char **args) {
 			printf("  -V, --version		Print version information and then exit.\n");
 			printf("\n");
 			printf("See `man naim' for more detailed help.\n");
-			printf("\n");
-			for (i = 0; about[i] != NULL; i++)
-				printf("%s\n", about[i]);
+//			printf("\n");
+//			for (i = 0; about[i] != NULL; i++)
+//				printf("%s\n", about[i]);
 			return(0);
 		  case 'V':
 			if (strcmp(args[0], "naim") == 0)
@@ -231,9 +245,9 @@ int	main_stub(int argc, char **args) {
 			printf("  -V, --version		Print version information and then exit.\n");
 			printf("\n");
 			printf("See `man naim' for more detailed help.\n");
-			printf("\n");
-			for (i = 0; about[i] != NULL; i++)
-				printf("%s\n", about[i]);
+//			printf("\n");
+//			for (i = 0; about[i] != NULL; i++)
+//				printf("%s\n", about[i]);
 		} else {
 			printf("%s: unrecognized option `%s'\n", args[0], args[1]);
 			printf("Try `%s --help' for more information.\n", args[0]);
@@ -260,9 +274,18 @@ int	main_stub(int argc, char **args) {
 	}
 #endif
 
+	printf("Running " PACKAGE_STRING NAIM_SNAPSHOT ".\n");
+
 	changetime = nowf = now = startuptime = time(NULL);
 
-	secs_init();
+	naim_module_init(DLSEARCHPATH);
+#ifdef DLOPEN_SELF_LIBNAIM_CORE
+	dl_self = lt_dlopen("cygnaim_core-0.dll");
+#else
+	dl_self = lt_dlopen(NULL);
+#endif
+
+	script_init();
 
 	initscr();
 	wsetup_called = 2;
@@ -274,8 +297,15 @@ int	main_stub(int argc, char **args) {
 	gotkey(0);	// initialize gotkey() buffer
 	updateidletime();
 
+	commands_hook_init();
+	conio_hook_init();
+	events_hook_init();
+	fireio_hook_init();
+	hamster_hook_init();
+
 #ifdef HAVE_BACKTRACE
-	signal(SIGSEGV, naim_segfault);
+	signal(SIGSEGV, naim_faulthandler);
+	signal(SIGABRT, naim_faulthandler);
 #endif
 	signal(SIGINT, SIG_IGN);
 	signal(SIGQUIT, SIG_IGN);
@@ -292,28 +322,22 @@ int	main_stub(int argc, char **args) {
 #endif
 	childexit(SIGCHLD);
 
-	if (lt_dlinit() != 0) {
-		echof(curconn, NULL, "Unable to initialize module handler: %s.\n",
-			lt_dlerror());
-		return(1);
-	}
-	lt_dlsetsearchpath(DLSEARCHPATH);
-
 	{
-		const char	*args[] = { "dummy", "AIM" };
-		extern void	conio_newconn(void *, int, const char **);
+		const char *args[] = { "dummy", "IRC" };
+		extern void ua_newconn(conn_t *, int, const char **);
 
-		conio_newconn(NULL, 2, args);
+		ua_newconn(NULL, 2, args);
 	}
 
 	{
-		char	buf[256];
-		long	want_aim = 0,
+		int	want_aim = 0,
 			want_irc = 0,
 			want_icq = 0,
 			want_lily = 0;
 
 		chdir(home);
+
+		script_ready();
 
 		invocation = naim_basename(args[0]);
 		if (*invocation == 'n')
@@ -331,18 +355,6 @@ int	main_stub(int argc, char **args) {
 			want_aim = 1;
 		}
 
-		secs_makevar_int("want_aim", want_aim, 'B', NULL);
-		secs_makevar_int("want_irc", want_irc, 'B', NULL);
-		secs_makevar_int("want_icq", want_icq, 'B', NULL);
-		secs_makevar_int("want_lily", want_lily, 'B', NULL);
-
-		secs_makevar_int("sys_argc", argc-1, 'I', NULL);
-		secs_makevar("sys_user", getenv("USER"), 'S');
-		if (argc > 1)
-			secs_makevar("sys_arg1", args[1], 'S');
-		if (argc > 2)
-			secs_makevar("sys_arg2", args[2], 'S');
-
 		if (getenv("NAIMRC") != NULL) {
 			strncpy(naimrcfilename, getenv("NAIMRC"),
 				sizeof(naimrcfilename)-1);
@@ -352,90 +364,94 @@ int	main_stub(int argc, char **args) {
 				home, invocation);
 
 		echof(curconn, NULL, "Attempting to load %s\n", naimrcfilename);
-		if (naim_read_config(naimrcfilename) == 0) {
-			int	i;
-
-			for (i = 0; i < sizeof(naimrc_sample)/sizeof(*naimrc_sample); i++)
-				conio_handlecmd(naimrc_sample[i]);
-		} else {
+		if (naim_read_config(naimrcfilename)) {
 			conn_t	*conn = curconn;
 
 			do {
+				char	buf[256];
+
 				snprintf(buf, sizeof(buf), "%s:READPROFILE %s/.n%sprofile",
 					conn->winname, home, invocation);
-				conio_handlecmd(buf);
+				ua_handlecmd(buf);
 			} while ((conn = conn->next) != curconn);
-		}
+		} else {
+			if (want_aim)
+				ua_handlecmd("/newconn AIM OSCAR");
+			else if (want_irc)
+				ua_handlecmd("/newconn EFnet IRC");
+			else if (want_icq)
+				ua_handlecmd("/newconn ICQ OSCAR");
+			else if (want_lily)
+				ua_handlecmd("/newconn Lily SLCP");
+			ua_handlecmd("/help");
+			echof(curconn, NULL, "You do not have a %s file, so I am using defaults. You can use the <font color=\"#00FF00\">/save</font> command to create a new %s file.",
+				naim_basename(naimrcfilename), naim_basename(naimrcfilename));
+			if (want_aim || want_icq)
+				ua_handlecmd("/addbuddy \"naim help\" \"naim author\" Dan Reed");
+			else if (want_irc || want_lily)
+				ua_handlecmd("/addbuddy n \"naim author\" Dan Reed");
+			if (want_irc) {
+				extern void ua_connect(conn_t *, int, char **);
 
-		secs_setvar("want_aim", "");
-		secs_setvar("want_irc", "");
-		secs_setvar("want_icq", "");
-		secs_setvar("want_lily", "");
-		secs_setvar("sys_arg2", "");
-		secs_setvar("sys_arg1", "");
-		secs_setvar("sys_argc", "");
-		secs_setvar("sys_user", "");
+				ua_handlecmd("/join " IRC_SUPPORT_CHANNEL);
+				ua_connect(curconn, argc-1, args+1);
+			}
+		}
 	}
 
 	if (curconn == NULL)
 		abort();
 
 	if (curconn->next != curconn) {
-		const char	*args[] = { "dummy" };
-		extern void	conio_delconn(void *, int, const char **);
+		const char *args[] = { "dummy" };
+		extern void ua_delconn(conn_t *, int, const char **);
 
-		conio_delconn(curconn, 1, args);
+		ua_delconn(curconn, 1, args);
 	}
+
+	echof(curconn, NULL,
+	      "<font color=\"#FF0000\">Notice:</font> you are using an "
+	      "*unofficial*, *experimental* version of naim, maintained by "
+	      "Joshua Wise.  Bugs that you might find are likely *not* the "
+	      "fault of the original author, and should not be reported to "
+	      "him!  If (when?) you run into issues, please report bugs at "
+	      "<font color=\"#0000FF\">https://github.com/jwise/naim/issues"
+	      "</font>.  Thanks!");
 
 	statrefresh();
 	doupdate();
 
 	stayconnected = 1;
 
-	conio_hook_init();
-	fireio_hook_init();
-	hamster_hook_init();
-
 	while (stayconnected) {
-		fd_set	rfd, wfd;
-		struct timeval	timeout;
+		fd_set	rfd, wfd, efd;
+		double	timeout = 0;
 		time_t	now60;
-		int	i, autohide, maxfd = STDIN_FILENO;
+		int	autohide;
+		uint32_t maxfd = 0;
+		struct timeval tv;
 
 		now = time(NULL);
-		autohide = secs_getvar_int("autohide");
-		if (((nowf - changetime) > autohide) 
-			&& ((nowf - curconn->lastupdate) > autohide)) {
-			timeout.tv_sec = 60 - (now%60);
-			timeout.tv_usec = 0;
-		} else {
-			if (((nowf - curconn->lastupdate) <= SLIDETIME)
-			 || ((nowf - curconn->lastupdate) >= (autohide - SLIDETIME))
-			 || ((nowf - changetime) <= autohide)) {
-				timeout.tv_sec = 0;
-				timeout.tv_usec = 50000;
-			} else {
-				double	ttt;
-
-				ttt = autohide - (nowf - curconn->lastupdate) - SLIDETIME;
-				timeout.tv_sec = ttt;
-				timeout.tv_usec = (ttt - timeout.tv_sec)*1000000;
-			}
-		}
+		autohide = script_getvar_int("autohide");
+		if (((nowf - changetime) > autohide) && ((nowf - curconn->lastupdate) > autohide))
+			timeout = 60 - (now%60);
+		else if (((nowf - curconn->lastupdate) <= SLIDETIME)
+		      || ((nowf - curconn->lastupdate) >= (autohide - SLIDETIME))
+		      || ((nowf - changetime) <= autohide))
+			timeout = 0.05;
+		else
+			timeout = autohide - (nowf - curconn->lastupdate) - SLIDETIME;
 
 		FD_ZERO(&rfd);
 		FD_ZERO(&wfd);
-		FD_SET(STDIN_FILENO, &rfd);
-		for (i = 0; i < mod_fd_listc; i++) {
-			if (mod_fd_listar[i].type & (O_RDONLY+1))
-				FD_SET(mod_fd_listar[i].fd, &rfd);
-			if (mod_fd_listar[i].type & (O_WRONLY+1))
-				FD_SET(mod_fd_listar[i].fd, &wfd);
-			if (mod_fd_listar[i].fd > maxfd)
-				maxfd = mod_fd_listar[i].fd;
-		}
-		if (firetalk_select_custom(maxfd+1,
-			&rfd, &wfd, NULL, &timeout) != FE_SUCCESS) {
+		FD_ZERO(&efd);
+
+		HOOK_CALL(preselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET HOOK_T_WRUINT32 HOOK_T_WRFLOAT, &rfd, &wfd, &efd, &maxfd, &timeout);
+
+		tv.tv_sec = timeout;
+		tv.tv_usec = (timeout - tv.tv_sec)*1000000;
+
+		if (firetalk_select_custom(maxfd, &rfd, &wfd, &efd, &tv) != FE_SUCCESS) {
 			if (errno == EINTR) { // SIGWINCH
 				statrefresh();
 				if (rc_resize(&faimconf))
@@ -443,7 +459,7 @@ int	main_stub(int argc, char **args) {
 				statrefresh();
 				continue;
 			}
-			echof(curconn, "MAIN", "firetalk_select_custom() returned error %i: %s\n",
+			echof(curconn, "MAIN", "Main loop encountered error %i (%s).\n",
 				errno, strerror(errno));
 			nw_refresh(&(curconn->nwin));
 			statrefresh();
@@ -452,51 +468,25 @@ int	main_stub(int argc, char **args) {
 			exit(1); /* NOTREACH */
 		}
 
+		HOOK_CALL(postselect, HOOK_T_FDSET HOOK_T_FDSET HOOK_T_FDSET, &rfd, &wfd, &efd);
+
 		now60 = now-(now%60);
-		if ((now60 - lastcycle) >= 60)
-			event_handle(lastcycle = now60);
-		else if (lastcycle > now60)
+		if ((now60 - lastcycle) >= 60) {
+			lastcycle = now60;
+			HOOK_CALL(periodic, HOOK_T_TIME HOOK_T_FLOAT, now, nowf);
+		} else if (lastcycle > now60)
 			lastcycle = now60;
 
-		if (FD_ISSET(STDIN_FILENO, &rfd)) {
-			int	k = nw_getch();
-
-#ifdef KEY_RESIZE
-			if (k == KEY_RESIZE) {
-				statrefresh();
-				if (rc_resize(&faimconf))
-					win_resize();
-				statrefresh();
-			} else
-#endif
-				gotkey(k);
-		}
-		for (i = 0; i < mod_fd_listc; i++) {
-			if (FD_ISSET(mod_fd_listar[i].fd, &rfd)
-				&& (mod_fd_listar[i].type & (O_RDONLY+1)))
-				mod_fd_listar[i].func(i, mod_fd_listar[i].fd,
-					mod_fd_listar[i].buf,
-					mod_fd_listar[i].buflen);
-			else if (FD_ISSET(mod_fd_listar[i].fd, &wfd)
-				&& (mod_fd_listar[i].type & (O_WRONLY+1))) {
-				if (mod_fd_listar[i].type == MOD_FD_CONNECT)
-					mod_fd_listar[i].func(mod_fd_listar[i].fd);
-				else if (mod_fd_listar[i].type == MOD_FD_WRITE)
-					write(mod_fd_listar[i].fd,
-						mod_fd_listar[i].buf,
-						mod_fd_listar[i].buflen);
-
-				mod_fd_unregister(i);
-				break;
-			}
-		}
 		statrefresh();
+		script_clean_garbage();
 	}
 
 	firetalk_select();
 	echof(curconn, NULL, "Goodbye.\n");
 	statrefresh();
 	wshutitdown();
+	script_shutdown();
+	lt_dlclose(dl_self);
 	lt_dlexit();
 	return(0);
 }

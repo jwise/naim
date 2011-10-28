@@ -24,4 +24,4 @@ Thats it.  If it doesn't work, I'm sorry.  Let me know; you
 can reach me at ian@penguinhosting.net.
 
 To use it, take a look at gui.c and firetalk.h.  Together,
-these provide a pretty good idea of how to use the library.  
+these provide a pretty good idea of how to use the library.

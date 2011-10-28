@@ -16,10 +16,8 @@ extern const int	rc_var_i_c;
 extern rc_var_i_t	rc_var_b_ar[];
 extern const int	rc_var_b_c;
 
-const char
-	*set_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
-	const char
-		*var;
+const char *set_tabcomplete(conn_t *const conn, const char *start, const char *buf, const int bufloc, int *const match, const char **desc) {
+	const char *var;
 	size_t	stublen;
 
 	if (*start == '$')
@@ -29,8 +27,7 @@ const char
 		return(NULL);
 
 	{
-		static char
-			descbuf[1024];
+		static char descbuf[1024];
 		int	i;
 
 		for (i = 0; i < rc_var_b_c; i++)
@@ -74,19 +71,18 @@ const char
 			}
 	}
 
-	{
-		void	*_listvarsarg;
+	script_listvars_start();
+	while ((var = script_listvars_next()) != NULL)
+		if (strncasecmp(start, var, stublen) == 0) {
+			if (match != NULL)
+				*match = bufloc - (start-buf);
+			if (desc != NULL)
+				*desc = NULL;
+			script_listvars_stop();
+			return(var);
+		}
+	script_listvars_stop();
 
-		secs_listvars(0, NULL, &_listvarsarg);
-		while ((var = secs_listvars(1, NULL, &_listvarsarg)) != NULL)
-			if (strncasecmp(start, var, stublen) == 0) {
-				if (match != NULL)
-					*match = bufloc - (start-buf);
-				if (desc != NULL)
-					*desc = NULL;
-				return(var);
-			}
-	}
 	return(NULL);
 }
 
@@ -143,20 +139,16 @@ void	set_echof(const char *const format, ...) {
 
 void	set_setvar(const char *var, const char *val) {
 	if (var == NULL) {
-		void	*_listvarsarg;
-
-		secs_listvars(0, NULL, &_listvarsarg);
 		set_echof(" %-16.16s %-30s[type] Description\n", "Variable name", "Value");
-		while ((var = secs_listvars(1, NULL, &_listvarsarg)) != NULL) {
-			val = secs_getvar(var);
-			if ((val != NULL) && (*val != 0)) {
+		script_listvars_start();
+		while ((var = script_listvars_next()) != NULL) {
+			val = script_getvar(var);
+			if (*val != 0) {
 				char	*prot;
 
 				if (((prot = strchr(var, ':')) == NULL)
 					|| (strcasecmp(prot+1, "password") != 0)) {
-					const char
-						*ret,
-						*desc;
+					const char *ret, *desc;
 					char	buf[1024];
 
 					if (strchr(val, ' ') != NULL) {
@@ -181,6 +173,7 @@ void	set_setvar(const char *var, const char *val) {
 				}
 			}
 		}
+		script_listvars_stop();
 		return;
 	}
 
@@ -188,9 +181,14 @@ void	set_setvar(const char *var, const char *val) {
 		var++;
 
 	if (val == NULL)
-		echof(curconn, NULL, "$%s is \"%s\"\n", var, secs_getvar(var));
-	else if (secs_setvar(var, val) == 0)
+		echof(curconn, NULL, "$%s is \"%s\"\n", var, script_getvar(var));
+	else if (script_setvar(var, val) == 0)
 		echof(curconn, NULL, "\"%s\" is an invalid input for $%s\n", val, var);
-	else
-		echof(curconn, NULL, "$%s is now \"%s\"\n", var, secs_getvar(var));
+	else {
+		const char *prot = strchr(var, ':');
+
+		prot = prot ? prot + 1 : var;
+
+		echof(curconn, NULL, "$%s is now \"%s\"\n", var, strcasecmp(prot, "password") ? script_getvar(var) : "[elided]");
+	}
 }

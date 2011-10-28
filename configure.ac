@@ -1,8 +1,11 @@
 AC_PREREQ(2.50)
-AC_INIT(naim, 0.11.8.3.2, [Daniel Reed <n@ml.org>])
+AC_INIT(naim, 0.12.0, [Joshua Wise <joshua@joshuawise.com>])
 AC_CONFIG_SRCDIR([src/naim-int.h])
 AC_CONFIG_HEADER([src/config.h])
+AC_CONFIG_AUX_DIR([libltdl/config])
+AC_CONFIG_MACRO_DIR([libltdl/m4])
 AM_INIT_AUTOMAKE([dist-bzip2 no-dist-gzip no-dependencies no-define subdir-objects std-options 1.8])
+AM_SILENT_RULES([yes])
 AM_PROG_CC_C_O
 
 echo ""
@@ -17,9 +20,8 @@ echo ""
 echo "Configuring libtool"
 echo ""
 AC_LIBLTDL_CONVENIENCE
-AC_LIBTOOL_DLOPEN
-AC_LIBTOOL_WIN32_DLL
-AC_PROG_LIBTOOL
+LT_CONFIG_LTDL_DIR([libltdl])
+LT_INIT([dlopen win32-dll])
 AC_SUBST([INCLTDL])
 AC_SUBST([LIBLTDL])
 
@@ -28,8 +30,11 @@ echo ""
 echo ""
 echo "Configuring ltdl"
 echo ""
-AC_LIB_LTDL
+LTDL_INIT([recursive])
+dnl AC_LIB_LTDL
 
+dnl Sigh.
+AC_CONFIG_COMMANDS_PRE([LT_CONFIG_H=../src/config.h])
 
 echo ""
 echo ""
@@ -48,7 +53,8 @@ AC_CONFIG_FILES([
 Makefile
 libfiretalk/Makefile
 libltdl/Makefile
-secs/Makefile
+modules/Makefile
+lua/Makefile
 src/Makefile
 CYGWIN-PATCHES/Makefile
 ])

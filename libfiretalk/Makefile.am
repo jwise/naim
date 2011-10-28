@@ -1,26 +1,30 @@
+LOBJEXT = lo
+
 EXTRA_DIST = firetalk.m4
 
-noinst_LIBRARIES = libfiretalk.a
-libfiretalk_a_SOURCES = \
-	aim.c \
-	aim.h \
+noinst_LTLIBRARIES = libfiretalk.la
+libfiretalk_la_SOURCES = \
 	firetalk.c \
+	md5.c \
 	firetalk-int.h \
+	firetalk-errors.h \
 	irc.c \
-	lily.c \
-	toc2.c \
-	toc2_uuids.h
+	pdutil.c \
+	lily.c
 
-check_PROGRAMS = tester
+# toc2.c toc2_uuids.h
+
+check_PROGRAMS = tester toctest
 tester_SOURCES = \
 	tester.c
 tester_LDADD = \
-	libfiretalk.a
+	libfiretalk.la
+toctest_SOURCES = \
+	toctest.c
+toctest_LDADD = \
+	libfiretalk.la
 
-TESTS = ${check_PROGRAMS}
+#TESTS = ${check_PROGRAMS}
+TESTS = tester
 
 include_HEADERS = firetalk.h
-
-.c.o: $<
-	@echo $(COMPILE) -c `test -f '$<' || echo '$(srcdir)/'`$<
-	@$(COMPILE) -c `test -f '$<' || echo '$(srcdir)/'`$<

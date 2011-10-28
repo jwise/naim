@@ -71,12 +71,9 @@ int	aimncmp(const unsigned char *sn1, const unsigned char *sn2, int len) {
 	return(0);
 }
 
-const char
-	*dtime(double _t) {
-	static char
-		buf[sizeof("365d 23:59:59")];
-	unsigned long
-		t = (unsigned long)_t;
+const char *dtime(double _t) {
+	static char buf[sizeof("365d 23:59:59")];
+	unsigned long t = (unsigned long)_t;
 
 	if (_t < 0) {
 		snprintf(buf, sizeof(buf), "(error)");
@@ -84,13 +81,11 @@ const char
 	}
 
 	if (t < 2) {
-		unsigned long
-			mt = (unsigned long)(100*(_t - t));
+		unsigned long mt = (unsigned long)(100*(_t - t));
 
 		snprintf(buf, sizeof(buf), "%lu.%02lus", t, mt);
 	} else if (t < 10) {
-		unsigned long
-			mt = (unsigned long)(10*(_t - t));
+		unsigned long mt = (unsigned long)(10*(_t - t));
 
 		snprintf(buf, sizeof(buf), "%lu.%01lus", t, mt);
 	} else if (t < 90)
@@ -98,10 +93,10 @@ const char
 	else if (t < 60*60)
 		snprintf(buf, sizeof(buf), "%lum", t/60);
 	else if (t < 24*60*60)
-		snprintf(buf, sizeof(buf), "%lu:%02lum", t/(60*60), 
+		snprintf(buf, sizeof(buf), "%lu:%02lum", t/(60*60),
 			(t/60)%60);
 	else if (t < 365*24*60*60)
-		snprintf(buf, sizeof(buf), "%lud %lu:%02lum", 
+		snprintf(buf, sizeof(buf), "%lud %lu:%02lum",
 			t/(24*60*60), t/(60*60)%24, t/60%60);
 	else
 		snprintf(buf, sizeof(buf), "%luy %lud", t/(365*24*60*60),
@@ -110,15 +105,11 @@ const char
 	return(buf);
 }
 
-const char
-	*dsize(double b) {
-	static char
-		buf[sizeof("9.99 &nbsp;B")];
-	const char
-		*suf;
+const char *dsize(double b) {
+	static char buf[sizeof("9.99 &nbsp;B")];
+	const char *suf;
 	int	dig;
-	unsigned long
-		bint;
+	unsigned long bint;
 
 	if (b >= 1000.*1024.*1024.*1024.) {
 		suf = "TB";

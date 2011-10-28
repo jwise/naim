@@ -3,12 +3,12 @@ New To Unix
  /\   \ \   /
 /  \  /  \/
 
-Welcome to the naim New User Hazard Course. Through this course my goal is 
-to help you familiarize yourself with naim's user interface. This course 
-does not depend on any pre-configuration, so don't worry if you've heard 
-of a ``.naimrc'' file and haven't set one up yet (we'll set one up 
-together towards the end of the course). If you would like to jump right 
-into naim, I won't get in your way. However, if you'd like to continue the 
+Welcome to the naim New User Hazard Course. Through this course my goal is
+to help you familiarize yourself with naim's user interface. This course
+does not depend on any pre-configuration, so don't worry if you've heard
+of a ``.naimrc'' file and haven't set one up yet (we'll set one up
+together towards the end of the course). If you would like to jump right
+into naim, I won't get in your way. However, if you'd like to continue the
 course, type ``/newconn Hazard Course'' and press Enter.
 
 ===== Welcome_to_the_course =====
@@ -34,7 +34,7 @@ Use these keys to try and find the command you would use to Add a Buddy to your 
 -
 *
 * Configuration Variables
-* 
+*
 naim is a friendly program, and like all friendly programs, wants to make sure you get exactly what you want. Therefore almost every aspect of naim's appearance is changeable, from the types of messages it displays down to the colors it uses. Most of the configurable parts of naim are controlled by "variables" which you can manipulate using the ``/set'' command. For example, you may have noticed the white bar below that's been letting you know where you've been in the tutorial. This is called the status bar, and is controlled by the $statusbar variable.
 Type ``/set'' to view a list of existing variables, then type ``/set statusbar "Hello there"'' to continue.
 -

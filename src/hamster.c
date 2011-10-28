@@ -11,13 +11,12 @@
 
 extern conn_t	*curconn;
 extern time_t	now;
-extern faimconf_t	faimconf;
+extern faimconf_t faimconf;
 
 extern time_t awaytime G_GNUC_INTERNAL;
 time_t	awaytime = -1;
 
-void	logim(conn_t *conn, const char *source, const char *target,
-	const unsigned char *msg) {
+void	logim(conn_t *conn, const char *source, const char *target, const unsigned char *msg) {
 	struct tm	*tmptr = NULL;
 
 	if (target == NULL)
@@ -42,7 +41,7 @@ void	logim(conn_t *conn, const char *source, const char *target,
 		}
 	}
 
-	if (getvar_int(conn, "log") == 0) {
+	if (!getvar_int(conn, "log")) {
 		if (conn->logfile != NULL)
 			fclose(conn->logfile);
 		return;
@@ -83,8 +82,8 @@ HOOK_DECLARE(sendto);
 static void naim_sendto(conn_t *conn,
 		const char *const _name,
 		const char *const _dest,
-		const unsigned char *const _message, int len,
-		int flags) {
+		const unsigned char *const _message, uint32_t len,
+		uint32_t flags) {
 	char	*name = NULL, *dest = NULL;
 	unsigned char *message = malloc(len+1);
 
@@ -95,14 +94,13 @@ static void naim_sendto(conn_t *conn,
 
 	memmove(message, _message, len);
 	message[len] = 0;
-	HOOK_CALL(sendto, (conn, &name, &dest, &message, &len, &flags));
+	HOOK_CALL(sendto, HOOK_T_CONN HOOK_T_WRSTRING HOOK_T_WRSTRING HOOK_T_WRSTRING HOOK_T_WRUINT32 HOOK_T_WRUINT32, conn, &name, &dest, &message, &len, &flags);
 	free(name);
 	free(dest);
 	free(message);
 }
 
-static int sendto_encrypt(conn_t *conn, char **name, char **dest,
-		unsigned char **message, int *len, int *flags) {
+static int sendto_encrypt(void *userdata, const char *signature, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	if (!(*flags & RF_CHAT) && !(*flags & RF_ACTION)) {
 		buddylist_t	*blist = rgetlist(conn, *dest);
 
@@ -118,7 +116,7 @@ static int sendto_encrypt(conn_t *conn, char **name, char **dest,
 						j = 0;
 				}
 				*flags |= RF_ENCRYPTED;
-			} else if (getvar_int(conn, "autopeer") != 0) {
+			} else if (getvar_int(conn, "autopeer")) {
 				if (blist->peer == 0) {
 					blist->peer = -1;
 					firetalk_subcode_send_request(conn->conn, *dest, "AUTOPEER", "+AUTOPEER:4");
@@ -129,8 +127,7 @@ static int sendto_encrypt(conn_t *conn, char **name, char **dest,
 	return(HOOK_CONTINUE);
 }
 
-static int sendto_send(conn_t *conn, char **name, char **dest,
-		unsigned char **message, int *len, int *flags) {
+static int sendto_send(void *userdata, const char *signature, conn_t *conn, char **name, char **dest, unsigned char **message, int *len, int *flags) {
 	int	ret;
 
 	if (*flags & RF_ENCRYPTED) {
@@ -157,7 +154,7 @@ static int sendto_send(conn_t *conn, char **name, char **dest,
 	}
 
 	if (ret != FE_SUCCESS) {
-		buddywin_t	*bwin = bgetwin(conn, *dest, BUDDY);
+		buddywin_t *bwin = bgetwin(conn, *dest, BUDDY);
 
 		if (bwin == NULL)
 			bwin = bgetwin(conn, *dest, CHAT);
@@ -177,9 +174,9 @@ static int sendto_send(conn_t *conn, char **name, char **dest,
 void	hamster_hook_init(void) {
 	void	*mod = NULL;
 
-//	HOOK_ADD(sendto, mod, sendto_log, 20);
-	HOOK_ADD(sendto, mod, sendto_encrypt, 50);
-	HOOK_ADD(sendto, mod, sendto_send, 100);
+//	HOOK_ADD(sendto, mod, sendto_log, 20, NULL);
+	HOOK_ADD(sendto, mod, sendto_encrypt, 50, NULL);
+	HOOK_ADD(sendto, mod, sendto_send, 100, NULL);
 }
 
 static void naim_send_message(conn_t *const conn, const char *const dest, const unsigned char *const message, const int ischat, const int isauto, const int isaction) {
@@ -197,29 +194,28 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 	buddywin_t *bwin = bgetwin(conn, SN, BUDDY);
 	int	ischat = (bgetwin(conn, SN, CHAT) == NULL)?0:1;
 	unsigned char buf[2048];
-	const char *pre = getvar(conn, "im_prefix"),
-		*post = getvar(conn, "im_suffix");
 
 	assert((bwin == NULL) || (bwin->et == BUDDY));
 	if ((bwin == NULL)					// if the target is not queueable (let the protocol layer handle errors)
 		|| (	   (conn->online > 0)			// or if you are online
 			&& (bwin->e.buddy->offline == 0))) {	//  and the target is also tracked online
+		const char *pre = getvar(conn, "im_prefix"), *post = getvar(conn, "im_suffix");
+
 		if (_auto == 0)
 			updateidletime();
 		if ((pre != NULL) || (post != NULL)) {
 			snprintf(buf, sizeof(buf), "%s%s%s", pre?pre:"", msg, post?post:"");
 			msg = buf;
 		}
-		naim_send_message(conn, SN, msg, ischat, 0, 0);
-								// send the message through the protocol layer
+		naim_send_message(conn, SN, msg, ischat, 0, 0);	// send the message through the protocol layer
 	} else {
-		struct tm	*tmptr = NULL;
+		struct tm *tmptr = NULL;
 
 		tmptr = localtime(&now);
 		assert(tmptr != NULL);
 		if (strncmp(msg, "[Queued ", sizeof("[Queued ")-1) != 0) {
 			snprintf(buf, sizeof(buf), "[Queued %04i-%02i-%02iT%02i:%02i] %s",
-				1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday, 
+				1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday,
 				tmptr->tm_hour, tmptr->tm_min, msg);
 			msg = buf;
 		}
@@ -235,11 +231,10 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 }
 
 void	naim_send_im_away(conn_t *conn, const char *SN, const char *msg, int force) {
-	struct tm	*tmptr;
-	buddywin_t	*bwin;
-	static time_t	lastauto = 0;
-	const char	*pre,
-			*post;
+	struct tm *tmptr;
+	buddywin_t *bwin;
+	static time_t lastauto = 0;
+	char	*pre, *post;
 
 	if (force || (lastauto < now-1))
 		lastauto = now;
@@ -248,7 +243,7 @@ void	naim_send_im_away(conn_t *conn, const char *SN, const char *msg, int force)
 		return;
 	}
 
-	pre = getvar(conn, "im_prefix"),
+	pre = getvar(conn, "im_prefix");
 	post = getvar(conn, "im_suffix");
 	if ((pre != NULL) || (post != NULL)) {
 		static unsigned char buf[2048];
@@ -276,8 +271,8 @@ void	sendaway(conn_t *conn, const char *SN) {
 
 	if (awaytime == 0)
 		return;
-	snprintf(buf, sizeof(buf), "[Away for %s] %s", 
-		dtime(now-awaytime), secs_getvar("awaymsg"));
+	snprintf(buf, sizeof(buf), "[Away for %s] %s",
+		dtime(now-awaytime), script_getvar("awaymsg"));
 	naim_send_im_away(conn, SN, buf, 0);
 }
 
@@ -285,42 +280,62 @@ void	sendaway(conn_t *conn, const char *SN) {
 
 void	setaway(const int auto_flag) {
 	conn_t	*conn = curconn;
-	char	*awaymsg = secs_getvar("awaymsg");
+	char	*awaymsg = script_getvar("awaymsg");
 
-	awaytime = now - 60*secs_getvar_int("idletime");
+	awaytime = now - 60*script_getvar_int("idletime");
 	do {
 		status_echof(conn, "You are now away--hurry back!\n");
 		firetalk_set_away(conn->conn, awaymsg, auto_flag);
+		if (conn->online > 0)
+			naim_set_info(conn, conn->profile);
 	} while ((conn = conn->next) != curconn);
 }
 
 void	unsetaway(void) {
 	conn_t	*conn = curconn;
+	char	*availmsg = script_getvar("availmsg"); /* OK if it's NULL */
 
 	awaytime = 0;
 	updateidletime();
 	do {
 		status_echof(conn, "You are no longer away--welcome back =)\n");
 		firetalk_set_away(conn->conn, NULL, 0);
+		firetalk_set_available(conn->conn, availmsg);
 		if (conn->online > 0)
-			naim_set_info(conn->conn, conn->profile);
+			naim_set_info(conn, conn->profile);
 	} while ((conn = conn->next) != curconn);
 }
+
+void	updavail(void) {
+	conn_t	*conn = curconn;
+	char	*availmsg = script_getvar("availmsg"); /* OK if it's NULL */
+
+	do {
+		if (availmsg)
+			status_echof(conn, "You are now available: %s\n", availmsg);
+		else
+			status_echof(conn, "Your available message is now unset.\n");
+		firetalk_set_available(conn->conn, availmsg);
+		if (conn->online > 0)
+			naim_set_info(conn, conn->profile);
+	} while ((conn = conn->next) != curconn);
+}
+
 
 int	getvar_int(conn_t *conn, const char *str) {
 	char	buf[1024], *ptr;
 
 	snprintf(buf, sizeof(buf), "%s:%s", conn->winname, str);
-	if ((ptr = secs_getvar(buf)) != NULL)
+	if ((ptr = script_getvar(buf)) != NULL)
 		return(atoi(ptr));
-	return(secs_getvar_int(str));
+	return(script_getvar_int(str));
 }
 
 char	*getvar(conn_t *conn, const char *str) {
 	char	buf[1024], *val;
 
 	snprintf(buf, sizeof(buf), "%s:%s", conn->winname, str);
-	if ((val = secs_getvar(buf)) != NULL)
+	if ((val = script_getvar(buf)) != NULL)
 		return(val);
-	return(secs_getvar(str));
+	return(script_getvar(str));
 }

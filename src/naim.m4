@@ -61,6 +61,25 @@ AC_DEFUN([AC_PROG_NAIM],
 		]
 	)
 
+	AC_DEFINE(ENABLE_LUA, 1, [Define to enable Lua scripting support])
+#	AC_MSG_CHECKING(whether to enable experimental Lua scripting support)
+#	AC_ARG_ENABLE(lua,
+#		AC_HELP_STRING([--enable-lua], [Compile experimental Lua scripting support]),
+#		[
+#			if test "x${enable_lua}" = xyes; then
+#				AC_MSG_RESULT([yes])
+#				AM_CONDITIONAL(LUA, true)
+#				AC_DEFINE(ENABLE_LUA, 1, [Define to enable experimental Lua scripting support])
+#			else
+#				AC_MSG_RESULT([no, you explicitly disabled it])
+#				AM_CONDITIONAL(LUA, false)
+#			fi
+#		], [
+#			AC_MSG_RESULT([no, re-run ./configure with --enable-lua])
+#			AM_CONDITIONAL(LUA, false)
+#		]
+#	)
+
 	AC_ARG_ENABLE(forceascii,
 		AC_HELP_STRING([--enable-forceascii], [enable the $forceascii setting to force alternate line drawing characters]),
 		[
@@ -133,8 +152,6 @@ AC_DEFUN([AC_PROG_NAIM],
 	AC_REQUIRE([AC_PROG_AWK])
 	AC_REQUIRE([AC_PROG_CC])
 	AC_REQUIRE([AC_PROG_CPP])
-	AC_REQUIRE([AC_C_CONST])
-	AC_REQUIRE([AC_HEADER_STDC])
 	AC_CHECK_HEADERS(errno.h sys/errno.h)
 	AC_CHECK_HEADERS(inttypes.h stdint.h)
 	AC_CHECK_HEADERS(stdlib.h)
@@ -142,7 +159,6 @@ AC_DEFUN([AC_PROG_NAIM],
 	AC_CHECK_HEADERS(dirent.h)
 	AC_CHECK_HEADERS(sys/types.h)
 	AC_CHECK_HEADERS(time.h sys/time.h)
-	AC_REQUIRE([AC_HEADER_TIME])
 	AC_REQUIRE([AC_STRUCT_TIMEZONE])
 	AC_CHECK_MEMBERS([struct tm.tm_gmtoff], [
 		], [
@@ -225,5 +241,5 @@ AC_DEFUN([AC_PROG_NAIM],
 			])
 	])
 
-	AC_CHECK_FUNCS(hstrerror strverscmp waitpid)
+	AC_CHECK_FUNCS(hstrerror strsignal strverscmp waitpid utime)
 ])# AC_PROG_NAIM
