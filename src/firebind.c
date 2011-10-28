@@ -92,12 +92,12 @@ nFIRE_HANDLER(buddy_status) {
 	va_list msg;
 	const char *who;
 	const char *status;
-	
+
 	va_start(msg, conn);
 	who = va_arg(msg, const char *);
 	status = va_arg(msg, const char *);
 	va_end(msg);
-	
+
 	HOOK_CALL(proto_buddy_status, HOOK_T_CONN HOOK_T_STRING HOOK_T_STRING, conn, who, status);
 }
 
@@ -169,7 +169,7 @@ nFIRE_HANDLER(buddy_flags) {
 
 	HOOK_CALL(proto_buddy_flags, HOOK_T_CONN HOOK_T_STRING HOOK_T_UINT32, conn, who, flags);
 }
-	
+
 
 HOOK_DECLARE(proto_buddy_away);
 nFIRE_HANDLER(buddy_away) {
@@ -271,7 +271,7 @@ nFIRE_HANDLER(buddy_going) {
 
 HOOK_DECLARE(proto_recvfrom);
 static void naim_recvfrom(conn_t *const conn,
-		const char *const _name, 
+		const char *const _name,
 		const char *const _dest,
 		const unsigned char *_message, uint32_t len,
 		uint32_t flags) {
@@ -996,7 +996,7 @@ nFIRE_CTCPHAND(AUTOPEER) {
 				firetalk_im_add_buddy(conn->conn, from, USER_GROUP(blist), NULL);
 			} else {
 				if (getvar_int(conn, "autopeerverbose") > 0)
-					status_echof(conn, "Declining automatic negotiation with <font color=\"#00FFFF\">%s</font> (add <font color=\"#00FFFF\">%s</font> to your buddy list).\n", 
+					status_echof(conn, "Declining automatic negotiation with <font color=\"#00FFFF\">%s</font> (add <font color=\"#00FFFF\">%s</font> to your buddy list).\n",
 						from, from);
 				firetalk_subcode_send_request(conn->conn, from, "AUTOPEER", "-AUTOPEER");
 				return;
@@ -1067,7 +1067,7 @@ nFIRE_CTCPHAND(AUTOPEER) {
 		} else if (strcasecmp(args, "-AUTOPEER") == 0) {
 			if (getvar_int(conn, "autopeerverbose") > 0) {
 				if (blist->peer == 0)
-					status_echof(conn, "Automatic negotiation with <font color=\"#00FFFF\">%s</font> declined (you are probably not on <font color=\"#00FFFF\">%s</font>'s buddy list).\n", 
+					status_echof(conn, "Automatic negotiation with <font color=\"#00FFFF\">%s</font> declined (you are probably not on <font color=\"#00FFFF\">%s</font>'s buddy list).\n",
 						from, from);
 				else if (blist->peer > 0)
 					status_echof(conn, "Negotiated session with <font color=\"#00FFFF\">%s</font> terminated.\n",

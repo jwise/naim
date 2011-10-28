@@ -1,6 +1,6 @@
 --  _ __   __ _ ___ __  __
 -- | '_ \ / _` |_ _|  \/  | naim
--- | | | | | | || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>, 
+-- | | | | | | || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>,
 -- | | | | |_| || || |  | | 2006-2007 Joshua Wise <joshua@joshuawise.com>
 -- |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 --

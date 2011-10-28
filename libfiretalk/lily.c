@@ -484,7 +484,7 @@ static fte_t lily_internal_disconnect(lily_conn_t *c, const int error) {
 	if (c->sock.state != FCS_NOTCONNECTED)
 		firetalk_callback_disconnect(c, error);
 	firetalk_sock_close(&(c->sock));
-	
+
 	lily_conn_t_dtor(c);
 	lily_conn_t_ctor(c);
 
@@ -538,7 +538,7 @@ static fte_t lily_send_printf(lily_conn_t *c, const char *const format, ...) {
 
 	strcpy(data+datai, "\r\n");
 	datai += 2;
-	
+
 	firetalk_sock_send(&(c->sock), data, datai);
 
 	return(FE_SUCCESS);
@@ -816,16 +816,16 @@ static fte_t lily_set_privacy(lily_conn_t *c, const char *const mode) {
 
 static fte_t lily_preselect(lily_conn_t *c, fd_set *read, fd_set *write, fd_set *except, int *n) {
 	int	i;
-	
+
 	for (i = 0; i < c->qc; i++)
 		lily_send_printf(c, "%s", c->qar[i].str);
 	free(c->qar);
 	c->qar = NULL;
 	c->qc = 0;
-	
+
 	if (c->sock.state == FCS_NOTCONNECTED)
 		return(FE_SUCCESS);
-	
+
 	firetalk_sock_preselect(&(c->sock), read, write, except, n);
 
 	return(FE_SUCCESS);
@@ -986,7 +986,7 @@ static fte_t lily_got_notify(lily_conn_t *c) {
 						value[strlen(value)-1] = 0;
 
 						firetalk_callback_im_getmessage(c, source, 1, value+1);
-					} else if ((*value == '*') && (value[strlen(value)-1] == '*') && 
+					} else if ((*value == '*') && (value[strlen(value)-1] == '*') &&
 						(strchr(value+1, '*') == value+strlen(value)-1)) {
 						value[strlen(value)-1] = 0;
 
@@ -1285,7 +1285,7 @@ static fte_t lily_got_cmd(lily_conn_t *c, char *str) {
 			atol(creation),
 			atol(input),
 			lily_recv_get("ATTRIB"),
-			atoi(users));			
+			atoi(users));
 	} else if BMATCH("command") {
 		char	*sp = strchr(str, ' ');
 
@@ -1547,7 +1547,7 @@ static fte_t lily_got_data_connecting(lily_conn_t *c, firetalk_buffer_t *buffer)
 static fte_t lily_postselect(lily_conn_t *c, fd_set *read, fd_set *write, fd_set *except) {
 	fte_t e;
 	int origstate = c->sock.state;
-	
+
 	if ((e = firetalk_sock_postselect(&(c->sock), read, write, except, &(c->buffer))) != FE_SUCCESS) {
 		if (origstate == FCS_ACTIVE)
 			firetalk_callback_disconnect(c, e);
@@ -1555,7 +1555,7 @@ static fte_t lily_postselect(lily_conn_t *c, fd_set *read, fd_set *write, fd_set
 			firetalk_callback_connectfailed(c, e, strerror(errno));
 		return (e);
 	}
-	
+
 	if (c->sock.state == FCS_SEND_SIGNON) {
 		lily_signon(c);
 		c->sock.state = FCS_WAITING_SIGNON;
@@ -1565,7 +1565,7 @@ static fte_t lily_postselect(lily_conn_t *c, fd_set *read, fd_set *write, fd_set
 		else
 			lily_got_data_connecting(c, &(c->buffer));
 	}
-		
+
 	return(FE_SUCCESS);
 }
 
@@ -1652,7 +1652,7 @@ static fte_t lily_subcode_send_reply(lily_conn_t *c, const char *const to, const
 		return(FE_SUCCESS);
 
 #ifdef DEBUG_ECHO
-	lily_echof(c, __FUNCTION__, "c=%#p, to=%#p \"%s\", command=%#p \"%s\", args=%#p \"%s\"", c, to, to, command, 
+	lily_echof(c, __FUNCTION__, "c=%#p, to=%#p \"%s\", command=%#p \"%s\", args=%#p \"%s\"", c, to, to, command,
 		command, args, args);
 #endif
 

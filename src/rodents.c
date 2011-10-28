@@ -93,10 +93,10 @@ const char *dtime(double _t) {
 	else if (t < 60*60)
 		snprintf(buf, sizeof(buf), "%lum", t/60);
 	else if (t < 24*60*60)
-		snprintf(buf, sizeof(buf), "%lu:%02lum", t/(60*60), 
+		snprintf(buf, sizeof(buf), "%lu:%02lum", t/(60*60),
 			(t/60)%60);
 	else if (t < 365*24*60*60)
-		snprintf(buf, sizeof(buf), "%lud %lu:%02lum", 
+		snprintf(buf, sizeof(buf), "%lud %lu:%02lum",
 			t/(24*60*60), t/(60*60)%24, t/60%60);
 	else
 		snprintf(buf, sizeof(buf), "%luy %lud", t/(365*24*60*60),

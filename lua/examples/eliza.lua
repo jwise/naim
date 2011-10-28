@@ -26,7 +26,7 @@ naim.commands.eliza = {
     end
     arg = string.lower(arg)
     arg = string.gsub(arg, " ", "")
-  
+
     if naimpsych.conns[conn] == nil then
       naimpsych.conns[conn] = {}
     end
@@ -52,7 +52,7 @@ function naimpsych.eliza(conn, sn, dest, text, flags)
   local userOrig = user
   sn = string.lower(sn)
   sn = string.gsub(sn, " ", "")
-  
+
   if naimpsych.conns[conn] == nil or naimpsych.conns[conn][sn] == nil or naimpsych.conns[conn][sn] == 0  or dest ~= nil then
     return
   end
@@ -181,7 +181,7 @@ function naimpsych.eliza(conn, sn, dest, text, flags)
   user = " "..user.." "
   -- process input, print reply
   processInput()
-  
+
   conn:msg(sn, response)
   return
 end

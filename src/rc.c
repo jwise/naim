@@ -425,7 +425,7 @@ void	rc_initdefs(faimconf_t *conf) {
 
 		if ((tmptr = localtime(&now)) != NULL) {
 			if (strchr(tmptr->tm_zone, ' ') == NULL)
-				snprintf(autozone, sizeof(autozone), "%s%c%04li", 
+				snprintf(autozone, sizeof(autozone), "%s%c%04li",
 					tmptr->tm_zone, chrtimeoff, abstimeoff);
 			else
 				*autozone = 0;
@@ -438,7 +438,7 @@ void	rc_initdefs(faimconf_t *conf) {
 
 		localtime(&now);
 		if (strchr(tzname[0], ' ') == NULL)
-			snprintf(autozone, sizeof(autozone), "%s%c%04li", tzname[0], chrtimeoff, 
+			snprintf(autozone, sizeof(autozone), "%s%c%04li", tzname[0], chrtimeoff,
 				abstimeoff);
 		else
 			*autozone = 0;

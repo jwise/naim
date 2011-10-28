@@ -20,7 +20,7 @@ extern void (*script_client_cmdhandler)(const char *);
  *  * Previously, SECS allowed *all* characters in variable names. Now, nLua
  *    requires variable names to match the regexp "[a-zA-Z0-9:_]+".  nLua may
  *    not barf if you don't satisfy this, but it might not always expand
- *    properly. 
+ *    properly.
  *  * Previously, the scripting engine was called SECS. It is now
  *    called Lua, and is interfaced by Moon. Lua is Portuguese for Moon.
  */
@@ -49,7 +49,7 @@ static int _nlua_curwin(lua_State *L) {
 
 static int _nlua_conio(lua_State *L) {
 	const char *s = lua_tostring(L, 1);
-	
+
 	if (s == NULL)
 		return(luaL_error(L, "l_conio: string was nil"));
 	script_client_cmdhandler(s);
@@ -147,15 +147,15 @@ static int _nlua_md5(lua_State *L) {
 	firetalk_md5_t md5;
 	const char *s;
 	size_t len;
-	
+
 	s = luaL_checklstring(L, 1, &len);
-	
+
 	firetalk_md5_init(&md5);
 	firetalk_md5_update(&md5, s, len);
 	s = firetalk_md5_final(&md5);
-	
+
 	lua_pushlstring(L, s, 16);
-	
+
 	return(1);
 }
 
@@ -191,7 +191,7 @@ static void _loadfunctions(void) {
 	luaL_register(lua, "naim.socket", naim_socketlib);
 
 	naim_commandsreg(lua);
-	
+
 	luaL_findtable(lua, LUA_GLOBALSINDEX, "naim.pd.fterrors", 16);
 #define ERROR_EXPANDO(x, s) \
 		lua_pushstring(lua, #x); \
@@ -210,13 +210,13 @@ static void _loadfunctions(void) {
 
 void	nlua_init(void) {
 	lua = luaL_newstate();
-	
+
 	/* XXX: Do we need to set a panic function here? */
 	lua_gc(lua, LUA_GCSTOP, 0);	/* Paul says we should stop the garbage collector while we bring in libraries. */
 		luaL_openlibs(lua);
 		_loadfunctions();
 	lua_gc(lua, LUA_GCRESTART, 0);
-	
+
 	if (luaL_loadbuffer(lua, default_lua, strlen(default_lua), "default") != 0) {
 		printf("default.lua load error: %s\n", lua_tostring(lua, -1));
 		abort();

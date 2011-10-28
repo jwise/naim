@@ -215,7 +215,7 @@ void	naim_send_im(conn_t *conn, const char *SN, const char *msg, const int _auto
 		assert(tmptr != NULL);
 		if (strncmp(msg, "[Queued ", sizeof("[Queued ")-1) != 0) {
 			snprintf(buf, sizeof(buf), "[Queued %04i-%02i-%02iT%02i:%02i] %s",
-				1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday, 
+				1900+tmptr->tm_year, 1+tmptr->tm_mon, tmptr->tm_mday,
 				tmptr->tm_hour, tmptr->tm_min, msg);
 			msg = buf;
 		}
@@ -271,7 +271,7 @@ void	sendaway(conn_t *conn, const char *SN) {
 
 	if (awaytime == 0)
 		return;
-	snprintf(buf, sizeof(buf), "[Away for %s] %s", 
+	snprintf(buf, sizeof(buf), "[Away for %s] %s",
 		dtime(now-awaytime), script_getvar("awaymsg"));
 	naim_send_im_away(conn, SN, buf, 0);
 }

@@ -24,14 +24,14 @@ setmetatable(naim.commands, naim.internal.insensitive_index)
 
 function naim.internal.ready()
 	local code = os.getenv("NAIM_LUA_INIT")
-	
+
 	if code then
 		naim.statusbar("Evaluating NAIM_LUA_INIT...")
 		local f,err = loadstring(code)
 		if not f then error(err) end
 		f()
 	end
-	
+
 	function load(init)
 		local status,err = pcall(function () require(init) end)
 		if status then
@@ -40,7 +40,7 @@ function naim.internal.ready()
 			naim.echo(init..".lua failed: "..err)
 		end
 	end
-	
+
 	naim.statusbar("Loading naim initialization code...")
 	load("distinit")
 	naim.statusbar("Loading site-specific initialization code...")
@@ -1064,7 +1064,7 @@ end, 100)
 naim.hooks.add('postselect', function(rfd, wfd, efd)
 	local now = os.time()
 	local oldtimers = {}
-	
+
 	for k,v in pairs(naim.timers) do
 		oldtimers[k] = v
 	end

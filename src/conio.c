@@ -591,7 +591,7 @@ static void gotkey_real(int c) {
 			  case CONIO_KEY_BUDDY_PREV: /* Go to the previous window */
 				if (inconn_real) {
 					buddywin_t	*bbefore = curconn->curbwin->next;
-	
+
 					while (bbefore->next != curconn->curbwin)
 						bbefore = bbefore->next;
 					curconn->curbwin = bbefore;
@@ -611,7 +611,7 @@ static void gotkey_real(int c) {
 				break;
 			  case CONIO_KEY_CONN_PREV: { /* Go to the previous connection window */
 					conn_t	*cbefore = curconn->next;
-	
+
 					while (cbefore->next != curconn)
 						cbefore = cbefore->next;
 					curconn = cbefore;
@@ -826,9 +826,9 @@ static void gotkey_real(int c) {
 			if ((bufloc > 1) && (buf[0] == '/') && (buf[bufloc-1] != ' ')
 				&& ((str = conio_tabcomplete(buf, bufloc, &match, &desc)) != NULL)
 				&& (str[match] != 0)) {
-				nw_printf(&win_input, CI(INPUT,EVENT), 0, "%c", 
+				nw_printf(&win_input, CI(INPUT,EVENT), 0, "%c",
 					str[match]);
-				nw_printf(&win_input, C(INPUT,EVENT), 0, "%s", 
+				nw_printf(&win_input, C(INPUT,EVENT), 0, "%s",
 					str+match+1);
 				if (desc != NULL)
 					nw_printf(&win_input, C(INPUT,TEXT), 0, " %s", desc);
@@ -843,9 +843,9 @@ static void gotkey_real(int c) {
 
 				if ((tmp >= 0) && (histar[tmp][bufloc] != 0)) {
 					withtextcomp = 2;
-					nw_printf(&win_input, CI(INPUT,EVENT), 0, "%c", 
+					nw_printf(&win_input, CI(INPUT,EVENT), 0, "%c",
 						histar[tmp][bufloc]);
-					nw_printf(&win_input, C(INPUT,EVENT), 0, "%s", 
+					nw_printf(&win_input, C(INPUT,EVENT), 0, "%s",
 						histar[tmp]+bufloc+1);
 				} else
 					nw_printf(&win_input, CI(INPUT,TEXT), 0, " ");
@@ -859,7 +859,7 @@ static void gotkey_real(int c) {
 			nw_printf(&win_input, CI(INPUT,TEXT), 0, "%c",
 				buf[bufloc]);
 			if (len < faimconf.winput.widthx-1)
-				nw_printf(&win_input, C(INPUT,TEXT), 1, "%s", 
+				nw_printf(&win_input, C(INPUT,TEXT), 1, "%s",
 					buf+off+len+1);
 		}
 	}

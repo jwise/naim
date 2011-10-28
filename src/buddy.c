@@ -857,7 +857,7 @@ void	bgoing(conn_t *conn, const char *buddy) {
 		FREESTR(blist->tzname);
 		FREESTR(blist->caps);
 
-		status_echof(conn, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> has just logged off :(\n", 
+		status_echof(conn, "<font color=\"#00FFFF\">%s</font> <font color=\"#800000\">[<B>%s</B>]</font> has just logged off :(\n",
 			user_name(NULL, 0, conn, blist), USER_GROUP(blist));
 		blist->offline = 1;
 		blist->warnval = blist->typing = blist->isadmin = blist->ismobile = blist->isidle = blist->isaway = 0;

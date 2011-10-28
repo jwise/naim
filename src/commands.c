@@ -620,7 +620,7 @@ UAAOPT(string,filename)
 				q = ((*loc == 0) || ((strchr(loc, ' ') != NULL))?"\"":"");
 
 				if (rc_var_s_ar[i].desc != NULL)
-					fprintf(file, "# %s-specific %s (see above)\n", c->winname, 
+					fprintf(file, "# %s-specific %s (see above)\n", c->winname,
 						rc_var_s_ar[i].var);
 				else
 					fprintf(file, "# %s-specific %s\n", c->winname,
@@ -683,7 +683,7 @@ UAAOPT(string,filename)
 						"# naim will prompt you for your password if it's not supplied here.\n",
 					c->winname);
 			fprintf(file, "%s%s:connect %s%s%s", ((name != NULL) && (conn->online > 0))?"":"#",
-				c->winname, nameq, name?name:"myname", 
+				c->winname, nameq, name?name:"myname",
 				nameq);
 			if (c->server != NULL) {
 				fprintf(file, " %s", c->server);
@@ -1489,7 +1489,7 @@ UAAOPT(string,chain)
 	}
 	snprintf(buf, sizeof(buf), "chain_%s", args[0]);
 	if ((chain = lt_dlsym(dl_self, buf)) == NULL) {
-		echof(conn, "TABLES", "Unable to find chain %s (%s): %s.\n", 
+		echof(conn, "TABLES", "Unable to find chain %s (%s): %s.\n",
 			args[0], buf, lt_dlerror());
 		return;
 	}
@@ -2081,10 +2081,10 @@ UADESC(Disconnect from a server)
 	else if (firetalk_disconnect(conn->conn) == FE_SUCCESS) {
 		bclearall(conn, 0);
 		echof(conn, NULL, "You are now disconnected.\n");
-		
+
 		/* Synthesize a chain call saying that we've been
 		 * disconnected, since firetalk nerfs the proto_disconnect
-		 * callback if it happens during a firetalk_disconnect. 
+		 * callback if it happens during a firetalk_disconnect.
 		 * This allows Lua to keep in sync with user-originated
 		 * disconnects.
 		 */
@@ -2307,7 +2307,7 @@ UAAREQ(string,symbol)
 UAFUNC(modlist) {
 UADESC(Search for and list all potential and resident naim modules)
 	lt_dlhandle mod;
-	
+
 	echof(conn, NULL, "Modules found in the default search path:\n");
 	lt_dlforeachfile(NULL, modlist_filehelper, conn);
 	echof(conn, NULL, "Additional modules can be loaded using their explicit paths, as in <font color=\"#00FF00\">/modload %s/mods/mymod.la</font>.\n",

@@ -1,16 +1,16 @@
 /* irc.c - FireTalk IRC protocol driver
 ** Copyright (C) 2000 Ian Gulliver
 ** Copyright 2002-2006 Daniel Reed <n@ml.org>
-** 
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of version 2 of the GNU General Public License as
 ** published by the Free Software Foundation.
-** 
+**
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
-** 
+**
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -116,7 +116,7 @@ static inline void irc_conn_t_dtor(irc_conn_t *this) {
 	irc_whois_t_list_delete(this->whois_head);
 	firetalk_sock_t_dtor(&(this->sock));
 	firetalk_buffer_t_dtor(&(this->buffer));
-	
+
 	memset(this, 0, sizeof(*this));
 }
 TYPE_DELETE(irc_conn_t);
@@ -574,7 +574,7 @@ static int irc_internal_disconnect(irc_conn_t *c, const fte_t error) {
 
 	if (c->sock.state != FCS_NOTCONNECTED)
 		firetalk_callback_disconnect(c, error);
-	
+
 	firetalk_sock_close(&(c->sock));
 	irc_conn_t_dtor(c);
 	irc_conn_t_ctor(c);
@@ -587,7 +587,7 @@ static int irc_send_printf(irc_conn_t *c, const char *const format, ...) {
 	size_t	i,
 		datai = 0;
 	char	data[513];
-	
+
 	if (c->sock.state == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
 
@@ -633,7 +633,7 @@ static int irc_send_printf(irc_conn_t *c, const char *const format, ...) {
 
 	strcpy(data+datai, "\r\n");
 	datai += 2;
-	
+
 	firetalk_sock_send(&(c->sock), data, datai);
 
 	return(FE_SUCCESS);
@@ -737,7 +737,7 @@ static irc_conn_t *irc_pass_create_conn(struct firetalk_driver_cookie_t *cookie)
 
 	if ((c = irc_create_conn(cookie)) == NULL)
 		abort();
-	
+
 	c->usepass = 1;
 
 	return(c);
@@ -774,7 +774,7 @@ static fte_t irc_signon(irc_conn_t *c) {
 		char password[128];
 		password[0] = 0;
 		firetalk_callback_needpass(c, password, sizeof(password));
-		
+
 		if (irc_send_printf(c, "PASS %s", password) != FE_SUCCESS)
 			return(FE_PACKET);
 	}
@@ -788,9 +788,9 @@ static fte_t irc_signon(irc_conn_t *c) {
 static fte_t irc_preselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *except, int *n) {
 	if (c->sock.state == FCS_NOTCONNECTED)
 		return(FE_SUCCESS);
-	
+
 	firetalk_sock_preselect(&(c->sock), read, write, except, n);
-	
+
 	return(FE_SUCCESS);
 }
 
@@ -1285,7 +1285,7 @@ static fte_t irc_got_data_parse(irc_conn_t *c, char **args) {
 			return(FE_SUCCESS);
 		}
 
-	  unhandled: 
+	  unhandled:
 		if (inwhois) {
 			char	buf[1024];
 			int	i;
@@ -1407,7 +1407,7 @@ static fte_t irc_got_data_connecting(irc_conn_t *c, firetalk_buffer_t *buffer) {
 static fte_t irc_postselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *except) {
 	fte_t e;
 	int origstate = c->sock.state;
-	
+
 	if ((e = firetalk_sock_postselect(&(c->sock), read, write, except, &(c->buffer))) != FE_SUCCESS) {
 		if (origstate == FCS_ACTIVE)	/* why? because we might've been disconnected by this point. */
 			firetalk_callback_disconnect(c, e);
@@ -1415,7 +1415,7 @@ static fte_t irc_postselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 			firetalk_callback_connectfailed(c, e, strerror(errno));
 		return (e);
 	}
-	
+
 	if (c->sock.state == FCS_SEND_SIGNON) {
 		irc_signon(c);
 		c->sock.state = FCS_WAITING_SIGNON;
@@ -1425,7 +1425,7 @@ static fte_t irc_postselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 		else
 			irc_got_data_connecting(c, &(c->buffer));
 	}
-	
+
 	return(FE_SUCCESS);
 }
 

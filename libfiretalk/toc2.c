@@ -266,7 +266,7 @@ static fte_t toc_send_printf(toc_conn_t *c, const char *const format, ...) {
 	size_t	i,
 		datai = TOC_HEADER_LENGTH;
 	char	data[TOC_CLIENTSEND_MAXLEN+1];
-	
+
 	if (c->sock.state == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
 
@@ -558,7 +558,7 @@ static fte_t toc_postselect(toc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 			firetalk_callback_connectfailed(c, e, strerror(errno));
 		return (e);
 	}
-	
+
 	if (c->sock.state == FCS_SEND_SIGNON) {
 		c->sock.state = FCS_WAITING_SIGNON;
 		toc_signon(c);
@@ -568,7 +568,7 @@ static fte_t toc_postselect(toc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 		else
 			toc_got_data_connecting(c, &(c->buffer));
 	}
-	
+
 	return(FE_SUCCESS);
 }
 
@@ -663,7 +663,7 @@ static int toc_internal_set_id(toc_conn_t *c, const char *const name, const int 
 			}
 	return(FE_NOTFOUND);
 }
-	
+
 static int toc_internal_find_exchange(toc_conn_t *c, const char *const name) {
 	toc_room_t *iter;
 
@@ -807,7 +807,7 @@ static fte_t toc_signon(toc_conn_t *c) {
 	c->connectstate = 0;
 	c->permit_mode = 0;
 	c->gotconfig = 0;
-	
+
 	/* send the signon string to indicate that we're speaking FLAP here */
 #ifdef DEBUG_ECHO
 	toc_echof(c, __FUNCTION__, "frame=0, length=%i, value=[%s]\n", strlen(SIGNON_STRING), SIGNON_STRING);
@@ -983,7 +983,7 @@ static fte_t toc_im_send_action(toc_conn_t *c, const char *const dest, const cha
 		return(FE_PACKETSIZE);
 	else {
 		firetalk_connection_t *fchandle = firetalk_find_conn(c);
-		char	tempbuf[TOC_CLIENTSEND_MAXLEN]; 
+		char	tempbuf[TOC_CLIENTSEND_MAXLEN];
 
 		snprintf(tempbuf, sizeof(tempbuf), "/me %s", message);
 		return(toc_internal_send_message(c, dest, tempbuf, 0, &(fchandle->subcode_requests)));
@@ -1458,7 +1458,7 @@ static fte_t toc_got_data(toc_conn_t *c, firetalk_buffer_t *buffer) {
 		** 7 encoding [toc2_send_im_enc arg 3] "A"=ASCII "L"=Latin1 "U"=UTF8
 		** 8 language, for example "en"
 		** 9 message
-		** 
+		**
 		** Cell phone	IM_IN_ENC2:+number:F:F:F: C,:F:L:en:message
 		** Spam bot	IM_IN_ENC2:buddysn:F:F:F: U,:F:A:en:message
 		** naim 0.11.6	IM_IN_ENC2:buddysn:F:F:F: O,:F:A:en:message
@@ -1789,7 +1789,7 @@ static fte_t toc_got_data(toc_conn_t *c, firetalk_buffer_t *buffer) {
 #endif
 					break;
 				}
-			
+
 			if (type == 2) {
 				const char *s = firetalk_debase64(args[i+1]);
 				int	len;
@@ -1803,7 +1803,7 @@ static fte_t toc_got_data(toc_conn_t *c, firetalk_buffer_t *buffer) {
 #endif
 				firetalk_callback_statusinfo(c, name, s+2);
 			}
-			
+
 #ifdef DEBUG_ECHO
 			if (j == sizeof(toc_barts)/sizeof(*toc_barts) && type != 2)
 				toc_echof(c, __FUNCTION__, "BART %i %i (%s): %s [%s]\n", flag, type, "undocumented", barts[i+2], firetalk_printable(firetalk_debase64(args[i+2])));

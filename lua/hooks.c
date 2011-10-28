@@ -15,9 +15,9 @@ extern conn_t *curconn;
 int	_call_hook(lua_State *L, int npreargs, int nrets, const char *signature, va_list msg) {
 	va_list msg2;
 	int args = npreargs, top = lua_gettop(lua) - npreargs - 1, i, newtop;
-	
+
 	va_copy(msg2, msg);
-	
+
 	for (i = 0; signature[i] != 0; i++) {
 		args++;
 		switch(signature[i]) {
@@ -70,19 +70,19 @@ int	_call_hook(lua_State *L, int npreargs, int nrets, const char *signature, va_
 			break;
 		}
 	}
-	
+
 	if (lua_pcall(lua, args, LUA_MULTRET, 0) != 0) {
 		status_echof(curconn, "Lua hook run error: %s\n", lua_tostring(lua, -1));
 		lua_pop(lua, 1);
 		return -1;
 	}
-	
+
 	newtop = lua_gettop(lua);
 
 	assert(top <= newtop);
 	if (top == newtop)
 		return 0;
-	
+
 	for (i = 0; (signature[i] != 0) && (top+nrets+1 <= newtop); i++) {
 		switch (signature[i]) {
 		  case HOOK_T_CONNc:
@@ -157,7 +157,7 @@ int	_call_hook(lua_State *L, int npreargs, int nrets, const char *signature, va_
 	}
 
 	va_end(msg2);
-	
+
 	return(newtop - top);
 }
 
@@ -199,7 +199,7 @@ static int _nlua_hooks_add(lua_State *L) {
 	if (luaL_findtable(L, LUA_GLOBALSINDEX, "naim.internal.hooks", 1) != NULL)
 		return(luaL_error(L, "Hooks table damaged"));
 	lua_pushvalue(L, 2);
-	ref = luaL_ref(L, -2); //You can retrieve an object referred by reference r by calling lua_rawgeti(L, t, r). 
+	ref = luaL_ref(L, -2); //You can retrieve an object referred by reference r by calling lua_rawgeti(L, t, r).
 	lua_pop(L, 2);
 
 	HOOK_ADD2(chainname, mod, _nlua_hook, weight, (void *)(long)ref);

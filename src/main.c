@@ -103,7 +103,7 @@ void naim_faulthandler(int sig) {
 #endif
 	for (i = 0; i < len; i++)
 		fprintf(stderr, "%i: %s\r\n", i, symbols[i]);
-		
+
 	fprintf(stderr, "\r\nThis information is not a replacement for "
 		"running naim in gdb.  If you are interested in debugging "
 		"this problem, please re-run naim within gdb and reproduce "
@@ -113,7 +113,7 @@ void naim_faulthandler(int sig) {
 		"<https://github.com/jwise/naim/issues>.  If you can, leave "
 		"the debug session open pending further instructions."
 		"\r\n\r\n");
-	
+
 	free(symbols);
 	raise(sig);
 }

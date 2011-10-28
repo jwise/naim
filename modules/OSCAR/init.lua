@@ -1,6 +1,6 @@
 --  _ __   __ _ ___ __  __
 -- | '_ \ / _` |_ _|  \/  | naim
--- | | | | | | || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>, 
+-- | | | | | | || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>,
 -- | | | | |_| || || |  | | 2006-2011 Joshua Wise <joshua@joshuawise.com>
 -- |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 --
@@ -74,7 +74,7 @@ function OSCAR:wrap(f)
 		if e:match(OSCAR.abortmsg) then
 			return nil
 		end
-		
+
 		local errstr = e .. "<br>" .. _G.debug.traceback():gsub("\n","<br>"):gsub("\t","&nbsp;&nbsp;")
 		return errstr
 	end)
@@ -151,20 +151,20 @@ function OSCAR:got_data_authorizer()
 		local flap = OSCAR.FLAP:fromstring(self.authbuf:take(len))
 		bufdata = self.authbuf:peek()
 		self:debug("[auth] Dispatching the FLAP")
-		
+
 		-- now we can dispatch the FLAP
 		if flap.channel == 1 then
 			-- hopefully it is a Connection Acknowledge
 			if flap.data ~= string.char(0x00, 0x00, 0x00, 0x01) then
 				return self:fatal("[auth] That wasn't a connection acknowledge!")
 			end
-			
+
 			self.authseq = 0
-			
+
 			self.authsock:send(
 				OSCAR.FLAP{channel = 1, seq = self:nextauthseq(), data = string.char(0x00, 0x00, 0x00, 0x01)}:tostring()
-				) 
-			
+				)
+
 			-- okay, it is; let's send the auth request
 			self.authsock:send(
 				OSCAR.FLAP{channel = 2, seq = self:nextauthseq(), data =
@@ -178,20 +178,20 @@ function OSCAR:got_data_authorizer()
 			self:debug("[auth] Authorizer request sent")
 		elseif flap.channel == 2 then
 			local snac = OSCAR.SNAC:fromstring(flap.data)
-			
+
 			if snac.family ~= 0x17 then
 				return self:fatal("[auth] wrong SNAC family from authorizer")
 			end
-			
+
 			if snac.subtype == 0x07 then -- SRV_AUTH_KEY_RESPONSE
 				local keylen, key = numutil.strtobe16(snac.data), snac.data:sub(3)
-				
+
 				if keylen ~= key:len() then
 					self:error("[auth] SRV_AUTH_KEY_RESPONSE key length did not match SNAC length")
 				end
-				
+
 				local md5 = naim.bit.md5(key .. self:needpass() .. "AOL Instant Messenger (SM)")
-				
+
 				self.authsock:send(
 					OSCAR.FLAP{channel = 2, seq = self:nextauthseq(), data =
 						OSCAR.SNAC:new({family = 0x0017, subtype = 0x0002, flags0 = 0, flags1 = 1, reqid = 0, data =
@@ -232,15 +232,15 @@ function OSCAR:got_data_authorizer()
 				else
 					local bosaddr,bosport = bosip:match("([a-z0-9\.]*):([0-9]*)")
 					self.screenname = screenname
-					
+
 					self:debug("[auth] connecting to BOS as "..self.screenname)
-					
+
 					self:FLAPConnect(bosip, authcookie, true)
 				end
 			end
 		elseif flap.channel == 4 then
 			self:debug("[auth] authorizer closing the connection through normal channel 4 termination")
-			
+
 			self.authsock:close()
 			self.authsock = nil
 			self.authbuf = nil
@@ -269,23 +269,23 @@ function OSCAR.dispatchsubtype(t)
 			self:error("[BOS] Unhandled SNAC (in subtype dispatcher) " .. snac.family .. ":" ..snac.subtype)
 		end
 	end
-end	
+end
 
 OSCAR.snacfamilydispatch = {}
 
 function OSCAR:FLAPConnect(bosip, cookie, required)
 	local flap = {}
 	local bosaddr,bosport = bosip:match("([a-z0-9\.]*):([0-9]*)")
-	
+
 	if not bosaddr then
 		bosaddr = bosip
 		bosport = 5190
 	end
-	
+
 	self:debug("[FLAP] connecting to BOS on "..bosaddr.." port "..bosport)
-	
+
 	table.insert(self.flapconns, flap)
-	
+
 	flap.cookie = cookie
 	flap.seq = 0
 	flap.sock = naim.socket.new()
@@ -293,7 +293,7 @@ function OSCAR:FLAPConnect(bosip, cookie, required)
 	flap.buf:resize(65550)
 	flap.families = {}
 	flap.required = required
-	
+
 	flap.sock:connect(bosaddr, bosport)
 end
 
@@ -303,7 +303,7 @@ function OSCAR:FLAPNewData(conn)
 		local len = OSCAR.FLAP:lengthfromstring(bufdata)
 		local flap = OSCAR.FLAP:fromstring(conn.buf:take(len))
 		bufdata = conn.buf:peek()
-		
+
 		-- now we can dispatch the FLAP
 		if flap.channel == 1 then
 			-- hopefully it is a Connection Acknowledge
@@ -325,7 +325,7 @@ function OSCAR:FLAPNewData(conn)
 			-- signon handler can know what connection it came
 			-- from.
 			snac.conn = conn
-			
+
 			if OSCAR.snacfamilydispatch[snac.family] then
 				OSCAR.snacfamilydispatch[snac.family](self, snac)
 			else
@@ -367,23 +367,23 @@ function OSCAR:FLAPSend(snac)
 	end
 	if not conn then
 		self:debug("[FLAP] Trying to open FLAP connection for family "..snac.family)
-		
+
 		if self.flapspending[snac.family] then
 			self:notice("[FLAP] Connection already pending for SNAC family "..snac.family.."... is something wrong?")
 		else
 			-- Send a request to open the SNAC family connection.
 			self.flapspending[snac.family] = {}
 			self:FLAPSend(
-				OSCAR.SNAC:new{family = 0x0001, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
+				OSCAR.SNAC:new{family = 0x0001, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data =
 					numutil.be16tostr(snac.family)
 				})
 		end
-			
+
 		self.flapspending[snac.family][snac] = true
-		
+
 		return
 	end
-	
+
 	conn.sock:send(
 		OSCAR.FLAP:new({channel = 2, seq = conn.seq, data = snac:tostring()})
 			:tostring()
@@ -422,7 +422,7 @@ OSCAR.Errors = {
 	[0x17] = { text = "Server queue full", fte = naim.pd.fterrors.PACKETSIZE },
 	[0x18] = { text = "Not while on AOL (?)", fte = naim.pd.fterrors.WEIRDPACKET },
 }
-	
+
 function OSCAR:BOSControlError(snac)
 	if OSCAR.Errors[numutil.strtobe16(snac.data)] then
 		self:error("[BOS] [Error] Server reports " .. OSCAR.Errors[numutil.strtobe16(snac.data)].text .. " (".. numutil.tohex(snac.data)..")")
@@ -433,12 +433,12 @@ end
 
 function OSCAR:BOSControlHostReady(snac)
 	local families = 0
-	
+
 	while snac.data:len() > 1 do
 		local family = numutil.strtobe16(snac.data)
-		
+
 		snac.conn.families[family] = true
-		
+
 		-- Anyone queued?
 		if self.flapspending[family] then
 			for txsnac,_ in pairs(self.flapspending[family]) do
@@ -446,14 +446,14 @@ function OSCAR:BOSControlHostReady(snac)
 			end
 			self.flapspending[family] = nil
 		end
-		
+
 		families = families + 1
 		self:debug("[BOS] [Host Ready] Family available: "..family)
-		
+
 		snac.data = snac.data:sub(3)
 	end
 	self:debug("[BOS] [Host Ready] BOS connection online with "..families.." families.")
-	
+
 	-- This isn't really the right place to do this, but sometimes you
 	-- gotta do what you gotta do.
 	if self.isconnecting then
@@ -466,7 +466,7 @@ end
 
 function OSCAR:BOSControlRedirectService(snac)
 	local srvid, address, cookie
-	
+
 	while snac.data and OSCAR.TLV:lengthfromstring(snac.data) and OSCAR.TLV:lengthfromstring(snac.data) <= snac.data:len() do
 		local tlv = OSCAR.TLV(snac.data)
 		snac.data = snac.data:sub(tlv.value:len() + 5)
@@ -476,7 +476,7 @@ function OSCAR:BOSControlRedirectService(snac)
 		end
 	end
 	self:debug("[BOS] [Redirect Service] Got redirect for family "..(srvid or "???").." to host "..address)
-	
+
 	self:FLAPConnect(address, cookie)
 end
 
@@ -489,42 +489,42 @@ function OSCAR:BOSControlRateResponse(snac)
 	--end
 	acceptedrates = string.char(0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05)
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0001, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 1, data = 
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 1, data =
 			acceptedrates
 		})
 	self:debug("[BOS] [Rate Response] Sent rate acknowledge SNAC")
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0001, subtype = 0x0014, flags0 = 0, flags1 = 0, reqid = 2, data = 
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x0014, flags0 = 0, flags1 = 0, reqid = 2, data =
 			string.char(0x00, 0x00, 0x00, 0x03)
 		})
 	self:debug("[BOS] [Rate Response] Sent privacy SNAC")
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0001, subtype = 0x000e, flags0 = 0, flags1 = 0, reqid = 3, data = 
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x000e, flags0 = 0, flags1 = 0, reqid = 3, data =
 			""
 		})
 	self:debug("[BOS] [Rate Response] Sent user info request SNAC")
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 4, data = 
+		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 4, data =
 			""
 		})
 	self:debug("[BOS] [Rate Response] Sent location limit request SNAC")
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0003, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 5, data = 
+		OSCAR.SNAC:new{family = 0x0003, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 5, data =
 			""
 		})
 	self:debug("[BOS] [Rate Response] Sent blist limit request SNAC")
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0004, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 6, data = 
+		OSCAR.SNAC:new{family = 0x0004, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 6, data =
 			""
 		})
 	self:debug("[BOS] [Rate Response] Sent ICBM param request SNAC")
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0009, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 7, data = 
+		OSCAR.SNAC:new{family = 0x0009, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 7, data =
 			""
 		})
 	self:debug("[BOS] [Rate Response] Sent privacy param request SNAC")
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 8, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 8, data =
 			""
 		})
 	self:debug("[BOS] [Rate Response] Sent SSI param request SNAC")
@@ -541,7 +541,7 @@ end
 function OSCAR:BOSControlExtStatus(snac)
 	local type = numutil.strtobe16(snac.data)
 	local data = snac.data:sub(3)
-	
+
 	if type == 0x0000 or type == 0x0001 then
 		self:debug("[BOS] [Extended Status] Current SSBI info received and ignored")
 	elseif type == 0x0002 then
@@ -573,7 +573,7 @@ function OSCAR:set_available(avail)
 	end
 
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0001, subtype = 0x001E, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x001E, flags0 = 0, flags1 = 0, reqid = 0, data =
 			OSCAR.TLV{type = 0x001D, value =
 				numutil.be16tostr(0x0002) ..
 				numutil.be16tostr(0x0404 + avail:len()) ..
@@ -581,7 +581,7 @@ function OSCAR:set_available(avail)
 				avail ..
 				numutil.be16tostr(0x0000)}
 		})
-	
+
 	return 0
 end
 
@@ -637,9 +637,9 @@ function OSCAR:BOSLocationGotInfo(snac)
 	if snac.data:len() > 0 then
 		self:warning("[BOS] [GotInfo] Data left over after TLVs: "..numutil.tohex(snac.data))
 	end
-	
+
 	self:gotinfo(screenname, info, wlevel, online, idle, flags)
-	
+
 	if away and away:len() ~= 0 then
 		if awaytime then
 			away = math.floor((os.time() - awaytime) / 60).." :"..away
@@ -681,14 +681,14 @@ OSCAR.caps = OSCAR.uuid_to_bytes("{0946134D-4C7F-11D1-8222-444553540000}") ..
 
 function OSCAR:set_caps()
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
-			OSCAR.TLV{type = 0x0005, value=OSCAR.caps} 
+		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data =
+			OSCAR.TLV{type = 0x0005, value=OSCAR.caps}
 		})
 end
 
 function OSCAR:set_info(info)
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data =
 			OSCAR.TLV{type = 0x0001, value='text/x-aolrtf; charset="us-ascii"'} ..
 			OSCAR.TLV{type = 0x0002, value=info}
 		})
@@ -697,7 +697,7 @@ end
 function OSCAR:set_away(away, isauto)
 	if not away then away = "" end
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data =
 			OSCAR.TLV{type = 0x0003, value='text/x-aolrtf; charset="us-ascii"'} ..
 			OSCAR.TLV{type = 0x0004, value=away}
 		})
@@ -706,7 +706,7 @@ end
 
 function OSCAR:get_info(user)
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0015, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0002, subtype = 0x0015, flags0 = 0, flags1 = 0, reqid = 0, data =
 			string.char(0x00, 0x00, 0x00, 0x07, user:len()) .. user
 		})
 	return 0
@@ -747,27 +747,27 @@ function OSCAR:BOSBlistOnline(snac, from_offline)
 	local data = snac.data
 	-- 0x000B for online, 0x000C for offline
 	local online = snac.subtype == 0x000B
-	
+
 	while snac.data:len() > 0 do
 		local bs, uname, wlev, ntlvs, userclass, caps, idle, status
-		
+
 		local away, mobile
-		
+
 		userclass = 0x0000
-		
+
 		bsz = snac.data:byte(1)
 		uname = snac.data:sub(2, bsz + 1)
 		wlev = numutil.strtobe16(snac.data, bsz + 2)
 		ntlvs = numutil.strtobe16(snac.data, bsz + 4)
 		snac.data = snac.data:sub(bsz + 6)
-		
+
 		for i = 1,ntlvs do
 			if OSCAR.TLV:lengthfromstring(snac.data) > snac.data:len() then
 				self:fatal("not enough data left for TLV "..i.." in blistonline?")
 			end
 			local tlv = OSCAR.TLV(snac.data)
 			snac.data = snac.data:sub(tlv.value:len() + 5)
-			
+
 			    if tlv.type == 0x0001 then userclass = numutil.strtobe16(tlv.value)
 			elseif tlv.type == 0x0004 then idle = numutil.strtobe16(tlv.value)
 			elseif tlv.type == 0x000D then caps = tlv.value
@@ -794,16 +794,16 @@ function OSCAR:BOSBlistOnline(snac, from_offline)
 				end
 			end
 		end
-		
+
 		away = naim.bit._and(userclass, 0x0020) == 0x0020
 		mobile = naim.bit._and(userclass, 0x0080) == 0x0080
-		
+
 		self:debug("[BOS] [Blist online] " .. uname ..
 		           (idle and (" [idle "..idle.."]") or "") ..
 		           (string.format(" [class %04x]", userclass)) ..
 		           (mobile and " [mobile]" or "") ..
 		           (online and " [online]" or " [offline]"))
-		
+
 		if online then
 			self:im_buddyonline(uname, 1)
 			self:im_buddyaway(uname, away and 1 or 0)
@@ -817,7 +817,7 @@ function OSCAR:BOSBlistOnline(snac, from_offline)
 		else
 			self:im_buddyonline(uname, 0)
 		end
-		
+
 		-- Look to see if they changed their capitalization.
 		for _,group in pairs(self.groups) do
 			for _,member in pairs(group.members) do
@@ -846,7 +846,7 @@ OSCAR.snacfamilydispatch[0x0003] = OSCAR.dispatchsubtype({
 function OSCAR:BOSICBMError(snac)
 	local err = OSCAR.Errors[numutil.strtobe16(snac.data)] or { text = "unknown", fte = naim.pd.fterrors.UNKNOWN }
 	local failing = self.icbm_recent[snac.reqid]
-	
+
 	if not failing then
 		self:warning("[BOS] [ICBM Error] Reqid "..snac.reqid.." doesn't match anything recent...")
 	end
@@ -857,7 +857,7 @@ end
 function OSCAR:BOSICBMParameters(snac)
 	self:debug("[BOS] [ICBM Parameters Reply] Undecoded; sending set ICBM request")
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0004, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0004, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 0, data =
 			string.char(	0x00, 0x00, -- channel
 					0x00, 0x00, 0x01, 0x1B, -- message flags
 					0x1F, 0x40, -- max message snac size
@@ -867,16 +867,16 @@ function OSCAR:BOSICBMParameters(snac)
 		})
 	self:debug("[BOS] [ICBM Parameters Reply] Finalizing.")
 	self:doinit(self.screenname)
-	
+
 	-- SET_NICKINFO_FIELDS
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0001, subtype = 0x001E, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x001E, flags0 = 0, flags1 = 0, reqid = 0, data =
 			OSCAR.TLV{type = 0x0006, value=string.char(0x00, 0x00, 0x00, 0x00)}
 		})
-	
+
 	-- What foodgroups do we support?
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0001, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0001, subtype = 0x0002, flags0 = 0, flags1 = 0, reqid = 0, data =
 			--          SRVNAME - VERSION - TOOLID -- TOOLVER -
 			string.char(0x00,0x13,0x00,0x04,0x01,0x10,0x06,0x29) ..
 			--string.char(0x00,0x0a,0x00,0x01,0x01,0x10,0x06,0x29) ..
@@ -902,11 +902,11 @@ function OSCAR:BOSICBM(snac)
 	screenname = snac.data:sub(2, snac.data:byte(1)+1)
 	snac.data = snac.data:sub(snac.data:byte(1)+2)
 	snac.data = snac.data:sub(5)	-- skip warning level and TLV count
-	
+
 	if channel ~= 1 then
 		self:error("[BOS] [ICBM] Undecoded ICBM channel "..channel)
 	end
-	
+
 	while snac.data and OSCAR.TLV:lengthfromstring(snac.data) and OSCAR.TLV:lengthfromstring(snac.data) <= snac.data:len() do
 		local tlv = OSCAR.TLV(snac.data)
 		snac.data = snac.data:sub(tlv.value:len() + 5)
@@ -917,7 +917,7 @@ function OSCAR:BOSICBM(snac)
 	if snac.data:len() > 0 then
 		self:warning("[BOS] [ICBM] Data left over! "..OSCAR.tohex(snac.data))
 	end
-	
+
 	-- you can't make this fucking simple, can you, AOL? message? why
 	-- use the established fucking TLVs when you can create more fucking
 	-- fragments inside a message to decode? fucking fuckity fuck fuck
@@ -930,7 +930,7 @@ function OSCAR:BOSICBM(snac)
 			local cssubset = numutil.strtobe16(tlv.value:sub(2))
 
 			realmessage = tlv.value:sub(5)
-			
+
 			if csno == 0x0000 then -- ASCII; no mangling needed
 			elseif csno == 0x0003 then -- ISO-8859-1?
 				self:warning("[BOS] [ICBM] WARNING: ISO-8859-1 message from "..screenname.." may not be properly decoded.")
@@ -946,12 +946,12 @@ function OSCAR:BOSICBM(snac)
 		self:error("[BOS] [ICBM] WARNING: Data left over in the TLV TLV! "..OSCAR.tohex(message))
 		self:error("[BOS] [ICBM] remaining bytes: " .. message:len() .. " needed bytes: " .. OSCAR.TLV:lengthfromstring(message))
 	end
-	
+
 	realmessage = self:handle_ect(screenname, realmessage, auto == 1)
 	if realmessage:len() == 0 then
 		return
 	end
-	
+
 	if realmessage:sub(1,4):lower() == "/me " then
 		self:im_getaction(screenname, auto, realmessage:sub(5))
 	elseif realmessage:match(">/[mM][eE] ") then
@@ -1018,7 +1018,7 @@ function OSCAR:chat_send_message(target, text, isauto)
 		end
 		return 0
 	end
-	
+
 	self:error("other chat targets ("..target..") unsupported")
 end
 
@@ -1027,7 +1027,7 @@ function OSCAR:im_send_message(target, text, isauto)
 	if isauto == 1 then
 		isautotlv = OSCAR.TLV{type = 0x0004, value = ""}
 	end
-	
+
 	while true do
 		local rq
 		if isauto == 1 then
@@ -1038,19 +1038,19 @@ function OSCAR:im_send_message(target, text, isauto)
 		if not rq then break end
 		text = text .. rq
 	end
-	
+
 	self.icbm_req = (self.icbm_req + 1) % 65536
 	self.icbm_recent[self.icbm_req] = target
-	
+
 	-- Also clear out old ones.
 	self.icbm_recent[(self.icbm_req - 16 + 65536) % 65536] = nil
-	
+
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0004, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = self.icbm_req, data = 
+		OSCAR.SNAC:new{family = 0x0004, subtype = 0x0006, flags0 = 0, flags1 = 0, reqid = self.icbm_req, data =
 			string.char(	0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07, -- cookie
 					0x00,0x01, -- channel
 					target:len()) .. target ..
-			OSCAR.TLV{type = 0x0002, value = 
+			OSCAR.TLV{type = 0x0002, value =
 				string.char(0x05,0x01,0x00,0x01,0x01,0x01,0x01)..
 				numutil.be16tostr(text:len()+4)..
 				string.char(0x00,0x00,0x00,0x00)..
@@ -1082,7 +1082,7 @@ function OSCAR:handle_ect(from, text, isreply)
 	return text:gsub("<font ECT=\"(.-)\"></font>",
 		function (str)
 			local cmd,args = str:match("(.-) (.*)")
-			
+
 			if args then
 				args = self:htmlclean(args)
 			else
@@ -1119,7 +1119,7 @@ function OSCAR:BOSSSILimitReply(snac)
 	self:debug("[BOS] [SSI limit reply]")
 	-- I don't really care about the answer. I do, however, want the buddy list.
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data =
 			""
 		})
 	self.groups = {}
@@ -1145,7 +1145,7 @@ OSCAR.SSITypes = {
 
 function OSCAR:_snactorosterentry(indata)
 	local ent = {}
-	
+
 	ent.itemname = indata:sub(3, numutil.strtobe16(indata) + 2)
 	indata = indata:sub(numutil.strtobe16(indata) + 3)
 	ent.groupid = numutil.strtobe16(indata)
@@ -1156,7 +1156,7 @@ function OSCAR:_snactorosterentry(indata)
 	indata = indata:sub(3)
 	ent.data = indata:sub(3, numutil.strtobe16(indata) + 2)
 	indata = indata:sub(numutil.strtobe16(indata) + 3)
-	
+
 	local nickname, buddycomment, contents
 	while ent.data and OSCAR.TLV:lengthfromstring(ent.data) and OSCAR.TLV:lengthfromstring(ent.data) <= ent.data:len() do
 		local tlv = OSCAR.TLV(ent.data)
@@ -1166,7 +1166,7 @@ function OSCAR:_snactorosterentry(indata)
 		elseif tlv.type == 0x00C8 then ent.contents = tlv.value
 		end
 	end
-	
+
 	local types = { [0x0000] = "Buddy record", [0x0001] = "Group record", [0x0002] = "Permit record",
 			[0x0003] = "Deny record", [0x0004] = "Permit/deny settings", [0x0005] = "Presence info",
 			[0x000E] = "Ignore list record", [0x000F] = "Last update date", [0x0019] = "Recent buddy"}
@@ -1180,7 +1180,7 @@ function OSCAR:_snactorosterentry(indata)
 	if ent.buddycomment then thestring = thestring .. "buddycomment " .. ent.buddycomment .. ", " end
 	if ent.contents then thestring = thestring .. "contents, " end
 	self:debug(thestring .. "end.")
-	
+
 	return indata, ent
 end
 
@@ -1216,14 +1216,14 @@ function OSCAR:_AddItem(roster, differential)
 			if not differential and roster.groupid ~= 0 then
 				self:warning("[BOS] [SSI] Item did not exist in group, but we're not doing a differential update...")
 			end
-			
+
 			-- Look for the item in other groups.
 			for k,v in pairs(self.groups) do
 				if v.members[roster.itemid] then
 					v.members[roster.itemid] = nil
 				end
 			end
-			
+
 			-- Only after it's in no other groups can we add it.
 			self.groups[roster.groupid].members[roster.itemid] = {}
 		end
@@ -1268,7 +1268,7 @@ function OSCAR:BOSSSIRosterReply(snac)
 	items = numutil.strtobe16(snac.data)
 	snac.data = snac.data:sub(3)
 	self:debug("[BOS] [SSI roster reply] flags " .. snac.flags0 .. " " .. snac.flags1 .. " items " ..items)
-	
+
 	local roster
 	for i = 1,items do
 		snac.data, roster = self:_snactorosterentry(snac.data)
@@ -1277,10 +1277,10 @@ function OSCAR:BOSSSIRosterReply(snac)
 	if naim.bit._and(snac.flags1, 1) == 0 then
 		-- all done
 		self:_CommitDirty()
-		
+
 		-- make it so! send the activate SSI stuff down the wire
 		self:FLAPSend(
-			OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data =
 				""
 			})
 	end
@@ -1291,12 +1291,12 @@ function OSCAR:BOSSSIRemoveItem(snac)
 		self:fatal("[BOS] [SSI Remove Item] Item removed outside of transaction ... ")
 	end
 	self:debug("[BOS] [SSI Remove Item]")
-	
+
 	local roster
-		
+
 	while snac.data ~= "" do
 		snac.data, roster = self:_snactorosterentry(snac.data)
-		
+
 		if roster.type == 0x0000 then
 			if not self.groups[roster.groupid] then
 				self:fatal("[BOS] [SSI Remove Item] That group ID doesn't exist ...")
@@ -1307,9 +1307,9 @@ function OSCAR:BOSSSIRemoveItem(snac)
 			self.groups[roster.groupid] = nil
 		end
 	end
-	
+
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data =
 			""
 		})
 end
@@ -1344,7 +1344,7 @@ function OSCAR:BOSSSITransactionEnd(snac)
 	self.ssibusy = false
 	-- Activate new configuration
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data =
 			""
 		})
 end
@@ -1354,7 +1354,7 @@ function OSCAR:BOSSSIAdd(snac)
 	if not self.ssibusy then
 		self:fatal("[BOS] [SSI Add] Not within a transaction?")
 	end
-	
+
 	local roster
 	while snac.data ~= "" do
 		snac.data, roster = self:_snactorosterentry(snac.data)
@@ -1367,11 +1367,11 @@ function OSCAR:BOSSSIMod(snac)
 	if not self.ssibusy then
 		self:fatal("[BOS] [SSI Mod] Not within a transaction?")
 	end
-	
+
 	local roster
 	while snac.data ~= "" do
 		snac.data, roster = self:_snactorosterentry(snac.data)
-		
+
 		if roster.type == 0x0000 then
 			-- Look for the old item and look up missing data from it.
 			local olditem = nil
@@ -1410,14 +1410,14 @@ OSCAR.snacfamilydispatch[0x0013] = OSCAR.dispatchsubtype({
 function OSCAR:_updategroup(id)
 	local tlvdata = ""
 	local tlvs = ""
-	
+
 	self:debug("[BOS] [SSI] Group update " .. self.groups[id].name)
 	for k,member in pairs(self.groups[id].members) do
 		tlvdata = tlvdata .. numutil.be16tostr(k)
 	end
 	tlvs = OSCAR.TLV{type = 0x00c8, value = tlvdata}
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0009, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0009, flags0 = 0, flags1 = 0, reqid = 0, data =
 			numutil.be16tostr(self.groups[id].name:len()) .. self.groups[id].name ..
 			numutil.be16tostr(id) ..
 			numutil.be16tostr(0x0000) ..
@@ -1430,15 +1430,15 @@ end
 function OSCAR:_updatemaster()
 	local tlvdata = ""
 	local tlvs = ""
-	
+
 	self:debug("[BOS] [SSI] Master update")
 	for k,member in pairs(self.groups) do
 		tlvdata = tlvdata .. numutil.be16tostr(k)
 	end
 	tlvs = OSCAR.TLV{type = 0x00c8, value = tlvdata}
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0009, flags0 = 0, flags1 = 0, reqid = 0, data = 
-			numutil.be16tostr(0x0000) .. 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0009, flags0 = 0, flags1 = 0, reqid = 0, data =
+			numutil.be16tostr(0x0000) ..
 			numutil.be16tostr(0x0000) ..
 			numutil.be16tostr(0x0000) ..
 			numutil.be16tostr(0x0001) ..
@@ -1459,7 +1459,7 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 	-- Start a transaction first.
 	self:debug("[BOS] [SSI] Transaction start")
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0011, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0011, flags0 = 0, flags1 = 0, reqid = 0, data =
 			""
 		})
 	local gotgroup, newbuddyid, largestgroup
@@ -1467,16 +1467,16 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 	-- Make sure they're only in one group, and at the same time, look up the new group.
 	for k,group in pairs(self.groups) do
 		local maxbuddyid = 0
-		
+
 		if k > largestgroup then
 			largestgroup = k
 		end
-		
+
 		for k2,member in pairs(group.members) do
 			if self:comparenicks(member.name, account) == 0 then
 				self:debug("[BOS] [SSI] Removing "..member.name.." from old group "..group.name)
 				self:FLAPSend(
-					OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
+					OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data =
 						numutil.be16tostr(member.name:len()) .. member.name ..
 						numutil.be16tostr(k) ..
 						numutil.be16tostr(k2) ..
@@ -1497,7 +1497,7 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 		elseif next(group.members) == nil and k ~= 0x0000 then	-- is the group empty? if so, delete that, too
 			self:debug("[BOS] [SSI] Deleting empty group " .. group.name)
 			self:FLAPSend(
-				OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
+				OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data =
 					numutil.be16tostr(group.name:len()) .. group.name ..
 					numutil.be16tostr(k) ..
 					numutil.be16tostr(0x0000) ..
@@ -1516,7 +1516,7 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 		-- Add the group
 		self:debug("[BOS] [SSI] Creating new group " .. agroup)
 		self:FLAPSend(
-			OSCAR.SNAC:new{family = 0x0013, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 0, data = 
+			OSCAR.SNAC:new{family = 0x0013, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 0, data =
 				numutil.be16tostr(agroup:len()) .. agroup ..
 				numutil.be16tostr(gotgroup) ..
 				numutil.be16tostr(0x0000) ..
@@ -1534,7 +1534,7 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 	self:debug("[BOS] [SSI] Adding user " .. account)
 	-- Add the user
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0008, flags0 = 0, flags1 = 0, reqid = 0, data =
 			numutil.be16tostr(account:len()) .. account ..
 			numutil.be16tostr(gotgroup) ..
 			numutil.be16tostr(newbuddyid) ..
@@ -1544,17 +1544,17 @@ function OSCAR:im_add_buddy(account, agroup, afriendly)
 		})
 	self:_updategroup(gotgroup)
 	self:buddyadded(account, agroup, afriendly)
-	
+
 	self:debug("[BOS] [SSI] Ending transaction")
 	-- End the transaction.
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0012, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0012, flags0 = 0, flags1 = 0, reqid = 0, data =
 			""
 		})
-	
+
 	-- Activate new configuration
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data =
 			""
 		})
 	return 0
@@ -1566,7 +1566,7 @@ function OSCAR:im_remove_buddy(account, agroup)
 	end
 
 	local gname
-	
+
 	self:debug("[BOS] [SSI] Remove buddy")
 	if self.ssibusy then
 		self:error("[BOS] [SSI] Attempt to remove buddy in transaction")
@@ -1575,7 +1575,7 @@ function OSCAR:im_remove_buddy(account, agroup)
 	-- Start a transaction first.
 	self:debug("[BOS] [SSI] Transaction start")
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0011, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0011, flags0 = 0, flags1 = 0, reqid = 0, data =
 			""
 		})
 	for k,group in pairs(self.groups) do
@@ -1583,7 +1583,7 @@ function OSCAR:im_remove_buddy(account, agroup)
 			if self:comparenicks(member.name, account) == 0 and (agroup:lower() == group.name:lower()) then
 				self:debug("[BOS] [SSI] Removing "..member.name.." from group "..group.name)
 				self:FLAPSend(
-					OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
+					OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data =
 						numutil.be16tostr(member.name:len()) .. member.name ..
 						numutil.be16tostr(k) ..
 						numutil.be16tostr(k2) ..
@@ -1599,7 +1599,7 @@ function OSCAR:im_remove_buddy(account, agroup)
 		if next(group.members) == nil and k ~= 0x0000 then	-- is the group empty? if so, delete that, too
 			self:debug("[BOS] [SSI] Pruning empty group " .. group.name)
 			self:FLAPSend(
-				OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data = 
+				OSCAR.SNAC:new{family = 0x0013, subtype = 0x000A, flags0 = 0, flags1 = 0, reqid = 0, data =
 					numutil.be16tostr(group.name:len()) .. group.name ..
 					numutil.be16tostr(k) ..
 					numutil.be16tostr(0x0000) ..
@@ -1612,13 +1612,13 @@ function OSCAR:im_remove_buddy(account, agroup)
 	self:debug("[BOS] [SSI] Ending transaction")
 	-- End the transaction.
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0012, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0012, flags0 = 0, flags1 = 0, reqid = 0, data =
 			""
 		})
-	
+
 	-- Activate new configuration
 	self:FLAPSend(
-		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data = 
+		OSCAR.SNAC:new{family = 0x0013, subtype = 0x0007, flags0 = 0, flags1 = 0, reqid = 0, data =
 			""
 		})
 	return 0
@@ -1632,12 +1632,12 @@ function OSCAR:set_nickname(nick)
 	if self:comparenicks(self.screenname, nick) ~= 0 then
 		return naim.pd.fterrors.NOMATCH.num
 	end
-	
+
 	self:FLAPSend(
 		OSCAR.SNAC:new{family = 0x0007, subtype = 0x0004, flags0 = 0, flags1 = 0, reqid = 0, data =
 			OSCAR.TLV{type = 0x0001, value=nick}
 		})
-	
+
 	return 0
 end
 
@@ -1653,7 +1653,7 @@ OSCAR.snacfamilydispatch[0x0007] = OSCAR.dispatchsubtype({
 -------------------------------------------------------------------------------
 -- Protocol driver stubs / required functions
 -------------------------------------------------------------------------------
-                                                                        
+
 function OSCAR:comparenicks(a, b)
 	if a:lower():gsub(" ","") == b:lower():gsub(" ","") then return 0 end
 	return -1
@@ -1677,7 +1677,7 @@ function OSCAR:preselect(r,w,e,n)
 	if self.authsock then
 		n = self.authsock:preselect(r,w,e,n)
 	end
-	
+
 	for k,conn in pairs(self.flapconns or {}) do
 		n = conn.sock:preselect(r,w,e,n)
 	end
@@ -1693,23 +1693,23 @@ function OSCAR:cleanup(reason, verbose)
 	if not verbose then
 		verbose = "unknown reason"
 	end
-	
+
 	if self.authsock then
 		self.authsock:close()
 		self.authsock = nil
 		self.authbuf = nil
 	end
-	
+
 	for k,conn in pairs(self.flapconns) do
 		conn.sock:close()
 		conn.sock = nil
 		conn.buf = nil
 		self.flapconns[k] = nil
 	end
-	
+
 	self.flapconns = nil
 	self.flapspending = nil
-	
+
 	if self.isconnecting then
 		self:connectfailed(reason, verbose)
 	else
@@ -1736,14 +1736,14 @@ function OSCAR:postselect(r, w, e, n) self:wrap(function()
 				self:cleanup(err, "(from BOS #"..k..")")
 				return
 			end
-			
+
 			-- Maybe the other end just timed us out from
 			-- inactivity.  No sweat.
 			conn.sock:close()
 			conn.sock = nil
 			conn.buf = nil
 			self.flapconns[k] = nil
-			
+
 			self:notice("[FLAP] BOS #"..k.." disconnected; non-fatal.")
 		end
 		if conn.sock and conn.sock:connected() and conn.buf:readdata() and conn.buf:pos() ~= 0 then
@@ -1771,7 +1771,7 @@ function OSCAR:connect(server, port, sn)
 	self.ssibusy = false
 	self.flapconns = {}
 	self.flapspending = {}
-	
+
 	return 0
 end
 

@@ -93,7 +93,7 @@ static void firetalk_md5_transform(firetalk_md5_t *st, const unsigned char block
 		tmp += b;
 		a = d; d = c; c = b; b = tmp;
 	}
-	
+
 	/* Round 2 */
 	for (i = 0, j = 1; i < 16; i++, j += 5) {
 		tmp = a + G(b, c, d) + LE32_TO_CPU(x[j & 15]) + T[i+16];
@@ -101,7 +101,7 @@ static void firetalk_md5_transform(firetalk_md5_t *st, const unsigned char block
 		tmp += b;
 		a = d; d = c; c = b; b = tmp;
 	}
-	
+
 	/* Round 3 */
 	for (i = 0, j = 5; i < 16; i++, j += 3) {
 		tmp = a + H(b, c, d) + LE32_TO_CPU(x[j & 15]) + T[i+32];
@@ -109,7 +109,7 @@ static void firetalk_md5_transform(firetalk_md5_t *st, const unsigned char block
 		tmp += b;
 		a = d; d = c; c = b; b = tmp;
 	}
-	
+
 	/* Round 4 */
 	for (i = 0, j = 0; i < 16; i++, j += 7) {
 		tmp = a + I(b, c, d) + LE32_TO_CPU(x[j & 15]) + T[i+48];
@@ -136,7 +136,7 @@ void firetalk_md5_update(firetalk_md5_t *st, const char *input, int inputlen) {
 		buflen += inputlen;
 		return;
 	}
-	
+
 	memcpy(st->buffer + buflen, input, 64 - buflen);
 	firetalk_md5_transform(st, st->buffer);
 	input += 64 - buflen;
@@ -160,7 +160,7 @@ unsigned char *firetalk_md5_final(firetalk_md5_t *st) {
 		memset(st->buffer, 0, 64);
 		buflen = 0;
 	}
-	
+
 	*(uint32_t *)(st->buffer + 56) = CPU_TO_LE32(8 * st->length);
 	*(uint32_t *)(st->buffer + 60) = 0;
 	firetalk_md5_transform(st, st->buffer);

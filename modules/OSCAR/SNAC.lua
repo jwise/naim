@@ -1,6 +1,6 @@
 --  _ __   __ _ ___ __  __
 -- | '_ \ / _` |_ _|  \/  | naim
--- | | | | | | || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>, 
+-- | | | | | | || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>,
 -- | | | | |_| || || |  | | 2006-2007 Joshua Wise <joshua@joshuawise.com>
 -- |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 --
@@ -48,12 +48,12 @@ function OSCAR.SNAC:fromstring(s)
 	o.flags1 = s:byte(6)
 	o.reqid = numutil.strtobe16(s, 7)*256*256 + numutil.strtobe16(s, 9)
 	o.data = s:sub(11)
-	
+
 	-- If the upper bit of flags0 is set, we have to strip a TLV off the front
 	if naim.bit._and(o.flags0, 0x80) == 0x80 then
 		o.frontdata = o.data:sub(1, numutil.strtobe16(o.data))
 		o.data = o.data:sub(numutil.strtobe16(o.data) + 3)
 	end
-	
+
 	return o
 end

@@ -1,6 +1,6 @@
 --  _ __   __ _ ___ __  __
 -- | '_ \ / _` |_ _|  \/  | naim
--- | | | | | | || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>, 
+-- | | | | | | || || |\/| | Copyright 1998-2006 Daniel Reed <n@ml.org>,
 -- | | | | |_| || || |  | |           2006-2007 Joshua Wise <joshua@joshuawise.com>
 -- |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 --
@@ -70,10 +70,10 @@ function registerpd()
 	function myproto:room_normalize(room)	-- cute! a failure in this function will cause naim to crash!
 		return room
 	end
-	
+
 	function myproto:preselect(r,w,e,n)
 	end
-	
+
 	function myproto:preselect_hook(r, w, e, n)	-- needs to be a hook because preselect is otherwise broken
 		for k,v in pairs(self.chats) do
 			n = v.sock:preselect(r,w,e,n)
@@ -94,7 +94,7 @@ function registerpd()
 				text = text:gsub(">", "&gt;")
 				text = text:gsub(" ", "&nbsp;")
 				text = text:gsub("\n", "<br>")
-				
+
 				self:chat_getmessage(k, "remote", 0, text)
 			end
 			if v.wasconnected and not v.sock:connected() then
@@ -114,7 +114,7 @@ function registerpd()
 		naim.hooks.del('preselect', self.preselect_hook_ref)
 		return 0
 	end
-	
+
 	function myproto:create(type)
 		o = {}
 		function lookups(table, str)

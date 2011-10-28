@@ -1,16 +1,16 @@
 /* firetalk.c - FireTalk protocol interface
 ** Copyright (C) 2000 Ian Gulliver
 ** Copyright 2002-2006 Daniel Reed <n@ml.org>
-** 
+**
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of version 2 of the GNU General Public License as
 ** published by the Free Software Foundation.
-** 
+**
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
 ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
-** 
+**
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -681,7 +681,7 @@ void	firetalk_callback_connectfailed(struct firetalk_driver_connection_t *c, con
 	if (conn->connected == FCS_NOTCONNECTED)
 		return;
 	conn->connected = FCS_NOTCONNECTED;
-	
+
 	if (conn->callbacks[FC_CONNECTFAILED])
 		conn->callbacks[FC_CONNECTFAILED](conn, conn->clientstruct, error, description);
 }
@@ -890,7 +890,7 @@ void	firetalk_callback_chat_user_quit(struct firetalk_driver_connection_t *c, co
 	firetalk_connection_t *conn = firetalk_find_conn(c);
 	firetalk_room_t *roomiter;
 	firetalk_member_t *memberiter, *membernext;
-	
+
 	for (roomiter = conn->room_head; roomiter != NULL; roomiter = roomiter->next)
 		for (memberiter = roomiter->member_head; memberiter != NULL; memberiter = membernext) {
 			membernext = memberiter->next;
@@ -1278,7 +1278,7 @@ fte_t	firetalk_disconnect(firetalk_connection_t *conn) {
 
 	if (conn->connected == FCS_NOTCONNECTED)
 		return(FE_NOTCONNECTED);
-	
+
 	conn->connected = FCS_NOTCONNECTED;
 
 	return(firetalk_protocols[conn->protocol]->disconnect(conn->handle));
@@ -1312,7 +1312,7 @@ void	firetalk_callback_connected(struct firetalk_driver_connection_t *c) {
 #endif
 
 	conn->connected = FCS_ACTIVE;
-	
+
 	if (conn->callbacks[FC_CONNECTED])
 		conn->callbacks[FC_CONNECTED](conn, conn->clientstruct);
 }
@@ -1703,7 +1703,7 @@ fte_t	firetalk_subcode_send_reply(firetalk_connection_t *conn, const char *const
 
 	if ((conn->connected != FCS_ACTIVE) && (*to != ':'))
 		return(FE_NOTCONNECTED);
-	
+
 	sc = firetalk_protocols[conn->protocol]->subcode_encode(conn->handle, command, args);
 	if (!sc)
 		return(FE_SUCCESS);

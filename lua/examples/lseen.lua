@@ -19,22 +19,22 @@ function lseen.recvfrom(conn, sn, dest, text, flags)
 	--naim.echo("dest: ".. dest)
 	text = text:gsub("<[^>]*>","")
 	who = string.match(text,"^!seen ([%w%p`]*).*")
-			
+
 	if who then
 		who = string.lower(who)
 		naim.echo("who:"..who)
 		if who == conn.sn then
 			naim.echo("who:"..conn.sn)
 			msg = "I'm right here!"
-		else 
+		else
 			msg = lseen.seen(who)
 		end
 
 		if string.lower(sn) == who then
 			msg = "I see you..."
 		end
-		
-		if dest then 	conn:msg(dest, msg) 
+
+		if dest then 	conn:msg(dest, msg)
 		else conn:msg(sn, msg) end
 	end
 
@@ -52,7 +52,7 @@ function lseen.join(conn, room, who, extra)
 			room:msg(lsn.." hasn't been seen for ".. prettydiff(os.difftime(os.time(),lseen.db[lsn].lastseen)).."!")
 		end
 	end
-	
+
 	lseen.db[lsn] = { lastseen = os.time(), target = room, event = "joining" }
 
 end
@@ -62,13 +62,13 @@ function lseen.left(conn, room, who, reason)
 	lseen.db[lsn] = {lastseen = os.time(), target = room, event = "leaving" }
 
 end
-	
+
 function lseen.kick(conn, room, who, by, reason)
 	lsn = string.lower(who)
 	lseen.db[lsn] = {lastseen = os.time(), target = room, event = "being kicked from" }
 end
 
-function lseen.nick(conn, room, oldnick, newnick) 
+function lseen.nick(conn, room, oldnick, newnick)
 	lsn = string.lower(oldnick)
 	lseen.db[lsn] = {lastseen = os.time(), target = newnick, event = "changing their nick to" }
 
@@ -92,7 +92,7 @@ function prettydiff(sec)
 	if seconds > 59 then
 		minutes = math.floor(seconds / 60)
 		seconds = math.fmod(seconds, 60)
-	end		
+	end
 
 	if minutes > 59 then
 		hours = math.floor(minutes/60)
@@ -122,13 +122,13 @@ function lseen.seen(who)
 	if not lseen.db[who] then
 		return "I haven't seen ".. who
 	end
-	return who .. " was last seen " .. lseen.db[who].event .. " " .. lseen.db[who].target .. " " .. prettydiff(os.difftime(os.time(), lseen.db[who].lastseen)) .. " ago" 
-	
-end 
+	return who .. " was last seen " .. lseen.db[who].event .. " " .. lseen.db[who].target .. " " .. prettydiff(os.difftime(os.time(), lseen.db[who].lastseen)) .. " ago"
+
+end
 
 naim.commands.unloadlseen = {
 	min = 0,
-	max = 0, 
+	max = 0,
 	args = {},
 	desc = "Unload the lseen module",
 	func = function (conn)
@@ -182,7 +182,7 @@ naim.commands.savelseen = {
 	max = 1,
 	args = {'filename'},
 	desc = "Save the seen database to a file",
-	func = function (conn, filename) 
+	func = function (conn, filename)
 		if not filename[1] then
 			if not naim.variables.lseendb or naim.variables.lseendb == "" then
 				lseen.save("$HOME/lseen.db")
@@ -222,7 +222,7 @@ end
 
 
 naim.commands.loadlseen = {
-	min = 0, 
+	min = 0,
 	max = 1,
 	args = {'filename'},
 	desc = "Load a seen database from a file",
@@ -254,7 +254,7 @@ function lseen.periodic(now, nowf)
 				lseen.save(naim.variables.lseendb)
 			end
 			lseen.periodiccounter = 0
-		end 
+		end
 	end
 end
 

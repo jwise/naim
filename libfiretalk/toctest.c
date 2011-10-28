@@ -145,7 +145,7 @@ void	error(void *c, void *cs, const int error, const char *const roomoruser, con
 	else
 		fprintf(stderr, " [%s:%i: error %i in %s (%s): %s]", __FILE__, __LINE__, error, roomoruser, firetalk_strerror(error), description);
 	conn1.haderror++;
-	
+
 	fflush(stderr);
 }
 
@@ -323,7 +323,7 @@ int	main(int argc, char *argv[]) {
 	for (i = 0; servers[i].hostname; i++) {
 		void	*ret;
 		int	proto;
-		
+
 		proto = firetalk_find_protocol("TOC2");
 		if (proto == -1)
 		{
@@ -355,7 +355,7 @@ int	main(int argc, char *argv[]) {
 		DO_TEST(register_callback, (conn1.conn, FC_CONNECTFAILED, (ptrtofnct)connectfailed), ret != FE_SUCCESS, ret, servers[i].failed); T
 		DO_TEST(signon, (conn1.conn, NULL, 0, conn1.username), ret != FE_SUCCESS, ret, servers[i].failed); T
 		DO_WAITFOR(conn1, WF_CONNECTED, NULL, servers[i].failed); T
-		
+
 		DO_TEST(subcode_register_reply_callback, (conn1.conn, "PING", subcode_reply), ret != FE_SUCCESS, ret, servers[i].failed); T
 		DO_TEST(subcode_send_request, (conn1.conn, botusername, "PING", FIRETALK_TEST_STRING), ret != FE_SUCCESS, ret, servers[i].failed); T
 		DO_WAITFOR(conn1, WF_SUBCODE_REPLY, FIRETALK_TEST_STRING, servers[i].failed); T
@@ -366,7 +366,7 @@ int	main(int argc, char *argv[]) {
 
 		out:
 		DO_TEST(disconnect, (conn1.conn), ret != FE_SUCCESS, ret, servers[i].failed);
-		
+
 		if (servers[i].failed)
 		{
 			fprintf(stderr, "SERVER FAILED (sorry)\r\n");
@@ -382,7 +382,7 @@ int	main(int argc, char *argv[]) {
 		conn1.password = NULL;
 
 		fprintf(stderr, "\r\n");
-		
+
 		uid++;
 	}
 	printf("Results:\n");

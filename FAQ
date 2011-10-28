@@ -120,7 +120,7 @@ just type `/save' and naim will use the same settings the next time it starts up
 generated .naimrc is also auto-documented, so feel free to use /save to create a
 "default" .naimrc, and customize it by hand using a text editor.
 
-You can `/set autosave 1' to have naim automatically write .naimrc whenever you 
+You can `/set autosave 1' to have naim automatically write .naimrc whenever you
 `/quit'.
 
 
@@ -150,7 +150,7 @@ At present, no. If enough people request that ability, I will add it to the next
 release.
 
 
-Why do some people I talk to have blue text? I tried to set all the foreground 
+Why do some people I talk to have blue text? I tried to set all the foreground
   colors to white but I still get their text in blue.
 If the other person is using WinAIM and sets their text color to blue would naim
   also show the text as blue?
@@ -174,9 +174,9 @@ are not visible to AIM users through any mechanism.
 
 How can I set my own profile?
 
-If you have a file called .naimprofile in your home directory when naim starts, 
-naim will use its contents instead of the built-in default. You can send SIGHUP 
-(killall -HUP naim) from the command line or type `/readprofile .naimprofile' 
+If you have a file called .naimprofile in your home directory when naim starts,
+naim will use its contents instead of the built-in default. You can send SIGHUP
+(killall -HUP naim) from the command line or type `/readprofile .naimprofile'
 while naim is running to reload your .naimprofile.
 
 
@@ -235,12 +235,12 @@ naimhelp, which you will need to remove manually (or /delbuddy me and type
 `/save' again).
 
 
-One of my contacts *always* shows up offline, even when he is talking to me. 
+One of my contacts *always* shows up offline, even when he is talking to me.
   What is wrong?
-Some of my contacts show up as offline even though I can see them online from 
+Some of my contacts show up as offline even though I can see them online from
   another client. What is wrong?
 
-There are several possibilities. If you have not received any messages from the 
+There are several possibilities. If you have not received any messages from the
 buddy:
   1. Your buddy has you blocked. This will prevent your buddy from seeing you
 online, and will prevent you from seeing your buddy online. Neither of you will
@@ -248,46 +248,46 @@ be able to send messages to each other or retrieve each other's profile. You can
 check for this by using the "/info buddyname" command from two accounts at the
 same time. If one "/info buddyname" fails while the other succeeds, it is likely
 your contact has blocked the account where /info fails.
-  2. You have your buddy blocked. Blocking has the same effects regardless of 
-which user is doing the blocking. You can check to see if you have blocked the 
+  2. You have your buddy blocked. Blocking has the same effects regardless of
+which user is doing the blocking. You can check to see if you have blocked the
 buddy by checking /ignore (which provides a list).
-  3. Your buddy has privacy mode enabled and has not added you to the allow 
-list. Privacy mode makes it so only people on a special "allow" list can 
-communicate with the user, and all other users are treated as if they are 
-blocked (as with 1. or 2.). Many clients use their buddy list as the "allow" 
-list. You can tell this is happening if you are able to "/info buddyname" from 
+  3. Your buddy has privacy mode enabled and has not added you to the allow
+list. Privacy mode makes it so only people on a special "allow" list can
+communicate with the user, and all other users are treated as if they are
+blocked (as with 1. or 2.). Many clients use their buddy list as the "allow"
+list. You can tell this is happening if you are able to "/info buddyname" from
 one account but not from any others.
 
-If you have or have not received messages from the buddy in question, it may be 
+If you have or have not received messages from the buddy in question, it may be
 one of the following:
   4. You have exceeded the maximum number of buddies for your account. At the
 time of writing, AOL's Instant Messenger servers limit each account to 200
 simultaneous buddies. The protocol does not declare this limit and the server
 does not emit an error message if you go over it; your buddy tracking simply
-starts behaving erratically. You can check for this by using the "/names"  
+starts behaving erratically. You can check for this by using the "/names"
 command and manually counting entries.
-  5. Your buddy is using the "invisible" feature of AOL Instant Messenger. This 
-feature is similar to the "privacy" feature mentioned in 3., but only blocks 
-tracking information. Userinfo requests and private messages can still be sent 
-between clients. Unfortunately, this clashes with naim's automatic message 
-queueing features, and causes the unfortunate side effect of not being able to 
-send messages to "invisible" users. You can tell this is happening if you have 
-less than 200 buddies, a user is showing up as "offline", but the user is also 
+  5. Your buddy is using the "invisible" feature of AOL Instant Messenger. This
+feature is similar to the "privacy" feature mentioned in 3., but only blocks
+tracking information. Userinfo requests and private messages can still be sent
+between clients. Unfortunately, this clashes with naim's automatic message
+queueing features, and causes the unfortunate side effect of not being able to
+send messages to "invisible" users. You can tell this is happening if you have
+less than 200 buddies, a user is showing up as "offline", but the user is also
 able to send you messages (and you are unable to reply).
-  6. The AIM service is experiencing technical difficulties and your session has 
-become unstable. This happens from time to time, and breaks naim's session 
-tracking ability in the same way as the "invisible" feature. You can not usually 
+  6. The AIM service is experiencing technical difficulties and your session has
+become unstable. This happens from time to time, and breaks naim's session
+tracking ability in the same way as the "invisible" feature. You can not usually
 confirm or rule out this possibility.
 
 
 
 ===CONNECTIONS
 
-I read somewhere naim is an IRC client as well, is this true? Will it allow me 
+I read somewhere naim is an IRC client as well, is this true? Will it allow me
   to be on IRC and AIM simultaneously?
 Is there a way to juggle two open connections? I noticed that if I have an
-  AIM/TOC connection open, and then open an IRC connection, then I can't switch 
-  to any of the windows of the old connection with the normal keys (Tab, Home, 
+  AIM/TOC connection open, and then open an IRC connection, then I can't switch
+  to any of the windows of the old connection with the normal keys (Tab, Home,
   and End).
 
 naim supports the TOC1 (AIM and ICQ), IRC (EFnet and Undernet), and SLCP (The
@@ -312,7 +312,7 @@ application from behind HTTP(HTTPS) and SOCKS(4/5) proxy servers. This
 ProxyChains is available from http://proxychains.sf.net/ .
 
 
-Do you happen to know of any Yahoo!, MSN Messenger, etc. clients similar to 
+Do you happen to know of any Yahoo!, MSN Messenger, etc. clients similar to
   naim?
 
 naim already supports IRC (http://www.irchelp.org/), and work is underway at
@@ -324,7 +324,7 @@ directed where they are most desired.
 
 ===LOGGING
 
-How does logging work in naim? Does is support per connection, or per 
+How does logging work in naim? Does is support per connection, or per
   buddy logging?
 
 To enable session logging for connection AIM, type `/set AIM:logfile aim.log'
@@ -370,12 +370,12 @@ Enter key becomes <br>. To toggle paste mode press `Ctrl-P'.
 
 ===CONSOLE DISPLAY ISSUES
 
-My Linux console displays + and | instead of the line-drawing characters in the 
+My Linux console displays + and | instead of the line-drawing characters in the
   window list window. How do I fix this?
 My Linux console displays bold text as regular text. How do I fix this?
-My Linux console does not display line-drawing characters at all, leaving holes 
+My Linux console does not display line-drawing characters at all, leaving holes
   on my screen. How do I fix this?
-The window list window appears distorted on my screen, and does not slide off 
+The window list window appears distorted on my screen, and does not slide off
   cleanly. How do I fix this?
 
 This is a deficiency in the Linux kernel's console driver related to UTF-8
@@ -383,8 +383,8 @@ This is a deficiency in the Linux kernel's console driver related to UTF-8
 Fedora Core, or any other distribution based on either of these, you need to
 disable UTF-8 in your console session. Open /etc/sysconfig/i18n and remove the
 ".UTF-8" suffix in the LANG setting and comment out the SYSFONT line entirely.
-Reboot your system. If you live outside of the U.S., I am sorry; you can either 
-have pretty text or internationalization support. Please lodge your complaint 
+Reboot your system. If you live outside of the U.S., I am sorry; you can either
+have pretty text or internationalization support. Please lodge your complaint
 with the Linux kernel maintainers; I have no control over this.
 
 

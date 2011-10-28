@@ -12,7 +12,7 @@
 static int _nlua_resize(lua_State *L) {
 	firetalk_buffer_t *buf;
 	int newsize;
-	
+
 	STACK_TO_BUFFER(L, 1, buf);
 	if (!lua_isnumber(L, 2))
 		return luaL_error(L, "argument 2 was not a number");
@@ -39,7 +39,7 @@ typedef struct {
 static int _nlua_peek(lua_State *L) {
 	firetalk_buffer_t *buf;
 	int size;
-	
+
 	STACK_TO_BUFFER(L, 1, buf);
 	if (!lua_isnumber(L, 2))
 		size = buf->size;
@@ -54,7 +54,7 @@ static int _nlua_peek(lua_State *L) {
 static int _nlua_take(lua_State *L) {
 	firetalk_buffer_t *buf;
 	int size;
-	
+
 	STACK_TO_BUFFER(L, 1, buf);
 	if (!lua_isnumber(L, 2))
 		size = buf->size;
@@ -71,7 +71,7 @@ static int _nlua_take(lua_State *L) {
 static int _nlua_pos(lua_State *L) {
 	firetalk_buffer_t *buf;
 	int size;
-	
+
 	STACK_TO_BUFFER(L, 1, buf);
 	lua_pushnumber(L, buf->pos);
 	return 1;
@@ -79,7 +79,7 @@ static int _nlua_pos(lua_State *L) {
 
 static int _nlua_readdata(lua_State *L) {
 	firetalk_buffer_t *buf;
-	
+
 	STACK_TO_BUFFER(L, 1, buf);
 	lua_pushboolean(L, buf->readdata);
 	return 1;
@@ -96,45 +96,45 @@ const static struct luaL_reg buffer_internallib[] = {
 
 static int _nlua___gc(lua_State *L) {
 	firetalk_buffer_t *buf;
-	
+
 	STACK_TO_BUFFER(L, 1, buf);
 	firetalk_buffer_t_delete(buf);
 	lua_pop(L, 1);
-	
+
 	return 0;
 }
 
 static int _nlua_new(lua_State *L) {
 	firetalk_buffer_t **buf;
 	static int hascreatedmetatable = 0;
-	
+
 	if (!hascreatedmetatable)	/* we have to do it like this because we aren't given an opportunity to do this at startup */
 	{
 		luaL_newmetatable(L, "naim.buffer");
-		
+
 		lua_pushstring(L, "__index");
 		lua_pushvalue(L, -2);
 		lua_settable(L, -3);
 		luaL_openlib(L, NULL, buffer_internallib, 0);
-		
+
 		lua_pushstring(L, "__gc");
 		lua_pushcfunction(L, _nlua___gc);
 		lua_settable(L, -3);
-		
+
 		lua_pushstring(L, "__tostring");
 		lua_pushcfunction(L, _nlua_peek);
 		lua_settable(L, -3);
-		
+
 		lua_pop(L, 1);
-		
+
 		hascreatedmetatable = 1;
 	}
-	
+
 	buf = lua_newuserdata(L, sizeof(firetalk_buffer_t*));
 	*buf = firetalk_buffer_t_new();
 	luaL_getmetatable(L, "naim.buffer");
 	lua_setmetatable(L, -2);
-	
+
 	return 1;
 }
 

@@ -164,7 +164,7 @@ static int fireio_warned(void *userdata, const char *signature, conn_t *conn, in
 
 static int fireio_buddy_status(void *userdata, const char *signature, conn_t *conn, const char *who, const char *message) {
 	buddywin_t      *bwin;
-	
+
 	if ((bwin = bgetwin(conn, who, BUDDY)) != NULL) {
 		if (*message == 0)
 			FREESTR(bwin->status);
@@ -175,7 +175,7 @@ static int fireio_buddy_status(void *userdata, const char *signature, conn_t *co
 			STRREPLACE(bwin->status, message);
 		}
 	}
-	
+
 	return(HOOK_CONTINUE);
 }
 
@@ -536,7 +536,7 @@ static void fireio_recvfrom_display_chat_print(void *userdata, const char *signa
 		format = "-<B>%s</B>-";
 	else
 		format = "&lt;<B>%s</B>%s";
-	hwprintf(&(bwin->nwin), istome?C(IMWIN,BUDDY_ADDRESSED):C(IMWIN,BUDDY), 
+	hwprintf(&(bwin->nwin), istome?C(IMWIN,BUDDY_ADDRESSED):C(IMWIN,BUDDY),
 		format, name, prefix);
 
 	hwprintf(&(bwin->nwin), C(IMWIN,TEXT), " <body>%s%s%s</body><br>",

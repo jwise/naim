@@ -362,7 +362,7 @@ static const char *findfile (lua_State *L, const char *name,
     filename = luaL_gsub(L, lua_tostring(L, -1), LUA_PATH_MARK, name);
     if (readable(filename))  /* does file exist and is readable? */
       return filename;  /* return that file name */
-    lua_pop(L, 2);  /* remove path template and file name */ 
+    lua_pop(L, 2);  /* remove path template and file name */
     luaO_pushfstring(L, "\n\tno file " LUA_QS, filename);
     lua_concat(L, 2);
   }
@@ -501,7 +501,7 @@ static int ll_require (lua_State *L) {
 ** 'module' function
 ** =======================================================
 */
-  
+
 
 static void setfenv (lua_State *L) {
   lua_Debug ar;
@@ -629,7 +629,7 @@ LUALIB_API int luaopen_package (lua_State *L) {
   lua_setfield(L, -2, "__gc");
   /* create `package' table */
   luaL_register(L, LUA_LOADLIBNAME, pk_funcs);
-#if defined(LUA_COMPAT_LOADLIB) 
+#if defined(LUA_COMPAT_LOADLIB)
   lua_getfield(L, -1, "loadlib");
   lua_setfield(L, LUA_GLOBALSINDEX, "loadlib");
 #endif

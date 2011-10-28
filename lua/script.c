@@ -20,7 +20,7 @@ int	nlua_script_parse(const char *script) {
 		assert(lua_gettop(lua) == top);
 		return(0);
 	}
-	
+
 	if (lua_pcall(lua, 0, 0, 0) != 0) {
 		status_echof(curconn, "Lua function returned an error: \"%s\"", lua_tostring(lua, -1));
 		lua_pop(lua, 1);

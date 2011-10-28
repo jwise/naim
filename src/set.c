@@ -186,9 +186,9 @@ void	set_setvar(const char *var, const char *val) {
 		echof(curconn, NULL, "\"%s\" is an invalid input for $%s\n", val, var);
 	else {
 		const char *prot = strchr(var, ':');
-		
+
 		prot = prot ? prot + 1 : var;
-		
+
 		echof(curconn, NULL, "$%s is now \"%s\"\n", var, strcasecmp(prot, "password") ? script_getvar(var) : "[elided]");
 	}
 }

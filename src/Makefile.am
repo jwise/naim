@@ -1,6 +1,6 @@
 LOBJEXT = lo
 
-nodist_pkgdoc_DATA = commands.txt 
+nodist_pkgdoc_DATA = commands.txt
 pkgdoc_DATA = keyboard.txt
 
 BUILT_SOURCES = \
@@ -11,7 +11,7 @@ DISTCLEANFILES = \
 	cmdar.h \
 	conio_keys.h \
 	${BUILT_SOURCES}
-	
+
 EXTRA_DIST = \
 	${pkgdoc_DATA} \
 	gencmdarc.sh \

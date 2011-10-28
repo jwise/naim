@@ -209,7 +209,7 @@ static int events_dnsupdate(void *userdata, const char *signature, time_t now, d
 # endif
 					echof(curconn, NULL, "Current version: <font color=\"#FF0000\">" PACKAGE_VERSION NAIM_SNAPSHOT "</font>\n");
 					echof(curconn, NULL, "&nbsp;Latest version: <font color=\"#00FF00\">%s</font> (reported by " TOPDOMAIN ")\n", buf);
-					echof(curconn, NULL, 
+					echof(curconn, NULL,
 # ifdef DNSUPDATE_MESSAGE
 						DNSUPDATE_MESSAGE
 # else
