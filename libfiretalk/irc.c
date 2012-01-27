@@ -568,6 +568,8 @@ static char *irc_irc_to_html(const char *const string) {
 }
 
 static int irc_internal_disconnect(irc_conn_t *c, const fte_t error) {
+	int old_usepass;
+	
 #ifdef DEBUG_ECHO
 	irc_echof(c, __FUNCTION__, "c=%#p, error=%i\n", c, error);
 #endif
@@ -576,8 +578,14 @@ static int irc_internal_disconnect(irc_conn_t *c, const fte_t error) {
 		firetalk_callback_disconnect(c, error);
 	
 	firetalk_sock_close(&(c->sock));
+	
+	/* Whether or not we're a "password-type" connection is the only
+	 * thing we *do* want to save.  The ctor otherwise zeroes us out.
+	 */
+	old_usepass = c->usepass;
 	irc_conn_t_dtor(c);
 	irc_conn_t_ctor(c);
+	c->usepass = old_usepass;
 
 	return(FE_SUCCESS);
 }
@@ -1683,6 +1691,7 @@ const firetalk_driver_t firetalk_protocol_irc_pass = {
 	get_info:		irc_get_info,
 	set_info:		irc_set_info,
 	set_away:		irc_set_away,
+	set_available:		irc_set_available,
 	set_nickname:		irc_set_nickname,
 	set_password:		irc_set_password,
 	im_add_buddy:		irc_im_add_buddy,
