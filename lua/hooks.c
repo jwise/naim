@@ -7,6 +7,9 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <naim/naim.h>
+#include "naim-int.h"
 #include "moon-int.h"
 
 extern conn_t *curconn;
@@ -104,12 +107,17 @@ int	_call_hook(lua_State *L, int npreargs, int nrets, const char *signature, va_
 		  case HOOK_T_WRSTRINGc: {
 				char	**str = va_arg(msg2, char **);
 				const char *newstr = lua_tostring(lua, top+nrets+1);
-				uint32_t len = strlen(newstr);
+				uint32_t len;
 
-				if (strcmp(*str, newstr) != 0) {
-					*str = realloc(*str, len+1);
-					strcpy(*str, newstr);
+				if (!newstr) {
+					FREESTR(*str);
+				
+					lua_remove(lua, top+nrets+1);
+					break;
 				}
+
+				if (strcmp(*str, newstr) != 0)
+					STRREPLACE(*str, newstr);
 
 				lua_remove(lua, top+nrets+1);
 				break;
@@ -119,8 +127,13 @@ int	_call_hook(lua_State *L, int npreargs, int nrets, const char *signature, va_
 				char	**str = va_arg(msg2, char **);
 				uint32_t *len = va_arg(msg2, uint32_t *);
 				const char *newstr = lua_tolstring(lua, top+nrets+1, &leni);
+				
+				assert(leni <= UINT32_MAX);
+				
 				*len = leni;
 
+				/* This codepath is safe against a NULL
+				 * newstr, since leni will be 0.  */
 				if (memcmp(*str, newstr, *len) != 0) {
 					*str = realloc(*str, (*len)+1);
 					memmove(*str, newstr, *len);
@@ -143,8 +156,7 @@ int	_call_hook(lua_State *L, int npreargs, int nrets, const char *signature, va_
 				double	*val = va_arg(msg2, double *),
 					newval = lua_tonumber(lua, top+nrets+1);
 
-				if (*val != newval)
-					*val = newval;
+				*val = newval;
 
 				lua_remove(lua, top+nrets+1);
 				break;
