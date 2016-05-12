@@ -639,9 +639,12 @@ int	vhhprintf(h_t *h, const int dolog, const unsigned char *format, va_list msg)
 	unsigned char _buf[1024*9], *str;
 	size_t	len;
 	int	ret;
+	va_list dupmsg;
 
 	assert(h->win != NULL);
 	assert(format != NULL);
+	
+	va_copy(dupmsg, msg);
 
 	len = vsnprintf(_buf, sizeof(_buf), format, msg);
 
@@ -651,7 +654,7 @@ int	vhhprintf(h_t *h, const int dolog, const unsigned char *format, va_list msg)
 		str = malloc(len+1);
 		assert(str != NULL);
 
-		len2 = vsnprintf(str, len+1, format, msg);
+		len2 = vsnprintf(str, len+1, format, dupmsg);
 		assert(len2 == len);
 	} else
 		str = _buf;
