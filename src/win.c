@@ -29,7 +29,8 @@ win_t	win_input = { 0 },
 	win_textedit = { 0 };
 int	wsetup_called = 0,
 	quakeoff = 0,
-	intextedit = 0;
+	intextedit = 0,
+	hasbright = 0;
 char	*statusbar_text = NULL;
 
 struct winwin_t {
@@ -208,7 +209,8 @@ static void wsetup_colors(void) {
 		fprintf(stderr, "Please contact Daniel Reed <n@ml.org> for assistance.\r\n");
 		exit(1);
 	}
-	fprintf(stderr, " done: COLORS=%i COLOR_PAIRS=%i\r\n", COLORS, COLOR_PAIRS);
+	hasbright = (COLORS >= nw_COLORS * 2) && (COLOR_PAIRS >= nw_COLORS * nw_COLORS * 2);
+	fprintf(stderr, " done: COLORS=%i COLOR_PAIRS=%i hasbright=%i\r\n", COLORS, COLOR_PAIRS, hasbright);
 
 	fprintf(stderr, "Checking for enough colors...");
 	if ((COLORS < nw_COLORS) || (COLOR_PAIRS < nw_COLORS*nw_COLORS)) {
@@ -256,8 +258,11 @@ static void wsetup_colors(void) {
 #endif
 
 	fprintf(stderr, "Initializing color pairs...");
-	for (i = 0; i < COLOR_PAIRS; i++)
+	for (i = 0; i < nw_COLORS * nw_COLORS; i++)
 		init_pair(i, i%nw_COLORS, (i/nw_COLORS)==0?-1:i/nw_COLORS);
+	if (hasbright)
+		for (i = 0; i < nw_COLORS * nw_COLORS; i++)
+			init_pair(i + nw_COLORS * nw_COLORS, i%nw_COLORS + nw_COLORS, ((i/nw_COLORS)==0?-1:i/nw_COLORS) % nw_COLORS);
 	fprintf(stderr, " done\r\n");
 }
 
@@ -404,6 +409,9 @@ int	nw_printf(win_t *win, int pair, int bold, const unsigned char *format, ...) 
 		pair -= COLOR_PAIRS;
 	}
 
+	if (bold && hasbright)
+		pair += nw_COLORS * nw_COLORS;
+
 	va_start(msg, format);
 	wattrset(&(win->_win->win), (bold?A_BOLD:0) | COLOR_PAIR(pair));
 	vwprintw(&(win->_win->win), (char *)format, msg);
@@ -448,6 +456,7 @@ int	nw_statusbarf(const unsigned char *format, ...) {
 void	nw_initwin(win_t *win, int bg) {
 	assert(win != NULL);
 
+	win->curbold = 0;
 	idlok(&(win->_win->win), TRUE);
 	scrollok(&(win->_win->win), TRUE);
 	intrflush(&(win->_win->win), FALSE);
@@ -474,11 +483,12 @@ void	nw_attr(win_t *win, char B, char I, char U, char EM, char STRONG, char CODE
 		attrs |= A_STANDOUT;
 	if (U)
 		attrs |= A_UNDERLINE;
+	win->curbold = B || EM || STRONG;
 	wattrset(&(win->_win->win), attrs);
 }
 
 void	nw_color(win_t *win, int pair) {
-	wcolor_set(&(win->_win->win), pair, NULL);
+	wcolor_set(&(win->_win->win), (win->curbold && hasbright) ? (pair + nw_COLORS * nw_COLORS) : pair, NULL);
 }
 
 void	nw_flood(win_t *win, int pair) {

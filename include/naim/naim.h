@@ -83,7 +83,8 @@ typedef struct {
 	FILE	*logfile;
 	int	logfilelines, height;
 	unsigned char dirty:1,
-		small:1;
+		small:1,
+		curbold:1;
 } win_t;
 
 typedef struct firetalk_useragent_connection_t {
