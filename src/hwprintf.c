@@ -8,6 +8,9 @@
 
 #include "naim-int.h"
 
+#include <wchar.h>
+#include <wctype.h>
+
 extern faimconf_t faimconf;
 extern conn_t	*curconn;
 extern int	colormode;
@@ -19,7 +22,7 @@ typedef struct h_t {
 			lastwhite,
 			firstwhite,
 			secondwhite;
-		char	buf[1024];
+		wchar_t	buf[1024];
 	} addch;
 	struct {
 		int	pair;
@@ -46,22 +49,22 @@ static void h_init_addch(h_t *h) {
 	if (max >= sizeof(h->addch.buf))
 		max = sizeof(h->addch.buf)-1;
 	nw_getline(h->win, h->addch.buf, sizeof(h->addch.buf));
-	assert(strlen(h->addch.buf) == h->addch.len);
+	assert(wcslen(h->addch.buf) == h->addch.len);
 	h->addch.lastwhite = -1;
 	h->addch.firstwhite = -1;
 	h->addch.secondwhite = -1;
 	for (i = 0; i < max; i++)
-		if (isspace(h->addch.buf[i])) {
+		if (iswspace(h->addch.buf[i])) {
 			h->addch.firstwhite = i;
 			break;
 		}
 	for (i++; i < max; i++)
-		if (isspace(h->addch.buf[i])) {
+		if (iswspace(h->addch.buf[i])) {
 			h->addch.secondwhite = i;
 			break;
 		}
 	for (i++; i < max; i++)
-		if (isspace(h->addch.buf[i]))
+		if (iswspace(h->addch.buf[i]))
 			h->addch.lastwhite = i;
 }
 
@@ -72,14 +75,14 @@ static void h_init(h_t *h, win_t *win) {
 	h->newline = h->white = h->inbold = h->initalic = h->inunderline = h->last_inunderline = 0;
 }
 
-static void nw_decode_addch(win_t *win, unsigned char c) {
+static void nw_decode_addch(win_t *win, wchar_t c) {
 	if (c == '\1')
 		c = ' ';
 
 	nw_addch(win, c);
 }
 
-static void nw_wrap_addch(h_t *h, unsigned char c) {
+static void nw_wrap_addch(h_t *h, wchar_t c) {
 	if (h->addch.len >= (faimconf.wstatus.widthx-1)) {
 		int	i;
 
@@ -88,13 +91,13 @@ static void nw_wrap_addch(h_t *h, unsigned char c) {
 				nw_addstr(h->win, "\b \b");
 			nw_decode_addch(h->win, '\n');
 			for (i = 0; i <= h->addch.secondwhite; i++)
-				nw_decode_addch(h->win, ' ');
+				nw_decode_addch(h->win, L' ');
 			for (i = h->addch.lastwhite+1; i < h->addch.len; i++)
 				nw_decode_addch(h->win, h->addch.buf[i]);
 			h->addch.len -= h->addch.lastwhite-1;
 		} else {
 			for (i = 0; i <= (h->addch.secondwhite+1); i++)
-				nw_decode_addch(h->win, ' ');
+				nw_decode_addch(h->win, L' ');
 			h->addch.len = 0;
 		}
 
@@ -104,10 +107,10 @@ static void nw_wrap_addch(h_t *h, unsigned char c) {
 
 	nw_decode_addch(h->win, c);
 
-	if (c == '\n') {
+	if (c == L'\n') {
 		h->addch.lastwhite = h->addch.firstwhite = h->addch.secondwhite = -1;
 		h->addch.len = 0;
-	} else if (c == '\b') {
+	} else if (c == L'\b') {
 		if (h->addch.len > 0)
 			h->addch.len--;
 		if (h->addch.firstwhite == h->addch.len)
@@ -115,12 +118,12 @@ static void nw_wrap_addch(h_t *h, unsigned char c) {
 		if (h->addch.secondwhite == h->addch.len)
 			h->addch.secondwhite = -1;
 	} else {
-		if (isspace(c) || (c == '\1')) {
+		if (iswspace(c) || (c == L'\1')) {
 			if (h->addch.firstwhite == -1)
 				h->addch.firstwhite = h->addch.len;
 			else if (h->addch.secondwhite == -1)
 				h->addch.secondwhite = h->addch.len;
-			else if (c != '\1')
+			else if (c != L'\1')
 				h->addch.lastwhite = h->addch.len;
 		}
 		h->addch.buf[h->addch.len++] = c;
@@ -601,20 +604,29 @@ int	hhprint(h_t *h, const unsigned char *str, const size_t len) {
 			nw_color(h->win, h->pair);
 			lastpos = pos;
 		} else {
+			wchar_t wc;
+			int wclen = mbtowc(&wc, str + pos, MB_CUR_MAX);
+			int iswc = wclen != -1;
+			
 			if (str[pos] == '\r')
 				continue;
 			h->newline = 0;
-			if (isspace(str[pos]) || (str[pos] == '\n')) {
+			if ((iswc && iswspace(wc)) || (str[pos] == '\n')) {
 				if (!h->white)
-					nw_wrap_addch(h, ' ');
+					nw_wrap_addch(h, L' ');
 				h->white = 1;
+				if (iswc)
+					pos += wclen - 1;
 				continue;
 			} else
 				h->white = 0;
-			if (naimisprint(str[pos]))
-				nw_wrap_addch(h, str[pos]);
+			if (iswc)
+				nw_wrap_addch(h, wc);
 			else
 				nw_wrap_addstr(h, keyname(str[pos]));
+			
+			if (iswc)
+				pos += wclen - 1;
 		}
 
 	return(h->newlines);

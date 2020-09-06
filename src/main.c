@@ -9,6 +9,7 @@
 
 #include <signal.h>
 #include <sys/wait.h>
+#include <locale.h>
 
 #include "naim-int.h"
 #include "snapshot.h"
@@ -142,6 +143,8 @@ int	main(int argc, char **args) {
 int	main_stub(int argc, char **args) {
 #endif
 	time_t	lastcycle = 0;
+
+	setlocale(LC_CTYPE, "");
 
 	{
 		char	*term = getenv("TERM");

@@ -495,8 +495,11 @@ void	nw_flood(win_t *win, int pair) {
 	wbkgd(&(win->_win->win), COLOR_PAIR(pair));
 }
 
-void	nw_addch(win_t *win, const unsigned long ch) {
-	waddch(&(win->_win->win), ch);
+void	nw_addch(win_t *win, const wchar_t ch) {
+	cchar_t cch;
+	wchar_t chs[2] = {ch, 0};
+	setcchar(&cch, chs, 0, 0, NULL);
+	wadd_wch(&(win->_win->win), &cch);
 }
 
 void	nw_addstr(win_t *win, const unsigned char *str) {
@@ -550,14 +553,14 @@ int	nw_getrow(win_t *win) {
 	return(getcury(&(win->_win->win)));
 }
 
-void	nw_getline(win_t *win, char *buf, int buflen) {
+void	nw_getline(win_t *win, wchar_t *buf, int buflen) {
 	int	row = nw_getrow(win),
 		col = nw_getcol(win),
 		max = col;
 
 	if (max >= buflen)
 		max = buflen-1;
-	mvwinnstr(&(win->_win->win), row, 0, buf, max);
+	mvwinnwstr(&(win->_win->win), row, 0, buf, max);
 	buf[max] = 0;
 	nw_move(win, row, col);
 }
