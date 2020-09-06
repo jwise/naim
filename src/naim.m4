@@ -209,20 +209,12 @@ AC_DEFUN([AC_PROG_NAIM],
 	done
 	AC_SUBST(NETLIB)
 
-	AC_CHECK_LIB(ncurses${PROFILESUF}, wresize, [
-			AC_CHECK_LIB(ncurses${PROFILESUF}, use_default_colors, AC_DEFINE(HAVE_USE_DEFAULT_COLORS, 1, [Define if you have use_default_colors()]))
-			AC_CHECK_HEADERS(ncurses.h)
-			CURSESLIB="-lncurses${PROFILESUF}"
-		], [
-			AC_CHECK_LIB(curses${PROFILESUF}, wresize, [
-					AC_CHECK_LIB(curses${PROFILESUF}, use_default_colors, AC_DEFINE(HAVE_USE_DEFAULT_COLORS, 1, [Define if you have use_default_colors()]))
-					AC_CHECK_HEADERS(curses.h)
-					CURSESLIB="-lcurses${PROFILESUF}"
-				], [
-					AC_MSG_ERROR(unable to find a curses library -- FATAL)
-				]
-			)
-		]
+	AC_CHECK_LIB(ncursesw${PROFILESUF}, wresize, [
+			AC_CHECK_LIB(ncursesw${PROFILESUF}, use_default_colors, AC_DEFINE(HAVE_USE_DEFAULT_COLORS, 1, [Define if you have use_default_colors()]))
+			AC_CHECK_HEADERS(ncursesw/ncurses.h)
+			CURSESLIB="-lncursesw${PROFILESUF}"
+		], 
+		AC_MSG_ERROR(unable to find a ncursesw library -- FATAL)
 	)
 	AC_SUBST(CURSESLIB)
 

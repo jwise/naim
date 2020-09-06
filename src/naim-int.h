@@ -33,8 +33,8 @@
 # define NCURSES_CONST const
 # undef NCURSES_OPAQUE
 # define NCURSES_OPAQUE 0
-# ifdef HAVE_NCURSES_H
-#  include <ncurses.h>
+# ifdef HAVE_NCURSESW_NCURSES_H
+#  include <ncursesw/ncurses.h>
 # else
 #  ifdef HAVE_CURSES_H
 #   include <curses.h>

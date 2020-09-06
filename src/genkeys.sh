@@ -23,7 +23,7 @@ echo "#  define KEY_SIGUSR2 (2*KEY_MAX+SIGUSR2)"
 echo "	{ KEY_SIGUSR2,	\"SIGUSR2\" },"
 echo "# endif"
 echo "#endif"
-echo '#include <ncurses.h>' \
+echo '#include <ncursesw/ncurses.h>' \
 	| ${CPP} -dD - \
 	| grep '^#define KEY_' \
 	| grep -v '^#define KEY_CODE_YES' \
