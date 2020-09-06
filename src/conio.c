@@ -9,6 +9,8 @@
 #include "naim-int.h"
 #include "conio_keys.h"
 
+#include <wctype.h>
+
 extern win_t	win_info, win_input;
 extern conn_t	*curconn;
 extern faimconf_t faimconf;
@@ -800,8 +802,14 @@ static void gotkey_real(int c) {
 			naim_eval(binding);
 		if (bindfunc != NULL)
 			bindfunc(buf, &bufloc);
-	} else if (naimisprint(c)) {
-		ADDTOBUF(c);
+	} else if (iswprint(c)) {
+		char	mbs[20];
+		size_t	sz;
+		
+		sz = wctomb(mbs, c);
+		mbs[sz] = 0;
+		
+		ADDSTOBUF(mbs);
 		inwhite = 0;
 	} else {
 		char	numbuf[20];

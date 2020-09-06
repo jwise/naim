@@ -566,12 +566,13 @@ void	nw_getline(win_t *win, wchar_t *buf, int buflen) {
 }
 
 int	nw_getch(void) {
-	int	k = getch();
+	wint_t	wch;
+	int	rv = get_wch(&wch);
 
-	if (k == ERR)
+	if (rv == ERR)
 		return(0);
 #ifdef KEY_RESIZE
-	else if (k == KEY_RESIZE) {
+	else if (wch == KEY_RESIZE) {
 		statrefresh();
 		if (rc_resize(&faimconf))
 			win_resize();
@@ -579,7 +580,7 @@ int	nw_getch(void) {
 		return(0);
 	}
 #endif
-	return(k);
+	return(wch);
 }
 
 void	nw_getpass(win_t *win, char *pass, int len) {
