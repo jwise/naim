@@ -32,16 +32,10 @@
 # undef NCURSES_CONST
 # define NCURSES_CONST const
 # undef NCURSES_OPAQUE
+# define NCURSES_WIDECHAR 1
 # define NCURSES_OPAQUE 0
-# ifdef HAVE_NCURSESW_NCURSES_H
-#  include <ncursesw/ncurses.h>
-# else
-#  ifdef HAVE_CURSES_H
-#   include <curses.h>
-#  else
-#   error Unable to locate ncurses.h; please see http://naim.n.ml.org/
-#  endif
-# endif
+# define _XOPEN_SOURCE 500
+# include <ncursesw/ncurses.h>
 # ifndef KEY_CODE_YES
 #  if (KEY_MIN & ~1) > 1
 #   define KEY_CODE_YES	(KEY_MIN & ~1)
@@ -362,7 +356,7 @@ void	nw_attr(win_t *win, char B, char I, char U, char EM,
 		char STRONG, char CODE) G_GNUC_INTERNAL;
 void	nw_color(win_t *win, int pair) G_GNUC_INTERNAL;
 void	nw_flood(win_t *win, int pair) G_GNUC_INTERNAL;
-void	nw_addch(win_t *win, const unsigned long ch) G_GNUC_INTERNAL;
+void	nw_addch(win_t *win, const wchar_t ch) G_GNUC_INTERNAL;
 void	nw_addstr(win_t *win, const unsigned char *) G_GNUC_INTERNAL;
 void	nw_move(win_t *win, int row, int col) G_GNUC_INTERNAL;
 void	nw_delwin(win_t *win) G_GNUC_INTERNAL;
@@ -374,7 +368,7 @@ void	nw_mvwin(win_t *win, int row, int col) G_GNUC_INTERNAL;
 void	nw_resize(win_t *win, int row, int col) G_GNUC_INTERNAL;
 int	nw_getcol(win_t *win) G_GNUC_INTERNAL;
 int	nw_getrow(win_t *win) G_GNUC_INTERNAL;
-void	nw_getline(win_t *win, char *buf, int buflen) G_GNUC_INTERNAL;
+void	nw_getline(win_t *win, wchar_t *buf, int buflen) G_GNUC_INTERNAL;
 int	nw_getch(void) G_GNUC_INTERNAL;
 void	nw_getpass(win_t *win, char *pass, int len) G_GNUC_INTERNAL;
 
