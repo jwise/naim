@@ -163,7 +163,6 @@ int	main_stub(int argc, char **args) {
 			} else if ((strncmp(term, "xterm", sizeof("xterm")-1) == 0)
 				|| (strncmp(term, "screen", sizeof("screen")-1) == 0)) {
 				printtitle = 1;
-				nw_titlef("");
 			}
 		}
 	}
@@ -294,6 +293,9 @@ int	main_stub(int argc, char **args) {
 	wsetup_called = 2;
 	rc_initdefs(&faimconf);
 	endwin();
+	
+	if (printtitle)
+		nw_titlef("");
 
 	wsetup_called = 0;
 	wsetup();
