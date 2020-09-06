@@ -335,9 +335,9 @@ void	bupdate(void) {
 		if (line < wbuddy_widthy) {
 			nw_move(&win_buddy, line, 0);
 			if (line == 0)
-				nw_addch(&win_buddy, ACS_ULCORNER_C | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
+				nw_addch_at(&win_buddy, ACS_ULCORNER_C | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
 			else
-				nw_addch(&win_buddy, ACS_LTEE_C | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
+				nw_addch_at(&win_buddy, ACS_LTEE_C | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
 			nw_hline(&win_buddy, ACS_HLINE_C | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS), widthx);
 
 			nw_move(&win_buddy, line++, widthx-strlen(conn->winname));
@@ -480,8 +480,8 @@ void	bupdate(void) {
 						nw_printf(&win_buddy, col%COLOR_PAIRS, 0, "%*s", M, buf);
 					if (bwin->waiting) {
 						nw_move(&win_buddy, line, 0);
-						nw_addch(&win_buddy, ACS_LTEE_C   | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
-						nw_addch(&win_buddy, ACS_RARROW_C | A_BOLD | COLOR_PAIR(col%COLOR_PAIRS));
+						nw_addch_at(&win_buddy, ACS_LTEE_C   | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
+						nw_addch_at(&win_buddy, ACS_RARROW_C | A_BOLD | COLOR_PAIR(col%COLOR_PAIRS));
 					}
 				}
 				line++;
@@ -498,9 +498,9 @@ void	bupdate(void) {
 
 	nw_move(&win_buddy, line-1, 0);
 	if (line != 1)
-		nw_addch(&win_buddy, ACS_LLCORNER_C | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
+		nw_addch_at(&win_buddy, ACS_LLCORNER_C | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
 	else
-		nw_addch(&win_buddy, ACS_HLINE_C | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
+		nw_addch_at(&win_buddy, ACS_HLINE_C | A_BOLD | COLOR_PAIR(C(WINLIST,TEXT)%COLOR_PAIRS));
 
 	if (printtitle && (waiting != 2))
 		nw_titlef("");
