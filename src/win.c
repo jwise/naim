@@ -502,6 +502,10 @@ void	nw_addch(win_t *win, const wchar_t ch) {
 	wadd_wch(&(win->_win->win), &cch);
 }
 
+void	nw_addch_at(win_t *win, const int ch) {
+	waddch(&(win->_win->win), ch);
+}
+
 void	nw_addstr(win_t *win, const unsigned char *str) {
 	waddstr(&(win->_win->win), str);
 }

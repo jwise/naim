@@ -357,6 +357,7 @@ void	nw_attr(win_t *win, char B, char I, char U, char EM,
 void	nw_color(win_t *win, int pair) G_GNUC_INTERNAL;
 void	nw_flood(win_t *win, int pair) G_GNUC_INTERNAL;
 void	nw_addch(win_t *win, const wchar_t ch) G_GNUC_INTERNAL;
+void	nw_addch_at(win_t *win, const int ch) G_GNUC_INTERNAL;
 void	nw_addstr(win_t *win, const unsigned char *) G_GNUC_INTERNAL;
 void	nw_move(win_t *win, int row, int col) G_GNUC_INTERNAL;
 void	nw_delwin(win_t *win) G_GNUC_INTERNAL;
