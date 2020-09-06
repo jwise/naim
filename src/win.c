@@ -425,15 +425,20 @@ int	nw_titlef(const unsigned char *format, ...) {
 
 	assert(format != NULL);
 
+#if 0
 	if (*format == 0)
-		printf("\033]0;" PACKAGE_NAME);
+		putp("\033]0;" PACKAGE_NAME "\007");
 	else {
-		printf("\033]0;" PACKAGE_NAME " ");
+		char titlebuf[128];
+		
+		strcpy(titlebuf, "\033]0;" PACKAGE_NAME " ");
 		va_start(msg, format);
-		vprintf((char *)format, msg);
+		vsnprintf(titlebuf, sizeof(titlebuf) - strlen(titlebuf) - 2, (char *)format, msg);
 		va_end(msg);
+		strcat(titlebuf, "\007");
+		putp(titlebuf);
 	}
-	printf("\033\\");
+#endif
 	return(0);
 }
 
