@@ -1637,7 +1637,7 @@ static char *irc_ctcp_encode(irc_conn_t *c, const char *const command, const cha
 
 const firetalk_driver_t firetalk_protocol_irc = {
 	strprotocol:		"IRC",
-	default_server:		"irc.n.ml.org",
+	default_server:		"irc.libera.chat",
 	default_port:		6667,
 	periodic:		irc_periodic,
 	preselect:		irc_preselect,
