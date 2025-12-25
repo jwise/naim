@@ -1153,7 +1153,15 @@ nFIRE_CTCPHAND(default) {
 }
 
 nFIRE_CTCPREPHAND(VERSION) {
-	char	*str = strdup(args), *ver, *env;
+	char	*str, *ver, *env;
+	
+	if (!args) {
+		echof(conn, NULL, "malformed CTCP VERSION reply from <font color=\"#00FFFF\">%s</font>?\n",
+			from);
+		return;
+	}
+	
+	str = strdup(args);
 
 	if (((ver = strchr(str, ':')) != NULL)
 	 && ((env = strchr(ver+1, ':')) != NULL)
