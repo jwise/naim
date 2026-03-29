@@ -82,12 +82,17 @@ typedef struct firetalk_driver_connection_t {
 		*password,
 		*chanmodes,
 		*chanprefix,
-		*chanmodesexp['z' - 'A' + 1];
+		*chanmodesexp['z' - 'A' + 1],
+		*servername;
 	irc_whois_t *whois_head;
 	int	 maxmodes;
 	unsigned char
 		 nosilence:1,	/* are we on a network that understands SILENCE */
-		 usepass:1;
+		 usepass:1, /* whether we have been asked to use a password from an option or from the IRC_PASS driver type */
+		 usepass_legacy:1; /* whether this came in from IRC_PASS */
+#if HAVE_LIBTLS
+	unsigned char tls:1;
+#endif
 	firetalk_sock_t	sock;
 	firetalk_buffer_t buffer;
 } irc_conn_t;
@@ -113,6 +118,7 @@ static inline void irc_conn_t_dtor(irc_conn_t *this) {
 	free(this->chanprefix);
 	for (i = 0; i < sizeof(this->chanmodesexp)/sizeof(*(this->chanmodesexp)); i++)
 		free(this->chanmodesexp[i]);
+	free(this->servername);
 	irc_whois_t_list_delete(this->whois_head);
 	firetalk_sock_t_dtor(&(this->sock));
 	firetalk_buffer_t_dtor(&(this->buffer));
@@ -568,7 +574,7 @@ static char *irc_irc_to_html(const char *const string) {
 }
 
 static int irc_internal_disconnect(irc_conn_t *c, const fte_t error) {
-	int old_usepass;
+	int old_usepass_legacy;
 	
 #ifdef DEBUG_ECHO
 	irc_echof(c, __FUNCTION__, "c=%#p, error=%i\n", c, error);
@@ -582,10 +588,10 @@ static int irc_internal_disconnect(irc_conn_t *c, const fte_t error) {
 	/* Whether or not we're a "password-type" connection is the only
 	 * thing we *do* want to save.  The ctor otherwise zeroes us out.
 	 */
-	old_usepass = c->usepass;
+	old_usepass_legacy = c->usepass_legacy;
 	irc_conn_t_dtor(c);
 	irc_conn_t_ctor(c);
-	c->usepass = old_usepass;
+	c->usepass_legacy = old_usepass_legacy;
 
 	return(FE_SUCCESS);
 }
@@ -746,7 +752,7 @@ static irc_conn_t *irc_pass_create_conn(struct firetalk_driver_cookie_t *cookie)
 	if ((c = irc_create_conn(cookie)) == NULL)
 		abort();
 	
-	c->usepass = 1;
+	c->usepass_legacy = 1;
 
 	return(c);
 }
@@ -1425,8 +1431,23 @@ static fte_t irc_postselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 	}
 	
 	if (c->sock.state == FCS_SEND_SIGNON) {
-		irc_signon(c);
-		c->sock.state = FCS_WAITING_SIGNON;
+#ifdef HAVE_LIBTLS
+		if (c->tls && !c->sock.tls) {
+			struct tls *tls;
+			
+			tls = tls_client();
+			assert(tls);
+			
+			if ((e = firetalk_sock_starttls(&c->sock, tls, c->servername)) != FE_SUCCESS) {
+				firetalk_callback_connectfailed(c, e, "TLS error");
+				return(e);
+			}
+		} else
+#endif
+		{
+			irc_signon(c);
+			c->sock.state = FCS_WAITING_SIGNON;
+		}
 	} else if (c->buffer.readdata) {
 		if (origstate == FCS_ACTIVE)
 			irc_got_data(c, &(c->buffer));
@@ -1441,8 +1462,54 @@ static fte_t irc_connect(irc_conn_t *c, const char *server, uint16_t port, const
 	free(c->nickname);
 	c->nickname = strdup(username);
 	if (c->nickname == NULL)
-		abort();	// OH NOOOOOOOOOOOOOOOOOO
-	return(firetalk_sock_connect_host(&(c->sock), server, port));
+		return(FE_BADUSERPASS);
+	c->usepass = c->usepass_legacy; // if we came in from IRC_PASS
+	
+	// maybe there are some options in the server qstr?
+	char *server_rw = strdup(server);
+	assert(server_rw);
+	
+	char *qp = strchr(server_rw, '?');
+	if (qp) {
+		*qp = 0;
+		qp++;
+		
+		while (*qp) {
+			/* parse query params: ?x=y&b=c&... */
+			char *qp_next = strchrnul(qp, '&');
+			if (*qp_next) {
+				*qp_next = 0;
+				qp_next++;
+			}
+			
+			char *val = strchrnul(qp, '=');
+			if (*val) {
+				*val = 0;
+				val++;
+			}
+			
+			/* qp -> val */
+			
+			if (!strcmp(qp, "pass")) {
+				c->usepass = 1;
+			}
+#ifdef HAVE_LIBTLS
+			else if (!strcmp(qp, "tls")) {
+				c->tls = 1;
+			}
+#endif
+			
+			qp = qp_next;
+		}
+	}
+	
+	if (c->servername) {
+		free(c->servername);
+	}
+	c->servername = server_rw; /* will get freed at dtor */
+	fte_t rv = firetalk_sock_connect_host(&(c->sock), server_rw, port);
+	
+	return(rv);
 }
 
 static fte_t irc_chat_join(irc_conn_t *c, const char *const room) {
