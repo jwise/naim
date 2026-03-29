@@ -39,6 +39,10 @@
 # define inet_aton(x,y)	inet_pton(AF_INET, (x), (y))
 #endif
 
+#ifdef HAVE_LIBTLS
+# include <tls.h>
+#endif
+
 #include "firetalk.h"
 
 #ifndef SHUT_RDWR
@@ -181,6 +185,9 @@ LIST_DELETE(firetalk_room_t);
 typedef enum {
 	FCS_NOTCONNECTED,
 	FCS_WAITING_SYNACK,
+#ifdef HAVE_LIBTLS
+	FCS_WAITING_STARTTLS,
+#endif
 	FCS_SEND_SIGNON,
 	FCS_WAITING_PASSWORD,
 	FCS_WAITING_SIGNON,
@@ -190,6 +197,9 @@ typedef enum {
 typedef struct {
 	void	*magic;
 	int	fd;
+#ifdef HAVE_LIBTLS
+	struct tls *tls;
+#endif
 	firetalk_sock_state_t state;
 	struct sockaddr_in remote_addr,
 		local_addr;
@@ -207,6 +217,9 @@ static inline void firetalk_sock_t_ctor(firetalk_sock_t *this) {
 	this->magic = &firetalk_sock_t_magic;
 	this->canary = &firetalk_sock_t_canary;
 	this->fd = -1;
+#ifdef HAVE_LIBTLS
+	this->tls = NULL;
+#endif
 	this->state = FCS_NOTCONNECTED;
 }
 TYPE_NEW(firetalk_sock_t);
@@ -216,6 +229,12 @@ static inline void firetalk_sock_t_dtor(firetalk_sock_t *this) {
 	assert(firetalk_sock_t_valid(this));
 	if (this->fd != -1)
 		close(this->fd);
+#ifdef HAVE_LIBTLS
+	if (this->tls) {
+		tls_close(this->tls);
+		tls_free(this->tls);
+	}
+#endif
 	memset(this, 0, sizeof(*this));
 	this->fd = -1;
 }
@@ -537,6 +556,10 @@ struct sockaddr_in *firetalk_sock_localhost4(firetalk_sock_t *sock);
 fte_t	firetalk_sock_resolve6(const char *const host, struct in6_addr *inet6_ip);
 struct sockaddr_in6 *firetalk_sock_remotehost6(firetalk_sock_t *sock);
 struct sockaddr_in6 *firetalk_sock_localhost6(firetalk_sock_t *sock);
+#endif
+
+#ifdef HAVE_LIBTLS
+fte_t   firetalk_sock_starttls(firetalk_sock_t *sock, struct tls *tls, const char *servername);
 #endif
 
 void	firetalk_sock_init(firetalk_sock_t *sock);

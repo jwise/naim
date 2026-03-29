@@ -3,6 +3,7 @@ LOBJEXT = lo
 EXTRA_DIST = firetalk.m4
 
 noinst_LTLIBRARIES = libfiretalk.la
+libfiretalk_la_CFLAGS = @LIBTLS_CFLAGS@
 libfiretalk_la_SOURCES = \
 	firetalk.c \
 	md5.c \
@@ -18,11 +19,11 @@ check_PROGRAMS = tester toctest
 tester_SOURCES = \
 	tester.c
 tester_LDADD = \
-	libfiretalk.la
+	libfiretalk.la @LIBTLS_LIBS@
 toctest_SOURCES = \
 	toctest.c
 toctest_LDADD = \
-	libfiretalk.la
+	libfiretalk.la @LIBTLS_LIBS@
 
 #TESTS = ${check_PROGRAMS}
 TESTS = tester

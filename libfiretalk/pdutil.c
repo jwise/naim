@@ -171,16 +171,56 @@ fte_t	firetalk_sock_connect_host(firetalk_sock_t *sock, const char *const host, 
 	return(firetalk_sock_connect(sock));
 }
 
+#ifdef HAVE_LIBTLS
+fte_t   firetalk_sock_starttls(firetalk_sock_t *sock, struct tls *tls, const char *servername) {
+	assert(firetalk_sock_t_valid(sock));
+	assert(sock->state != FCS_NOTCONNECTED);
+	assert(sock->state != FCS_WAITING_SYNACK);
+	assert(!sock->tls);
+	
+	sock->tls = tls;
+	sock->state = FCS_WAITING_STARTTLS;
+	if (tls_connect_socket(sock->tls, sock->fd, servername) < 0) {
+		firetalk_sock_close(sock);
+		return(FE_PACKET);
+	}
+	
+	int rv = tls_handshake(sock->tls);
+	if (rv == 0) {
+		/* well, ok! */
+		sock->state = FCS_SEND_SIGNON;
+	} else if (rv == TLS_WANT_POLLIN) {
+		;
+	} else {
+		firetalk_sock_close(sock);
+		return(FE_PACKET);
+	}
+	return(FE_SUCCESS);
+}
+#endif
+
 fte_t	firetalk_sock_send(firetalk_sock_t *sock, const void *const buffer, const int bufferlen) {
 	assert(firetalk_sock_t_valid(sock));
 	assert(sock->state != FCS_NOTCONNECTED);
 
 	if (sock->state == FCS_WAITING_SYNACK)
 		return(FE_SUCCESS);
-
-	if (send(sock->fd, buffer, bufferlen, /*MSG_DONTWAIT|*/MSG_NOSIGNAL) != bufferlen) {
-		firetalk_sock_close(sock);
-		return(FE_PACKET);
+	
+#if HAVE_LIBTLS
+	if (sock->tls) {
+		if (sock->state == FCS_WAITING_STARTTLS)
+			return(FE_SUCCESS);
+		if (tls_write(sock->tls, buffer, bufferlen) != bufferlen) {
+			firetalk_sock_close(sock);
+			return(FE_PACKET);
+		}
+	} else
+#endif
+	{
+		if (send(sock->fd, buffer, bufferlen, /*MSG_DONTWAIT|*/MSG_NOSIGNAL) != bufferlen) {
+			firetalk_sock_close(sock);
+			return(FE_PACKET);
+		}
 	}
 
 	return(FE_SUCCESS);
@@ -228,17 +268,45 @@ static fte_t firetalk_sock_synack(firetalk_sock_t *sock) {
 }
 
 static fte_t firetalk_sock_read(firetalk_sock_t *sock, firetalk_buffer_t *buffer) {
-	int	length;
+	int	length = 0;
 
 	assert(firetalk_sock_t_valid(sock));
 	assert(firetalk_buffer_t_valid(buffer));
+	
+#if HAVE_LIBTLS
+	if (sock->tls) {
+		if (sock->state == FCS_WAITING_STARTTLS) {
+			int rv = tls_handshake(sock->tls);
+			if (rv == 0) {
+				/* TLS negotiation complete! */
+				sock->state = FCS_SEND_SIGNON;
+			} else if (rv == TLS_WANT_POLLIN) {
+				/* more data needed */
+				;
+			} else {
+				firetalk_sock_close(sock);
+				return(FE_PACKET);
+			}
+		} else {
+			length = tls_read(sock->tls, &(buffer->buffer[buffer->pos]), buffer->size - buffer->pos);
+			if (length == TLS_WANT_POLLIN) {
+				/* that's fine */
+				length = 0;
+			} else if (length < 0) {
+				firetalk_sock_close(sock);
+				return(FE_PACKET);
+			}
+		}
+	} else
+#endif
+	{
+		/* read data into handle buffer */
+		length = recv(sock->fd, &(buffer->buffer[buffer->pos]), buffer->size - buffer->pos, MSG_DONTWAIT);
 
-	/* read data into handle buffer */
-	length = recv(sock->fd, &(buffer->buffer[buffer->pos]), buffer->size - buffer->pos, MSG_DONTWAIT);
-
-	if (length < 1) {
-		firetalk_sock_close(sock);
-		return(FE_DISCONNECT);
+		if (length < 1) {
+			firetalk_sock_close(sock);
+			return(FE_DISCONNECT);
+		}
 	}
 
 	buffer->pos += length;

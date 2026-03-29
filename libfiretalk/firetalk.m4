@@ -27,4 +27,10 @@ AC_DEFUN([AC_LIB_FIRETALK],
 	)
 	AC_CHECK_FUNCS(getuid getpwuid inet_aton)
 	AC_C_BIGENDIAN()
+	PKG_CHECK_MODULES([LIBTLS], [libtls >= 3],
+		[AC_DEFINE(HAVE_LIBTLS, 1, [Define to enable libtls support])],
+		[AC_MSG_WARN(naim will not be built with SSL/TLS support; install libtls-dev if you want to join this century with me)]
+	)
+	AC_SUBST([LIBTLS_CFLAGS])
+	AC_SUBST([LIBTLS_LIBS])
 ])# AC_LIB_FIRETALK
