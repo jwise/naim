@@ -360,6 +360,13 @@ static unsigned long parsehtml_tag(h_t *h, const unsigned char *text, int backup
 			char	*t = argbuf;
 			int	found = 0;
 
+			h->fontstack[h->fontstacklen].pair = h->pair;
+			h->fontstack[h->fontstacklen].inbold = h->inbold;
+			h->fontstack[h->fontstacklen].initalic = h->initalic;
+			h->fontstack[h->fontstacklen].inunderline = h->inunderline;
+			if (h->fontstacklen < sizeof(h->fontstack)/sizeof(*(h->fontstack)))
+				h->fontstacklen++;
+
 			while ((found == 0) && (*t != 0)) {
 				while (isspace(*t))
 					t++;
@@ -393,12 +400,7 @@ static unsigned long parsehtml_tag(h_t *h, const unsigned char *text, int backup
 						}
 					}
 					colbuf[i] = 0;
-					h->fontstack[h->fontstacklen].pair = h->pair;
-					h->fontstack[h->fontstacklen].inbold = h->inbold;
-					h->fontstack[h->fontstacklen].initalic = h->initalic;
-					h->fontstack[h->fontstacklen].inunderline = h->inunderline;
-					if (h->fontstacklen < sizeof(h->fontstack)/sizeof(*(h->fontstack)))
-						h->fontstacklen++;
+					
 					{
 						char	inbold = h->inbold;
 
@@ -447,6 +449,14 @@ static unsigned long parsehtml_tag(h_t *h, const unsigned char *text, int backup
 			char	*t = argbuf;
 			int	found = 0;
 
+			h->fontstack[h->fontstacklen].pair = h->pair;
+			h->fontstack[h->fontstacklen].inbold = h->inbold;
+			h->fontstack[h->fontstacklen].initalic = h->initalic;
+			h->fontstack[h->fontstacklen].inunderline = h->inunderline;
+			h->fontstack[h->fontstacklen].bodytag = 1;
+			if (h->fontstacklen < sizeof(h->fontstack)/sizeof(*(h->fontstack)))
+				h->fontstacklen++;
+
 			while ((found == 0) && (*t != 0)) {
 				while (isspace(*t))
 					t++;
@@ -480,13 +490,7 @@ static unsigned long parsehtml_tag(h_t *h, const unsigned char *text, int backup
 						}
 					}
 					colbuf[i] = 0;
-					h->fontstack[h->fontstacklen].pair = h->pair;
-					h->fontstack[h->fontstacklen].inbold = h->inbold;
-					h->fontstack[h->fontstacklen].initalic = h->initalic;
-					h->fontstack[h->fontstacklen].inunderline = h->inunderline;
-					h->fontstack[h->fontstacklen].bodytag = 1;
-					if (h->fontstacklen < sizeof(h->fontstack)/sizeof(*(h->fontstack)))
-						h->fontstacklen++;
+					
 					{
 						char	inbold = h->inbold;
 
