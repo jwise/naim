@@ -3,6 +3,11 @@
 ** | | | | (_| || || |\/| | Copyright 1998-2005 Daniel Reed <n@ml.org>
 ** |_| |_|\__,_|___|_|  |_| ncurses-based chat client
 */
+
+// The way that we use WINDOW here is hidden by newer ncurses.  Fake them
+// out.  Ideally, we should just cast struct winwin_t around instead.
+#define NCURSES_INTERNALS 1
+
 #include <naim/naim.h>
 #include "naim-int.h"
 
