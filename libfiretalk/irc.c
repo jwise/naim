@@ -1458,6 +1458,13 @@ static fte_t irc_postselect(irc_conn_t *c, fd_set *read, fd_set *write, fd_set *
 	return(FE_SUCCESS);
 }
 
+static char *_strchrnul(const char *p, int c) {
+	char *rv = strchr(p, c);
+	if (rv)
+		return rv;
+	return strchr(p, '\0');
+}
+
 static fte_t irc_connect(irc_conn_t *c, const char *server, uint16_t port, const char *const username) {
 	free(c->nickname);
 	c->nickname = strdup(username);
@@ -1476,13 +1483,13 @@ static fte_t irc_connect(irc_conn_t *c, const char *server, uint16_t port, const
 		
 		while (*qp) {
 			/* parse query params: ?x=y&b=c&... */
-			char *qp_next = strchrnul(qp, '&');
+			char *qp_next = _strchrnul(qp, '&');
 			if (*qp_next) {
 				*qp_next = 0;
 				qp_next++;
 			}
 			
-			char *val = strchrnul(qp, '=');
+			char *val = _strchrnul(qp, '=');
 			if (*val) {
 				*val = 0;
 				val++;
