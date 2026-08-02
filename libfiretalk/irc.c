@@ -89,7 +89,8 @@ typedef struct firetalk_driver_connection_t {
 	unsigned char
 		 nosilence:1,	/* are we on a network that understands SILENCE */
 		 usepass:1, /* whether we have been asked to use a password from an option or from the IRC_PASS driver type */
-		 usepass_legacy:1; /* whether this came in from IRC_PASS */
+		 usepass_legacy:1, /* whether this came in from IRC_PASS */
+		 usesasl:1;
 #if HAVE_LIBTLS
 	unsigned char tls:1;
 #endif
@@ -783,8 +784,39 @@ static fte_t irc_signon(irc_conn_t *c) {
 		return(FE_PACKET);
 #endif
 
-	if (c->usepass)
-	{
+	if (c->usesasl) {
+		/* This is astonishingly cheesy, but here we are: the state
+		 * machine for Firetalk IRC doesn't really provide for
+		 * receiving responses during signon.  */
+		char saslbuf[256];
+		int pos = 0;
+		
+		saslbuf[pos++] = 0;
+		strncpy(saslbuf + pos, c->nickname, sizeof(saslbuf) - pos);
+		pos += strlen(c->nickname) + 1;
+		if (pos > sizeof(saslbuf))
+			return(FE_BADUSERPASS); /* ok, well, it is bad, but the server didn't say so */
+		
+		char password[128];
+		password[0] = 0;
+		firetalk_callback_needpass(c, password, sizeof(password));
+		
+		strncpy(saslbuf + pos, password, sizeof(saslbuf) - pos);
+		pos += strlen(password); // terminating 0 not included!
+		if (pos > sizeof(saslbuf))
+			return(FE_BADUSERPASS); /* ok, well, it is bad, but the server didn't say so */
+		
+		if (irc_send_printf(c, "AUTHENTICATE PLAIN") != FE_SUCCESS)
+			return(FE_PACKET);
+		/* Hope they said 'AUTHENTICATE +"! */
+		
+		char b64buf[343];
+		assert(firetalk_b64_ntop(saslbuf, pos, b64buf, sizeof(b64buf)) >= 0);
+		
+		if (irc_send_printf(c, "AUTHENTICATE %s", b64buf) != FE_SUCCESS)
+			return(FE_PACKET);
+		/* Hope they liked it! */
+	} else if (c->usepass) {
 		char password[128];
 		password[0] = 0;
 		firetalk_callback_needpass(c, password, sizeof(password));
@@ -1499,6 +1531,9 @@ static fte_t irc_connect(irc_conn_t *c, const char *server, uint16_t port, const
 			
 			if (!strcmp(qp, "pass")) {
 				c->usepass = 1;
+			}
+			if (!strcmp(qp, "sasl")) {
+				c->usesasl = 1;
 			}
 #ifdef HAVE_LIBTLS
 			else if (!strcmp(qp, "tls")) {

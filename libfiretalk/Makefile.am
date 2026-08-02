@@ -11,7 +11,8 @@ libfiretalk_la_SOURCES = \
 	firetalk-errors.h \
 	irc.c \
 	pdutil.c \
-	lily.c
+	lily.c \
+	base64.c
 
 # toc2.c toc2_uuids.h
 

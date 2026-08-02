@@ -576,4 +576,10 @@ const char *firetalk_htmlentities(const char *str);
 const char *firetalk_debase64(const char *const str);
 const char *firetalk_printable(const char *const str);
 
+int
+firetalk_b64_ntop(unsigned char const *src, size_t srclength, char *target,
+    size_t targsize);
+int
+firetalk_b64_pton(char const *src, unsigned char *target, size_t targsize);
+
 #endif
